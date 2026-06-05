@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>BMS — Sistema de Gestión de Puentes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root {
+  --bg: #0d0f14;
+  --bg2: #13161d;
+  --bg3: #1a1e27;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #e8eaf0;
+  --muted: #7a8099;
+  --accent: #4f8ef7;
+  --accent2: #2dd4a0;
+  --warn: #f5a623;
+  --danger: #f04f4f;
+  --ok: #4caf7d;
+  --font: 'IBM Plex Sans', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+  --r: 8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;font-size:14px;}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;letter-spacing:0.02em;}
+.logo-icon{width:30px;height:30px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;}
+.logo-icon svg{width:18px;height:18px;fill:white;}
+.header-right{display:flex;align-items:center;gap:10px;}
+.btn{cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text);padding:7px 14px;border-radius:var(--r);font-family:var(--font);font-size:13px;display:flex;align-items:center;gap:6px;transition:all 0.15s;}
+.btn:hover{background:var(--bg3);border-color:rgba(255,255,255,0.22);}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn-primary:hover{background:#3a7de8;border-color:#3a7de8;}
+.btn svg{width:15px;height:15px;flex-shrink:0;}
+main{max-width:1200px;margin:0 auto;padding:2rem;}
+.page-title{font-size:22px;font-weight:600;margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:1.75rem;}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.75rem;}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;}
+.metric-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
+.metric-val{font-size:26px;font-weight:600;font-family:var(--mono);}
+.metric-note{font-size:11px;color:var(--muted);margin-top:4px;}
+.filters{display:flex;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;align-items:center;}
+.filters select{background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:7px 12px;border-radius:var(--r);font-family:var(--font);font-size:13px;cursor:pointer;outline:none;}
+.filters select:hover{border-color:rgba(255,255,255,0.25);}
+.search{background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:7px 12px;border-radius:var(--r);font-family:var(--font);font-size:13px;width:220px;outline:none;}
+.search::placeholder{color:var(--muted);}
+.search:focus{border-color:var(--accent);}
+.table-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:1.75rem;}
+table{width:100%;border-collapse:collapse;}
+thead th{padding:10px 14px;text-align:left;font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border);background:var(--bg3);}
+tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:var(--bg3);}
+tbody tr.selected{background:rgba(79,142,247,0.1);border-color:rgba(79,142,247,0.2);}
+td{padding:10px 14px;vertical-align:middle;}
+.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
+.name{font-weight:500;font-size:13px;}
+.proj{font-size:12px;color:var(--muted);}
+.badge{display:inline-block;font-size:11px;font-weight:500;padding:3px 9px;border-radius:99px;font-family:var(--mono);}
+.b-ok{background:rgba(76,175,125,0.15);color:#4caf7d;border:1px solid rgba(76,175,125,0.25);}
+.b-warn{background:rgba(245,166,35,0.15);color:#f5a623;border:1px solid rgba(245,166,35,0.25);}
+.b-crit{background:rgba(240,79,79,0.15);color:#f04f4f;border:1px solid rgba(240,79,79,0.25);}
+.b-rev{background:rgba(79,142,247,0.15);color:#4f8ef7;border:1px solid rgba(79,142,247,0.25);}
+.iep-bar{display:flex;align-items:center;gap:8px;}
+.iep-track{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;min-width:60px;}
+.iep-fill{height:4px;border-radius:2px;}
+.iep-num{font-family:var(--mono);font-size:12px;min-width:26px;text-align:right;}
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:1.75rem;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;}
+.card-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:1rem;}
+.proj-stat{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.proj-name{font-size:13px;width:160px;flex-shrink:0;}
+.proj-track{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.proj-fill{height:6px;border-radius:3px;}
+.proj-num{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:28px;text-align:right;}
+.legend{display:flex;flex-direction:column;gap:8px;}
+.leg-item{display:flex;align-items:center;justify-content:space-between;}
+.leg-left{display:flex;align-items:center;gap:8px;font-size:13px;}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.leg-count{font-family:var(--mono);font-size:13px;color:var(--muted);}
+.detail-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;margin-bottom:1.75rem;display:none;}
+.detail-panel.show{display:block;}
+.dp-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.25rem;}
+.dp-title{font-size:17px;font-weight:600;}
+.dp-id{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:3px;}
+.dp-close{cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:2px 6px;border-radius:4px;}
+.dp-close:hover{color:var(--text);background:var(--bg3);}
+.dp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.25rem;}
+.dp-field{}
+.dp-key{font-size:11px;color:var(--muted);margin-bottom:4px;}
+.dp-val{font-size:13px;font-weight:500;}
+.dp-iep{margin-bottom:1.25rem;}
+.dp-iep-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;}
+.dp-iep-track{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;}
+.dp-iep-fill{height:8px;border-radius:4px;transition:width 0.4s ease;}
+.dp-obs{font-size:13px;color:var(--muted);padding:10px 14px;background:var(--bg3);border-radius:var(--r);border-left:3px solid var(--accent);margin-bottom:1.25rem;}
+.dp-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.empty-row td{text-align:center;padding:2.5rem;color:var(--muted);}
+footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:12px;border-top:1px solid var(--border);}
+@media(max-width:800px){
+  .metrics{grid-template-columns:repeat(2,1fr);}
+  .bottom-grid{grid-template-columns:1fr;}
+  .dp-grid{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M2 17h20v2H2zm1-5h2v4H3zm4-3h2v7H7zm4-4h2v11h-2zm4 2h2v9h-2zm4-3h2v12h-2z"/></svg>
+    </div>
+    BMS · Gestión de Puentes
+  </div>
+  <div class="header-right">
+    <button class="btn btn-primary" onclick="descargarPDF()" id="btnPDF">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7 7-7z"/></svg>
+      Descargar reporte PDF
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="page-title">Panel general de estructuras</div>
+  <div class="page-sub" id="fecha-sub">Cargando...</div>
+
+  <div class="metrics" id="metrics"></div>
+
+  <div class="filters">
+    <input class="search" type="text" id="buscar" placeholder="Buscar puente..." oninput="render()"/>
+    <select id="fProyecto" onchange="render()"><option value="">Todos los proyectos</option></select>
+    <select id="fEstado" onchange="render()">
+      <option value="">Todos los estados</option>
+      <option>Bueno</option><option>Regular</option><option>Crítico</option><option>En revisión</option>
+    </select>
+    <select id="fIntervencion" onchange="render()">
+      <option value="">Todas las intervenciones</option>
+      <option>Ninguna</option><option>Preventivo</option><option>Correctivo</option><option>Urgente</option><option>En revisión</option>
+    </select>
+    <button class="btn" onclick="resetFiltros()">✕ Limpiar filtros</button>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Nombre</th><th>Proyecto / Autopista</th><th>Tipo</th>
+          <th>IEP</th><th>Estado</th><th>Última insp.</th><th>Intervención</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="card">
+      <div class="card-title">IEP promedio por proyecto</div>
+      <div id="proj-stats"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Distribución por estado</div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </div>
+
+  <div class="detail-panel" id="detail-panel"></div>
+</main>
+
+<footer>BMS v1.0 · Sistema de Gestión de Puentes · Datos de muestra</footer>
+
+<script>
+const DATA = [
+  {id:'PTE-001',nombre:'Puente Río Balsas',proyecto:'Autopista del Sol',tipo:'Viga cajón',iep:82,estado:'Bueno',fecha:'2024-11-10',intervencion:'Preventivo',long:420,carriles:4,año:1998,obs:'Impermeabilización programada Q2 2025'},
+  {id:'PTE-002',nombre:'Viaducto Las Palmas',proyecto:'Autopista del Sol',tipo:'Atirantado',iep:91,estado:'Bueno',fecha:'2025-01-15',intervencion:'Ninguna',long:680,carriles:6,año:2005,obs:'Sin observaciones relevantes'},
+  {id:'PTE-003',nombre:'Puente Miravalles',proyecto:'Autopista del Sol',tipo:'Losa',iep:53,estado:'Regular',fecha:'2024-08-22',intervencion:'Correctivo',long:180,carriles:2,año:1985,obs:'Fisuración en juntas de expansión'},
+  {id:'PTE-004',nombre:'Puente Cañón Verde',proyecto:'Libramiento Oriente',tipo:'Arco',iep:34,estado:'Crítico',fecha:'2024-06-05',intervencion:'Urgente',long:310,carriles:2,año:1978,obs:'Daño severo en estribos por socavación'},
+  {id:'PTE-005',nombre:'Paso Superior Km 45',proyecto:'Libramiento Oriente',tipo:'Viga cajón',iep:74,estado:'Bueno',fecha:'2025-02-01',intervencion:'Preventivo',long:90,carriles:4,año:2010,obs:'Pintura anticorrosiva pendiente'},
+  {id:'PTE-006',nombre:'Viaducto Norte',proyecto:'Libramiento Oriente',tipo:'Prelosa',iep:68,estado:'Regular',fecha:'2024-10-18',intervencion:'Correctivo',long:240,carriles:4,año:1999,obs:'Sello de juntas deteriorado'},
+  {id:'PTE-007',nombre:'Puente Coatzacoalcos II',proyecto:'Corredor Transístmico',tipo:'Atirantado',iep:88,estado:'Bueno',fecha:'2025-03-10',intervencion:'Ninguna',long:1010,carriles:4,año:2012,obs:'Excelente estado general'},
+  {id:'PTE-008',nombre:'Paso Inferior Km 112',proyecto:'Corredor Transístmico',tipo:'Losa',iep:45,estado:'En revisión',fecha:'2025-01-28',intervencion:'En revisión',long:60,carriles:2,año:1990,obs:'Inspección especial en curso por impacto vehicular'},
+  {id:'PTE-009',nombre:'Puente Papaloapan',proyecto:'Corredor Transístmico',tipo:'Viga I',iep:61,estado:'Regular',fecha:'2024-12-03',intervencion:'Correctivo',long:380,carriles:4,año:2001,obs:'Corrosión en vigas metálicas'},
+  {id:'PTE-010',nombre:'Puente Mezcala',proyecto:'Autopista Siglo XXI',tipo:'Arco',iep:79,estado:'Bueno',fecha:'2025-02-20',intervencion:'Preventivo',long:520,carriles:4,año:1993,obs:'Mantenimiento rutinario programado'},
+  {id:'PTE-011',nombre:'Viaducto Huetamo',proyecto:'Autopista Siglo XXI',tipo:'Viga cajón',iep:29,estado:'Crítico',fecha:'2024-05-14',intervencion:'Urgente',long:190,carriles:2,año:1980,obs:'Pandeo en viga principal, restricción de carga'},
+  {id:'PTE-012',nombre:'Paso Superior Pto. Mexico',proyecto:'Autopista Siglo XXI',tipo:'Prelosa',iep:77,estado:'Bueno',fecha:'2025-01-09',intervencion:'Ninguna',long:70,carriles:2,año:2008,obs:'Sin observaciones'},
+];
+
+let selectedId = null;
+
+const iepColor = v => v >= 75 ? '#4caf7d' : v >= 50 ? '#f5a623' : '#f04f4f';
+const badgeClass = e => ({Bueno:'b-ok',Regular:'b-warn',Crítico:'b-crit','En revisión':'b-rev'}[e]||'b-rev');
+const intervBadge = i => {
+  const map = {Urgente:'b-crit',Correctivo:'b-warn',Preventivo:'b-rev','En revisión':'b-rev',Ninguna:''};
+  return i === 'Ninguna' ? `<span style="color:#7a8099">—</span>` : `<span class="badge ${map[i]||'b-rev'}">${i}</span>`;
+};
+
+function getFiltered() {
+  const q = document.getElementById('buscar').value.toLowerCase();
+  const p = document.getElementById('fProyecto').value;
+  const e = document.getElementById('fEstado').value;
+  const i = document.getElementById('fIntervencion').value;
+  return DATA.filter(d =>
+    (!q || d.nombre.toLowerCase().includes(q) || d.id.toLowerCase().includes(q) || d.proyecto.toLowerCase().includes(q)) &&
+    (!p || d.proyecto === p) && (!e || d.estado === e) && (!i || d.intervencion === i)
+  );
+}
+
+function renderMetrics(f) {
+  const total = f.length, crit = f.filter(d=>d.estado==='Crítico').length;
+  const avgIep = total ? Math.round(f.reduce((s,d)=>s+d.iep,0)/total) : 0;
+  const urg = f.filter(d=>d.intervencion==='Urgente').length;
+  document.getElementById('metrics').innerHTML = `
+    <div class="metric"><div class="metric-label">Total puentes</div><div class="metric-val">${total}</div><div class="metric-note">${[...new Set(f.map(d=>d.proyecto))].length} proyectos activos</div></div>
+    <div class="metric"><div class="metric-label">IEP promedio</div><div class="metric-val" style="color:${iepColor(avgIep)}">${avgIep}</div><div class="metric-note">Índice de Estado del Puente</div></div>
+    <div class="metric"><div class="metric-label">Estado crítico</div><div class="metric-val" style="color:#f04f4f">${crit}</div><div class="metric-note">${total?Math.round(crit/total*100):0}% del total visible</div></div>
+    <div class="metric"><div class="metric-label">Intervención urgente</div><div class="metric-val" style="color:#f5a623">${urg}</div><div class="metric-note">Requieren acción inmediata</div></div>
+  `;
+}
+
+function renderTable(f) {
+  const tb = document.getElementById('tbody');
+  if (!f.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="8">Sin resultados para los filtros aplicados</td></tr>'; return; }
+  tb.innerHTML = f.map(d => `
+    <tr class="${selectedId===d.id?'selected':''}" onclick="selectRow('${d.id}')">
+      <td class="mono">${d.id}</td>
+      <td><div class="name">${d.nombre}</div><div class="proj">${d.proyecto}</div></td>
+      <td class="proj">${d.proyecto}</td>
+      <td class="proj">${d.tipo}</td>
+      <td>
+        <div class="iep-bar">
+          <div class="iep-track"><div class="iep-fill" style="width:${d.iep}%;background:${iepColor(d.iep)}"></div></div>
+          <div class="iep-num" style="color:${iepColor(d.iep)}">${d.iep}</div>
+        </div>
+      </td>
+      <td><span class="badge ${badgeClass(d.estado)}">${d.estado}</span></td>
+      <td class="mono" style="font-size:12px">${d.fecha}</td>
+      <td>${intervBadge(d.intervencion)}</td>
+    </tr>
+  `).join('');
+}
+
+function renderSidebars(f) {
+  const proyectos = [...new Set(DATA.map(d=>d.proyecto))];
+  document.getElementById('proj-stats').innerHTML = proyectos.map(p => {
+    const items = f.filter(d=>d.proyecto===p);
+    if (!items.length) return '';
+    const avg = Math.round(items.reduce((s,d)=>s+d.iep,0)/items.length);
+    return `<div class="proj-stat">
+      <div class="proj-name">${p}</div>
+      <div class="proj-track"><div class="proj-fill" style="width:${avg}%;background:${iepColor(avg)}"></div></div>
+      <div class="proj-num">${avg}</div>
+    </div>`;
+  }).join('');
+
+  const estados = ['Bueno','Regular','Crítico','En revisión'];
+  const colors = {Bueno:'#4caf7d',Regular:'#f5a623',Crítico:'#f04f4f','En revisión':'#4f8ef7'};
+  document.getElementById('legend').innerHTML = estados.map(e => {
+    const count = f.filter(d=>d.estado===e).length;
+    return `<div class="leg-item">
+      <div class="leg-left"><div class="leg-dot" style="background:${colors[e]}"></div>${e}</div>
+      <div class="leg-count">${count} puente${count!==1?'s':''}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderDetail() {
+  const panel = document.getElementById('detail-panel');
+  if (!selectedId) { panel.className='detail-panel'; return; }
+  const d = DATA.find(x=>x.id===selectedId);
+  if (!d) { panel.className='detail-panel'; return; }
+  panel.className = 'detail-panel show';
+  panel.innerHTML = `
+    <div class="dp-header">
+      <div>
+        <div class="dp-title">${d.nombre} <span class="badge ${badgeClass(d.estado)}" style="font-size:12px;vertical-align:middle">${d.estado}</span></div>
+        <div class="dp-id">${d.id} · ${d.proyecto}</div>
+      </div>
+      <span class="dp-close" onclick="selectedId=null;render()">✕</span>
+    </div>
+    <div class="dp-grid">
+      <div class="dp-field"><div class="dp-key">Tipo estructural</div><div class="dp-val">${d.tipo}</div></div>
+      <div class="dp-field"><div class="dp-key">Longitud</div><div class="dp-val">${d.long} m</div></div>
+      <div class="dp-field"><div class="dp-key">Carriles</div><div class="dp-val">${d.carriles}</div></div>
+      <div class="dp-field"><div class="dp-key">Año de construcción</div><div class="dp-val">${d.año}</div></div>
+      <div class="dp-field"><div class="dp-key">Última inspección</div><div class="dp-val">${d.fecha}</div></div>
+      <div class="dp-field"><div class="dp-key">Intervención</div><div class="dp-val">${intervBadge(d.intervencion)}</div></div>
+      <div class="dp-field"><div class="dp-key">IEP</div><div class="dp-val" style="color:${iepColor(d.iep)};font-family:var(--mono)">${d.iep} / 100</div></div>
+    </div>
+    <div class="dp-iep">
+      <div class="dp-iep-label"><span>Índice de Estado del Puente</span><span style="color:${iepColor(d.iep)};font-family:var(--mono)">${d.iep}%</span></div>
+      <div class="dp-iep-track"><div class="dp-iep-fill" style="width:${d.iep}%;background:${iepColor(d.iep)}"></div></div>
+    </div>
+    <div class="dp-obs">${d.obs}</div>
+    <div class="dp-actions">
+      <button class="btn" onclick="alert('Módulo de inspección próximamente')">📋 Registrar inspección</button>
+      <button class="btn" onclick="alert('Módulo de historial próximamente')">🕐 Ver historial</button>
+      <button class="btn" onclick="descargarPDFPuente('${d.id}')">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7 7-7z"/></svg>
+        Ficha PDF
+      </button>
+    </div>
+  `;
+}
+
+function selectRow(id) { selectedId = selectedId === id ? null : id; render(); }
+function resetFiltros() {
+  document.getElementById('buscar').value='';
+  document.getElementById('fProyecto').value='';
+  document.getElementById('fEstado').value='';
+  document.getElementById('fIntervencion').value='';
+  render();
+}
+
+function render() {
+  const f = getFiltered();
+  renderMetrics(f);
+  renderTable(f);
+  renderSidebars(f);
+  renderDetail();
+}
+
+function initFilters() {
+  const proyectos = [...new Set(DATA.map(d=>d.proyecto))];
+  const sel = document.getElementById('fProyecto');
+  proyectos.forEach(p => { const o=document.createElement('option'); o.value=p; o.textContent=p; sel.appendChild(o); });
+  const now = new Date();
+  document.getElementById('fecha-sub').textContent = `Actualizado: ${now.toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'})} · ${DATA.length} estructuras registradas`;
+}
+
+// ─── PDF GENERAL ───────────────────────────────────────────────────────────
+function descargarPDF() {
+  const btn = document.getElementById('btnPDF');
+  btn.textContent = 'Generando...'; btn.disabled = true;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  const now = new Date();
+  const fechaStr = now.toLocaleDateString('es-MX', {year:'numeric',month:'long',day:'numeric'});
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+
+  // ─── Portada ─────────────────────────────────
+  doc.setFillColor(13,15,20); doc.rect(0,0,W,H,'F');
+  doc.setFillColor(79,142,247); doc.rect(0,0,6,H,'F');
+  doc.setTextColor(232,234,240);
+  doc.setFont('helvetica','bold'); doc.setFontSize(26);
+  doc.text('REPORTE GENERAL DE ESTRUCTURAS', 18, 36);
+  doc.setFont('helvetica','normal'); doc.setFontSize(13);
+  doc.setTextColor(122,128,153);
+  doc.text('Sistema de Gestión de Puentes — BMS', 18, 46);
+  doc.text(`Fecha de emisión: ${fechaStr}`, 18, 54);
+
+  // KPIs portada
+  const f = getFiltered();
+  const total = f.length;
+  const avgIep = total ? Math.round(f.reduce((s,d)=>s+d.iep,0)/total) : 0;
+  const crit = f.filter(d=>d.estado==='Crítico').length;
+  const urg = f.filter(d=>d.intervencion==='Urgente').length;
+  const kpis = [
+    {label:'Total puentes', val: String(total)},
+    {label:'IEP promedio', val: String(avgIep)},
+    {label:'Estado crítico', val: String(crit)},
+    {label:'Intervención urgente', val: String(urg)},
+  ];
+  kpis.forEach((k,i) => {
+    const x = 18 + i*66;
+    doc.setFillColor(26,30,39); doc.roundedRect(x, 68, 62, 24, 2, 2, 'F');
+    doc.setTextColor(122,128,153); doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text(k.label, x+6, 77);
+    doc.setTextColor(232,234,240); doc.setFontSize(20); doc.setFont('helvetica','bold');
+    doc.text(k.val, x+6, 88);
+  });
+
+  // Resumen por proyecto
+  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(122,128,153);
+  doc.text('RESUMEN POR PROYECTO', 18, 108);
+  const proyectos = [...new Set(DATA.map(d=>d.proyecto))];
+  proyectos.forEach((p,i) => {
+    const items = f.filter(d=>d.proyecto===p);
+    if (!items.length) return;
+    const avg = Math.round(items.reduce((s,d)=>s+d.iep,0)/items.length);
+    const y = 116 + i*10;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(232,234,240);
+    doc.text(`${p}`, 18, y);
+    doc.setTextColor(122,128,153);
+    doc.text(`${items.length} puentes · IEP promedio: ${avg}`, 130, y);
+    // barra
+    const bx=220, bw=50;
+    doc.setFillColor(26,30,39); doc.roundedRect(bx,y-4,bw,3.5,1,1,'F');
+    const [r,g,b] = avg>=75?[76,175,125]:avg>=50?[245,166,35]:[240,79,79];
+    doc.setFillColor(r,g,b); doc.roundedRect(bx,y-4,Math.round(bw*avg/100),3.5,1,1,'F');
+    doc.setTextColor(r,g,b); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text(String(avg), bx+bw+3, y);
+  });
+
+  // ─── Tabla principal ───────────────────────────
+  doc.addPage();
+  doc.setFillColor(13,15,20); doc.rect(0,0,W,H,'F');
+  doc.setFillColor(79,142,247); doc.rect(0,0,6,H,'F');
+  doc.setTextColor(232,234,240); doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text('Inventario completo de estructuras', 18, 18);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(122,128,153);
+  doc.text(`${f.length} registros · ${fechaStr}`, 18, 26);
+
+  const estadoColor = e => {
+    if(e==='Bueno') return [76,175,125];
+    if(e==='Regular') return [245,166,35];
+    if(e==='Crítico') return [240,79,79];
+    return [79,142,247];
+  };
+
+  doc.autoTable({
+    startY: 32,
+    margin: { left: 18, right: 10 },
+    head: [['ID','Nombre','Proyecto','Tipo','IEP','Estado','Últ. insp.','Intervención','Long. (m)','Año']],
+    body: f.map(d=>[d.id,d.nombre,d.proyecto,d.tipo,d.iep,d.estado,d.fecha,d.intervencion,d.long,d.año]),
+    styles: { font:'helvetica', fontSize:8.5, textColor:[232,234,240], fillColor:[19,22,29], lineColor:[40,44,55], lineWidth:0.3, cellPadding:3 },
+    headStyles: { fillColor:[26,30,39], textColor:[122,128,153], fontStyle:'bold', fontSize:8 },
+    alternateRowStyles: { fillColor:[16,19,26] },
+    columnStyles: {
+      0: { cellWidth:18, font:'courier' },
+      1: { cellWidth:44 },
+      2: { cellWidth:40 },
+      3: { cellWidth:22 },
+      4: { cellWidth:12, halign:'center' },
+      5: { cellWidth:22 },
+      6: { cellWidth:22, font:'courier' },
+      7: { cellWidth:22 },
+      8: { cellWidth:16, halign:'right' },
+      9: { cellWidth:13, halign:'center' },
+    },
+    didParseCell: function(data) {
+      if (data.column.index === 4 && data.section === 'body') {
+        const v = parseInt(data.cell.raw);
+        const [r,g,b] = v>=75?[76,175,125]:v>=50?[245,166,35]:[240,79,79];
+        data.cell.styles.textColor = [r,g,b];
+        data.cell.styles.fontStyle = 'bold';
+      }
+      if (data.column.index === 5 && data.section === 'body') {
+        const [r,g,b] = estadoColor(data.cell.raw);
+        data.cell.styles.textColor = [r,g,b];
+      }
+      if (data.column.index === 7 && data.section === 'body') {
+        if (data.cell.raw === 'Urgente') data.cell.styles.textColor = [240,79,79];
+        if (data.cell.raw === 'Correctivo') data.cell.styles.textColor = [245,166,35];
+        if (data.cell.raw === 'Preventivo') data.cell.styles.textColor = [79,142,247];
+      }
+    }
+  });
+
+  // ─── Página de observaciones ───────────────────
+  doc.addPage();
+  doc.setFillColor(13,15,20); doc.rect(0,0,W,H,'F');
+  doc.setFillColor(79,142,247); doc.rect(0,0,6,H,'F');
+  doc.setTextColor(232,234,240); doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text('Observaciones y notas técnicas', 18, 18);
+
+  const criticos = f.filter(d=>d.estado==='Crítico'||d.intervencion==='Urgente');
+  const resto = f.filter(d=>d.estado!=='Crítico'&&d.intervencion!=='Urgente');
+
+  let cy = 30;
+  if (criticos.length) {
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(240,79,79);
+    doc.text('⚠  Intervención urgente / Estado crítico', 18, cy); cy += 8;
+    criticos.forEach(d => {
+      doc.setFillColor(26,30,39); doc.roundedRect(18, cy-4, W-28, 14, 2, 2, 'F');
+      doc.setFillColor(240,79,79); doc.rect(18, cy-4, 3, 14, 'F');
+      doc.setFont('courier','bold'); doc.setFontSize(8.5); doc.setTextColor(240,79,79);
+      doc.text(d.id, 24, cy+2);
+      doc.setFont('helvetica','bold'); doc.setTextColor(232,234,240);
+      doc.text(d.nombre, 44, cy+2);
+      doc.setFont('helvetica','normal'); doc.setTextColor(122,128,153);
+      doc.text(d.obs, 44, cy+8);
+      cy += 18;
+    });
+    cy += 4;
+  }
+  if (resto.length) {
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(79,142,247);
+    doc.text('Resto de estructuras con observaciones', 18, cy); cy += 8;
+    resto.filter(d=>d.obs&&d.obs!=='Sin observaciones').forEach(d => {
+      if (cy > H - 20) return;
+      doc.setFillColor(26,30,39); doc.roundedRect(18, cy-4, W-28, 14, 2, 2, 'F');
+      doc.setFillColor(79,142,247); doc.rect(18, cy-4, 3, 14, 'F');
+      doc.setFont('courier','bold'); doc.setFontSize(8.5); doc.setTextColor(79,142,247);
+      doc.text(d.id, 24, cy+2);
+      doc.setFont('helvetica','bold'); doc.setTextColor(232,234,240);
+      doc.text(d.nombre, 44, cy+2);
+      doc.setFont('helvetica','normal'); doc.setTextColor(122,128,153);
+      doc.text(d.obs, 44, cy+8);
+      cy += 18;
+    });
+  }
+
+  // Pie de páginas
+  const totalPages = doc.getNumberOfPages();
+  for (let i=1; i<=totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(122,128,153);
+    doc.text(`BMS · Reporte General · ${fechaStr}`, 18, H-6);
+    doc.text(`Página ${i} de ${totalPages}`, W-30, H-6);
+  }
+
+  doc.save(`BMS_Reporte_General_${now.toISOString().slice(0,10)}.pdf`);
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7 7-7z"/></svg> Descargar reporte PDF`;
+  btn.disabled = false;
+}
+
+function descargarPDFPuente(id) {
+  const d = DATA.find(x=>x.id===id);
+  if (!d) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const now = new Date();
+  const fechaStr = now.toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'});
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+
+  doc.setFillColor(13,15,20); doc.rect(0,0,W,H,'F');
+  doc.setFillColor(79,142,247); doc.rect(0,0,5,H,'F');
+  doc.setTextColor(232,234,240);
+  doc.setFont('helvetica','bold'); doc.setFontSize(20);
+  doc.text(d.nombre, 16, 28);
+  doc.setFont('courier','normal'); doc.setFontSize(10); doc.setTextColor(122,128,153);
+  doc.text(`${d.id} · ${d.proyecto}`, 16, 38);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  doc.text(`Emitido: ${fechaStr}`, 16, 46);
+
+  const campos = [
+    ['Tipo estructural',d.tipo],['Longitud',`${d.long} m`],['Carriles',d.carriles],
+    ['Año construcción',d.año],['Última inspección',d.fecha],['Intervención',d.intervencion],
+  ];
+  campos.forEach(([k,v],i) => {
+    const x = i%2===0?16:105, y = 62+Math.floor(i/2)*14;
+    doc.setFillColor(26,30,39); doc.roundedRect(x,y-5,85,12,2,2,'F');
+    doc.setTextColor(122,128,153); doc.setFontSize(8);
+    doc.text(k, x+4, y+1);
+    doc.setTextColor(232,234,240); doc.setFontSize(11); doc.setFont('helvetica','bold');
+    doc.text(String(v), x+4, y+8);
+    doc.setFont('helvetica','normal');
+  });
+
+  const [r,g,b] = d.iep>=75?[76,175,125]:d.iep>=50?[245,166,35]:[240,79,79];
+  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(122,128,153);
+  doc.text('Índice de Estado del Puente (IEP)', 16, 118);
+  doc.setFillColor(26,30,39); doc.roundedRect(16,122,178,8,2,2,'F');
+  doc.setFillColor(r,g,b); doc.roundedRect(16,122,Math.round(178*d.iep/100),8,2,2,'F');
+  doc.setTextColor(r,g,b); doc.setFont('courier','bold'); doc.setFontSize(14);
+  doc.text(`${d.iep} / 100`, 16, 144);
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(122,128,153);
+  doc.text('Observaciones', 16, 158);
+  doc.setFillColor(26,30,39); doc.roundedRect(16,162,178,20,2,2,'F');
+  doc.setFillColor(r,g,b); doc.rect(16,162,3,20,'F');
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(232,234,240);
+  const lines = doc.splitTextToSize(d.obs, 168);
+  doc.text(lines, 22, 170);
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(122,128,153);
+  doc.text(`BMS · Ficha técnica · ${fechaStr}`, 16, H-10);
+
+  doc.save(`BMS_Ficha_${d.id}_${now.toISOString().slice(0,10)}.pdf`);
+}
+
+initFilters();
+render();
+</script>
+</body>
+</html>

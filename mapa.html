@@ -346,3 +346,72 @@ header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.2
 <div class="toast" id="toast"></div>
 
 <script>
+// ═══════════════════════════════════════════
+//  DATOS
+// ═══════════════════════════════════════════
+const DEFAULT_PROYECTOS = [
+  {id:'pr1',nombre:'Autopista del Sol',color:'#4f8ef7',centro:[17.55,-99.5],zoom:10},
+  {id:'pr2',nombre:'Libramiento Oriente',color:'#2dd4a0',centro:[19.42,-98.9],zoom:11},
+  {id:'pr3',nombre:'Corredor Transístmico',color:'#f5a623',centro:[17.9,-95.0],zoom:10},
+  {id:'pr4',nombre:'Autopista Siglo XXI',color:'#f04f4f',centro:[18.5,-101.2],zoom:10},
+];
+const DEFAULT_PUENTES = [
+  {id:'PTE-001',nombre:'Puente Río Balsas',proyecto:'pr1',tipo:'Viga cajón',iep:82,estado:'Bueno',fecha:'2024-11-10',intervencion:'Preventivo',long:420,carriles:4,año:1998,obs:'Impermeabilización programada Q2 2025',lat:17.432,lng:-99.621},
+  {id:'PTE-002',nombre:'Viaducto Las Palmas',proyecto:'pr1',tipo:'Atirantado',iep:91,estado:'Bueno',fecha:'2025-01-15',intervencion:'Ninguna',long:680,carriles:6,año:2005,obs:'Sin observaciones relevantes',lat:17.61,lng:-99.44},
+  {id:'PTE-003',nombre:'Puente Miravalles',proyecto:'pr1',tipo:'Losa',iep:53,estado:'Regular',fecha:'2024-08-22',intervencion:'Correctivo',long:180,carriles:2,año:1985,obs:'Fisuración en juntas de expansión',lat:17.52,lng:-99.55},
+  {id:'PTE-004',nombre:'Puente Cañón Verde',proyecto:'pr2',tipo:'Arco',iep:34,estado:'Crítico',fecha:'2024-06-05',intervencion:'Urgente',long:310,carriles:2,año:1978,obs:'Daño severo en estribos por socavación',lat:19.31,lng:-98.95},
+  {id:'PTE-005',nombre:'Paso Superior Km 45',proyecto:'pr2',tipo:'Viga cajón',iep:74,estado:'Bueno',fecha:'2025-02-01',intervencion:'Preventivo',long:90,carriles:4,año:2010,obs:'Pintura anticorrosiva pendiente',lat:19.48,lng:-98.88},
+  {id:'PTE-006',nombre:'Viaducto Norte',proyecto:'pr2',tipo:'Prelosa',iep:68,estado:'Regular',fecha:'2024-10-18',intervencion:'Correctivo',long:240,carriles:4,año:1999,obs:'Sello de juntas deteriorado',lat:19.55,lng:-98.82},
+  {id:'PTE-007',nombre:'Puente Coatzacoalcos II',proyecto:'pr3',tipo:'Atirantado',iep:88,estado:'Bueno',fecha:'2025-03-10',intervencion:'Ninguna',long:1010,carriles:4,año:2012,obs:'Excelente estado general',lat:18.15,lng:-94.44},
+  {id:'PTE-008',nombre:'Paso Inferior Km 112',proyecto:'pr3',tipo:'Losa',iep:45,estado:'En revisión',fecha:'2025-01-28',intervencion:'En revisión',long:60,carriles:2,año:1990,obs:'Inspección especial en curso',lat:17.75,lng:-95.38},
+  {id:'PTE-009',nombre:'Puente Papaloapan',proyecto:'pr3',tipo:'Viga I',iep:61,estado:'Regular',fecha:'2024-12-03',intervencion:'Correctivo',long:380,carriles:4,año:2001,obs:'Corrosión en vigas metálicas',lat:17.88,lng:-95.02},
+  {id:'PTE-010',nombre:'Puente Mezcala',proyecto:'pr4',tipo:'Arco',iep:79,estado:'Bueno',fecha:'2025-02-20',intervencion:'Preventivo',long:520,carriles:4,año:1993,obs:'Mantenimiento rutinario programado',lat:18.62,lng:-101.15},
+  {id:'PTE-011',nombre:'Viaducto Huetamo',proyecto:'pr4',tipo:'Viga cajón',iep:29,estado:'Crítico',fecha:'2024-05-14',intervencion:'Urgente',long:190,carriles:2,año:1980,obs:'Pandeo en viga principal',lat:18.37,lng:-101.35},
+  {id:'PTE-012',nombre:'Paso Superior Pto. Mexico',proyecto:'pr4',tipo:'Prelosa',iep:77,estado:'Bueno',fecha:'2025-01-09',intervencion:'Ninguna',long:70,carriles:2,año:2008,obs:'Sin observaciones',lat:18.55,lng:-101.08},
+];
+const DEFAULT_CATALOGOS = {
+  estados:['Bueno','Regular','Crítico','En revisión'],
+  intervenciones:['Ninguna','Preventivo','Correctivo','Urgente','En revisión'],
+  tipos:['Viga cajón','Atirantado','Losa','Arco','Viga I','Prelosa','Otro'],
+};
+const CHECKLIST_ITEMS = [
+  'Superestructura','Subestructura','Estribos','Pilas','Juntas de expansión',
+  'Barandales','Tablero','Drenaje','Señalización','Iluminación',
+];
+
+function ls(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+function ss(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+let PROYECTOS = ls('bms2_proyectos', DEFAULT_PROYECTOS);
+let PUENTES   = ls('bms2_puentes',   DEFAULT_PUENTES);
+let INSPECCIONES = ls('bms2_insp',   {});
+
+function saveAll(){ss('bms2_proyectos',PROYECTOS);ss('bms2_puentes',PUENTES);ss('bms2_insp',INSPECCIONES);}
+
+// ═══════════════════════════════════════════
+//  ESTADO UI
+// ═══════════════════════════════════════════
+let currentPrId = PROYECTOS[0]?.id || null;
+let map = null;
+let markers = {};
+let selectedPuenteId = null;
+let currentPanelTab = 'ficha';
+let pickingCoords = false;
+let editingPuenteId = null;
+let inspFotos = [];
+let sidebarOpen = true;
+let editingPrId = null;
+
+// ═══════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════
+const iepColor = v => v>=75?'#4caf7d':v>=50?'#f5a623':'#f04f4f';
+const estadoColor = e => ({Bueno:'#4caf7d',Regular:'#f5a623',Crítico:'#f04f4f','En revisión':'#4f8ef7'}[e]||'#7a8099');
+const pr = id => PROYECTOS.find(p=>p.id===id);
+const puentesDePr = id => PUENTES.filter(p=>p.proyecto===id);
+function genId(){const nums=PUENTES.map(p=>parseInt(p.id.replace(/\D+/g,''))||0);return'PTE-'+String((nums.length?Math.max(...nums):0)+1).padStart(3,'0');}
+function genPrId(){return'pr'+Date.now();}
+function toast(msg,type='ok'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+(type==='ok'?'ok':'err');setTimeout(()=>t.className='toast',2500);}
+function openModal(n){document.getElementById('modal-'+n).classList.remove('hidden');}
+function closeModal(n){document.getElementById('modal-'+n).classList.add('hidden');}
+function toggleSidebar(){sidebarOpen=!sidebarOpen;document.getElementById('sidebar').classList.toggle('collapsed',!sidebarOpen);setTimeout(()=>map&&map.invalidateSize(),280);}

@@ -415,3 +415,54 @@ function toast(msg,type='ok'){const t=document.getElementById('toast');t.textCon
 function openModal(n){document.getElementById('modal-'+n).classList.remove('hidden');}
 function closeModal(n){document.getElementById('modal-'+n).classList.add('hidden');}
 function toggleSidebar(){sidebarOpen=!sidebarOpen;document.getElementById('sidebar').classList.toggle('collapsed',!sidebarOpen);setTimeout(()=>map&&map.invalidateSize(),280);}
+// ═══════════════════════════════════════════
+//  TABS / PROYECTOS
+// ═══════════════════════════════════════════
+function renderTabs(){
+  const c=document.getElementById('nav-tabs');
+  c.innerHTML=PROYECTOS.map(p=>`
+    <button class="tab${p.id===currentPrId?' active':''}" onclick="switchPr('${p.id}')" ondblclick="editProyecto('${p.id}')" title="Doble clic para editar">${p.nombre}</button>
+  `).join('')+`<button class="tab tab-add" onclick="openModalProyecto()">+ Proyecto</button>`;
+}
+
+function switchPr(id){
+  currentPrId=id;
+  selectedPuenteId=null;
+  closePanel();
+  renderTabs();
+  renderMap();
+  renderSidebar();
+}
+
+function openModalProyecto(editId=null){
+  editingPrId=editId;
+  const p=editId?pr(editId):null;
+  document.getElementById('mpr-title').textContent=editId?'Editar proyecto':'Nuevo proyecto';
+  document.getElementById('mpr-nombre').value=p?p.nombre:'';
+  document.getElementById('mpr-color').value=p?p.color:'#4f8ef7';
+  document.getElementById('mpr-centro').value=p?`${p.centro[0]}, ${p.centro[1]}`:'';
+  document.getElementById('mpr-zoom').value=p?p.zoom:13;
+  openModal('proyecto');
+}
+function editProyecto(id){openModalProyecto(id);}
+
+function guardarProyecto(){
+  const nombre=document.getElementById('mpr-nombre').value.trim();
+  if(!nombre){toast('Nombre obligatorio','err');return;}
+  const color=document.getElementById('mpr-color').value;
+  const centroRaw=document.getElementById('mpr-centro').value.trim();
+  let centro=[19.43,-99.13];
+  if(centroRaw){const parts=centroRaw.split(',').map(s=>parseFloat(s.trim()));if(parts.length===2&&!isNaN(parts[0]))centro=parts;}
+  const zoom=parseInt(document.getElementById('mpr-zoom').value)||13;
+  if(editingPrId){
+    const idx=PROYECTOS.findIndex(p=>p.id===editingPrId);
+    if(idx>=0)PROYECTOS[idx]={...PROYECTOS[idx],nombre,color,centro,zoom};
+    toast('Proyecto actualizado');
+  } else {
+    const id=genPrId();
+    PROYECTOS.push({id,nombre,color,centro,zoom});
+    currentPrId=id;
+    toast('Proyecto creado');
+  }
+  saveAll(); closeModal('proyecto'); renderTabs(); renderMap(); renderSidebar();
+}

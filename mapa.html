@@ -558,3 +558,104 @@ function renderSidebar(){
     </div>`;
   }).join('');
 }
+// ═══════════════════════════════════════════
+//  PANEL DETALLE
+// ═══════════════════════════════════════════
+function openPanel(id){
+  selectedPuenteId=id;
+  currentPanelTab='ficha';
+  const b=PUENTES.find(p=>p.id===id);
+  if(!b)return;
+  const p=pr(b.proyecto);
+  document.getElementById('panel-title').textContent=b.nombre;
+  document.getElementById('panel-sub').textContent=`${b.id} · ${p?p.nombre:''}`;
+  document.querySelectorAll('.ptab').forEach((t,i)=>{t.classList.toggle('active',i===0);});
+  document.getElementById('panel').classList.add('open');
+  renderPanelTab(b);
+  renderSidebar();
+  if(markers[id])markers[id].openPopup();
+}
+function closePanel(){document.getElementById('panel').classList.remove('open');selectedPuenteId=null;renderSidebar();}
+function switchPTab(tab,btn){
+  currentPanelTab=tab;
+  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  const b=PUENTES.find(p=>p.id===selectedPuenteId);
+  if(b)renderPanelTab(b);
+}
+
+function renderPanelTab(b){
+  const body=document.getElementById('panel-body');
+  if(currentPanelTab==='ficha'){
+    const c=b.estado==='En revisión'?'#4f8ef7':iepColor(b.iep);
+    body.innerHTML=`
+      <div class="panel-section">
+        <div class="panel-section-title">Información general</div>
+        <div class="info-grid">
+          <div class="info-cell"><div class="info-key">Tipo</div><div class="info-val">${b.tipo||'—'}</div></div>
+          <div class="info-cell"><div class="info-key">Longitud</div><div class="info-val">${b.long?b.long+' m':'—'}</div></div>
+          <div class="info-cell"><div class="info-key">Carriles</div><div class="info-val">${b.carriles||'—'}</div></div>
+          <div class="info-cell"><div class="info-key">Año</div><div class="info-val">${b.año||'—'}</div></div>
+          <div class="info-cell"><div class="info-key">Última inspección</div><div class="info-val">${b.fecha||'—'}</div></div>
+          <div class="info-cell"><div class="info-key">Intervención</div><div class="info-val">${b.intervencion||'—'}</div></div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">Estado estructural</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:13px">${b.estado}</span>
+          <span style="font-family:var(--mono);font-size:20px;font-weight:600;color:${c}">${b.iep}<span style="font-size:12px;color:var(--muted)">/100</span></span>
+        </div>
+        <div class="iep-bar-big"><div class="iep-fill-big" style="width:${b.iep}%;background:${c}"></div></div>
+      </div>
+      ${b.obs?`<div class="panel-section"><div class="panel-section-title">Observaciones</div><div class="obs-box">${b.obs}</div></div>`:''}
+      ${b.lat!=null?`<div class="panel-section"><div class="panel-section-title">Coordenadas</div><div style="font-family:var(--mono);font-size:12px;color:var(--muted)">${b.lat.toFixed(6)}, ${b.lng.toFixed(6)}</div></div>`:''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:.5rem">
+        <button class="btn" onclick="editPuente('${b.id}')">✏️ Editar</button>
+        <button class="btn btn-danger" onclick="confirmEliminar('${b.id}')">🗑 Eliminar</button>
+      </div>`;
+  } else if(currentPanelTab==='fotos'){
+    const insp=INSPECCIONES[b.id]||[];
+    const allFotos=insp.flatMap(i=>i.fotos||[]);
+    body.innerHTML=`
+      <div class="panel-section">
+        <div class="panel-section-title">Todas las fotos (${allFotos.length})</div>
+        ${allFotos.length?`<div class="photo-grid">${allFotos.map(f=>`<img class="photo-thumb" src="${f}" onclick="openLightbox('${f}')" alt="foto"/>`).join('')}</div>`:'<div class="photo-empty">Sin fotos registradas.<br>Agrega una inspección con fotografías.</div>'}
+      </div>`;
+  } else if(currentPanelTab==='inspecciones'){
+    const insp=(INSPECCIONES[b.id]||[]).slice().reverse();
+    body.innerHTML=`
+      <div style="margin-bottom:.75rem">
+        <button class="btn btn-primary" onclick="openModalInsp('${b.id}')">+ Nueva inspección</button>
+      </div>
+      ${insp.length?insp.map((ins,i)=>renderInspCard(ins,b.id,insp.length-1-i)).join('')
+        :'<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px">Sin inspecciones registradas</div>'}`;
+  }
+}
+
+function renderInspCard(ins,puenteId,realIdx){
+  const cl=ins.checklist||{};
+  const checkItems=Object.entries(cl);
+  const estadoCol=estadoColor(ins.estado||'Bueno');
+  return`<div class="insp-card">
+    <div class="insp-header">
+      <div>
+        <div class="insp-date">${ins.fecha}</div>
+        <div class="insp-inspector">Inspector: ${ins.inspector}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="insp-iep" style="color:${iepColor(ins.iep)}">${ins.iep}<span style="font-size:11px;color:var(--muted)">/100</span></div>
+        <span class="badge" style="background:${estadoCol}22;color:${estadoCol};border:1px solid ${estadoCol}44;font-size:10px">${ins.estado||''}</span>
+      </div>
+    </div>
+    ${ins.obs?`<div class="insp-obs">${ins.obs}</div>`:''}
+    ${checkItems.length?`<div class="checklist">${checkItems.map(([k,v])=>{
+      const col=v==='Bueno'?'#4caf7d':v==='Regular'?'#f5a623':v==='Malo'?'#f04f4f':'#7a8099';
+      return`<div class="check-item"><div class="check-dot" style="background:${col}"></div><span style="color:var(--muted)">${k}:</span><strong style="color:${col}">${v}</strong></div>`;
+    }).join('')}</div>`:''}
+    ${(ins.fotos||[]).length?`<div class="insp-photos-row">${ins.fotos.map(f=>`<img class="insp-thumb" src="${f}" onclick="openLightbox('${f}')" alt="foto"/>`).join('')}</div>`:''}
+    <div style="margin-top:.5rem;text-align:right">
+      <button class="btn btn-danger" style="font-size:11px;padding:3px 8px;display:inline-flex" onclick="eliminarInsp('${puenteId}',${realIdx})">🗑 Eliminar</button>
+    </div>
+  </div>`;
+}

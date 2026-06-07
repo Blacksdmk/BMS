@@ -329,4 +329,20 @@ header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.2
 <div class="modal-overlay hidden" id="modal-confirm">
   <div class="modal modal-confirm">
     <div class="modal-title"><span id="conf-title">¿Eliminar?</span></div>
-    <p id="conf-msg" style="font-size:13px;color:var(--muted);margin-bottom:1.5rem"></p
+    <p id="conf-msg" style="font-size:13px;color:var(--muted);margin-bottom:1.5rem"></p>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('confirm')">Cancelar</button>
+      <button class="btn btn-danger" id="conf-ok">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox hidden" id="lightbox" onclick="closeLightbox()">
+  <span class="lightbox-close">✕</span>
+  <img id="lb-img" src="" alt=""/>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>

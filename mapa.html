@@ -659,3 +659,163 @@ function renderInspCard(ins,puenteId,realIdx){
     </div>
   </div>`;
 }
+// ═══════════════════════════════════════════
+//  MODAL PUENTE
+// ═══════════════════════════════════════════
+function openModalPuente(){
+  editingPuenteId=null;
+  document.getElementById('mp-title').textContent='Agregar puente';
+  document.getElementById('mp-id').value=genId();
+  document.getElementById('mp-id').disabled=false;
+  ['mp-nombre','mp-obs'].forEach(id=>document.getElementById(id).value='');
+  ['mp-long','mp-carriles','mp-año','mp-iep'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('mp-fecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('mp-coords').value=''; document.getElementById('mp-coords').dataset.lat=''; document.getElementById('mp-coords').dataset.lng='';
+  populateFormSels(); openModal('puente');
+}
+function editPuente(id){
+  const b=PUENTES.find(p=>p.id===id);if(!b)return;
+  editingPuenteId=id;
+  document.getElementById('mp-title').textContent='Editar puente';
+  document.getElementById('mp-id').value=b.id; document.getElementById('mp-id').disabled=true;
+  document.getElementById('mp-nombre').value=b.nombre;
+  document.getElementById('mp-iep').value=b.iep;
+  document.getElementById('mp-fecha').value=b.fecha||'';
+  document.getElementById('mp-long').value=b.long||'';
+  document.getElementById('mp-carriles').value=b.carriles||'';
+  document.getElementById('mp-año').value=b.año||'';
+  document.getElementById('mp-obs').value=b.obs||'';
+  if(b.lat!=null){document.getElementById('mp-coords').value=`${b.lat.toFixed(6)}, ${b.lng.toFixed(6)}`;document.getElementById('mp-coords').dataset.lat=b.lat;document.getElementById('mp-coords').dataset.lng=b.lng;}
+  else{document.getElementById('mp-coords').value='';}
+  populateFormSels(b); openModal('puente');
+}
+function populateFormSels(b=null){
+  const prSel=document.getElementById('mp-proyecto');
+  prSel.innerHTML=PROYECTOS.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
+  if(b)prSel.value=b.proyecto; else prSel.value=currentPrId;
+  const DEFAULT_CAT=DEFAULT_CATALOGOS;
+  const tipos=['Viga cajón','Atirantado','Losa','Arco','Viga I','Prelosa','Otro'];
+  const estados=['Bueno','Regular','Crítico','En revisión'];
+  const intervenciones=['Ninguna','Preventivo','Correctivo','Urgente','En revisión'];
+  document.getElementById('mp-tipo').innerHTML=tipos.map(t=>`<option>${t}</option>`).join('');
+  document.getElementById('mp-estado').innerHTML=estados.map(e=>`<option>${e}</option>`).join('');
+  document.getElementById('mp-intervencion').innerHTML=intervenciones.map(i=>`<option>${i}</option>`).join('');
+  if(b){document.getElementById('mp-tipo').value=b.tipo;document.getElementById('mp-estado').value=b.estado;document.getElementById('mp-intervencion').value=b.intervencion;}
+}
+function guardarPuente(){
+  const id=document.getElementById('mp-id').value.trim();
+  const nombre=document.getElementById('mp-nombre').value.trim();
+  const proyecto=document.getElementById('mp-proyecto').value;
+  const tipo=document.getElementById('mp-tipo').value;
+  const iep=parseInt(document.getElementById('mp-iep').value);
+  const estado=document.getElementById('mp-estado').value;
+  const fecha=document.getElementById('mp-fecha').value;
+  const intervencion=document.getElementById('mp-intervencion').value;
+  if(!id||!nombre||!proyecto||isNaN(iep)||!estado){toast('Completa los campos obligatorios','err');return;}
+  if(!editingPuenteId&&PUENTES.find(p=>p.id===id)){toast('ID ya existe','err');return;}
+  const latEl=document.getElementById('mp-coords');
+  const lat=parseFloat(latEl.dataset.lat)||null;
+  const lng=parseFloat(latEl.dataset.lng)||null;
+  const puente={id,nombre,proyecto,tipo,iep,estado,fecha,intervencion,
+    long:parseInt(document.getElementById('mp-long').value)||0,
+    carriles:parseInt(document.getElementById('mp-carriles').value)||0,
+    año:parseInt(document.getElementById('mp-año').value)||0,
+    obs:document.getElementById('mp-obs').value.trim(),lat,lng};
+  if(editingPuenteId){const idx=PUENTES.findIndex(p=>p.id===editingPuenteId);PUENTES[idx]=puente;toast('Puente actualizado');}
+  else{PUENTES.push(puente);toast('Puente agregado');}
+  saveAll(); closeModal('puente');
+  if(puente.proyecto===currentPrId){renderMap();renderSidebar();}
+  if(selectedPuenteId===id){const b=PUENTES.find(p=>p.id===id);if(b)renderPanelTab(b);}
+}
+
+// ═══════════════════════════════════════════
+//  MODAL INSPECCIÓN
+// ═══════════════════════════════════════════
+function openModalInsp(id){
+  inspFotos=[];
+  const b=PUENTES.find(p=>p.id===id);
+  document.getElementById('mi-nombre').textContent=b?b.nombre:'';
+  document.getElementById('mi-fecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('mi-inspector').value='';
+  document.getElementById('mi-iep').value=b?b.iep:'';
+  document.getElementById('mi-obs').value='';
+  document.getElementById('mi-fotos-preview').innerHTML='';
+  document.getElementById('mi-fotos-input').value='';
+  const estados=['Bueno','Regular','Crítico','En revisión'];
+  document.getElementById('mi-estado').innerHTML=estados.map(e=>`<option>${e}</option>`).join('');
+  if(b)document.getElementById('mi-estado').value=b.estado;
+  const cf=document.getElementById('checklist-form');
+  cf.innerHTML=CHECKLIST_ITEMS.map(item=>`
+    <div class="checklist-row">
+      <label>${item}</label>
+      <select data-item="${item}">
+        <option value="N/A">N/A</option>
+        <option value="Bueno">Bueno</option>
+        <option value="Regular">Regular</option>
+        <option value="Malo">Malo</option>
+      </select>
+    </div>`).join('');
+  cf.dataset.puenteId=id;
+  openModal('insp');
+}
+
+function previewFotos(e){
+  const files=Array.from(e.target.files);
+  const prev=document.getElementById('mi-fotos-preview');
+  files.forEach(f=>{
+    const r=new FileReader();
+    r.onload=ev=>{
+      inspFotos.push(ev.target.result);
+      const img=document.createElement('img');
+      img.src=ev.target.result; img.className='photo-thumb';
+      img.style.width='72px'; img.style.height='72px';
+      img.onclick=()=>openLightbox(ev.target.result);
+      prev.appendChild(img);
+    };
+    r.readAsDataURL(f);
+  });
+}
+
+function guardarInspeccion(){
+  const pid=document.getElementById('checklist-form').dataset.puenteId;
+  const fecha=document.getElementById('mi-fecha').value;
+  const inspector=document.getElementById('mi-inspector').value.trim();
+  const iep=parseInt(document.getElementById('mi-iep').value);
+  const estado=document.getElementById('mi-estado').value;
+  const obs=document.getElementById('mi-obs').value.trim();
+  if(!fecha||!inspector||isNaN(iep)){toast('Completa fecha, inspector e IEP','err');return;}
+  const checklist={};
+  document.querySelectorAll('#checklist-form select').forEach(s=>{
+    if(s.value!=='N/A')checklist[s.dataset.item]=s.value;
+  });
+  if(!INSPECCIONES[pid])INSPECCIONES[pid]=[];
+  INSPECCIONES[pid].push({fecha,inspector,iep,estado,obs,checklist,fotos:inspFotos});
+  // actualizar IEP del puente
+  const idx=PUENTES.findIndex(p=>p.id===pid);
+  if(idx>=0){PUENTES[idx].iep=iep;PUENTES[idx].estado=estado;PUENTES[idx].fecha=fecha;}
+  saveAll(); toast('Inspección guardada');
+  closeModal('insp'); renderMap(); renderSidebar();
+  if(selectedPuenteId===pid){const b=PUENTES.find(p=>p.id===pid);if(b)renderPanelTab(b);}
+}
+
+// ═══════════════════════════════════════════
+//  ELIMINAR
+// ═══════════════════════════════════════════
+function confirmEliminar(id){
+  const b=PUENTES.find(p=>p.id===id);
+  document.getElementById('conf-title').textContent='¿Eliminar puente?';
+  document.getElementById('conf-msg').textContent=`Se eliminará "${b?.nombre||id}" y todas sus inspecciones. Esta acción no se puede deshacer.`;
+  document.getElementById('conf-ok').onclick=()=>{
+    PUENTES=PUENTES.filter(p=>p.id!==id);
+    delete INSPECCIONES[id];
+    if(selectedPuenteId===id){closePanel();}
+    saveAll(); toast('Puente eliminado'); closeModal('confirm'); renderMap(); renderSidebar();
+  };
+  openModal('confirm');
+}
+function eliminarInsp(puenteId,idx){
+  if(!INSPECCIONES[puenteId])return;
+  INSPECCIONES[puenteId].splice(idx,1);
+  saveAll(); toast('Inspección eliminada');
+  const b=PUENTES.find(p=>p.id===puenteId);if(b)renderPanelTab(b);
+}

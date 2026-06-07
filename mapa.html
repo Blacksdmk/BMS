@@ -819,3 +819,102 @@ function eliminarInsp(puenteId,idx){
   saveAll(); toast('Inspección eliminada');
   const b=PUENTES.find(p=>p.id===puenteId);if(b)renderPanelTab(b);
 }
+// ═══════════════════════════════════════════
+//  LIGHTBOX
+// ═══════════════════════════════════════════
+function openLightbox(src){document.getElementById('lb-img').src=src;document.getElementById('lightbox').classList.remove('hidden');}
+function closeLightbox(){document.getElementById('lightbox').classList.add('hidden');}
+
+// ═══════════════════════════════════════════
+//  PDF EXPORT
+// ═══════════════════════════════════════════
+function exportarPDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const now=new Date();
+  const fechaStr=now.toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'});
+  const p=pr(currentPrId);
+  const puentes=puentesDePr(currentPrId);
+  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
+
+  // Portada
+  doc.setFillColor(13,15,20);doc.rect(0,0,W,H,'F');
+  const col=p?p.color:'#4f8ef7';
+  const hex=col.replace('#','');
+  doc.setFillColor(parseInt(hex.slice(0,2),16),parseInt(hex.slice(2,4),16),parseInt(hex.slice(4,6),16));
+  doc.rect(0,0,6,H,'F');
+  doc.setTextColor(232,234,240);doc.setFont('helvetica','bold');doc.setFontSize(24);
+  doc.text(p?p.nombre:'Proyecto',18,32);
+  doc.setFont('helvetica','normal');doc.setFontSize(13);doc.setTextColor(122,128,153);
+  doc.text('Reporte de estructuras — BMS',18,42);
+  doc.text(`Fecha: ${fechaStr} · ${puentes.length} puentes`,18,50);
+
+  const avg=puentes.length?Math.round(puentes.reduce((s,b)=>s+b.iep,0)/puentes.length):0;
+  const crit=puentes.filter(b=>b.estado==='Crítico').length;
+  const urg=puentes.filter(b=>b.intervencion==='Urgente').length;
+  [{l:'Total',v:puentes.length},{l:'IEP prom.',v:avg},{l:'Críticos',v:crit},{l:'Urgentes',v:urg}].forEach((k,i)=>{
+    const x=18+i*66;
+    doc.setFillColor(26,30,39);doc.roundedRect(x,62,62,22,2,2,'F');
+    doc.setTextColor(122,128,153);doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text(k.l,x+5,71);
+    doc.setTextColor(232,234,240);doc.setFontSize(18);doc.setFont('helvetica','bold');doc.text(String(k.v),x+5,82);
+  });
+
+  // Tabla
+  doc.addPage();
+  doc.setFillColor(13,15,20);doc.rect(0,0,W,H,'F');
+  doc.setFillColor(parseInt(hex.slice(0,2),16),parseInt(hex.slice(2,4),16),parseInt(hex.slice(4,6),16));
+  doc.rect(0,0,6,H,'F');
+  doc.setTextColor(232,234,240);doc.setFont('helvetica','bold');doc.setFontSize(15);
+  doc.text('Inventario de estructuras',18,16);
+  doc.autoTable({
+    startY:22,margin:{left:18,right:10},
+    head:[['ID','Nombre','Tipo','IEP','Estado','Últ. insp.','Intervención','Lat','Lng']],
+    body:puentes.map(b=>[b.id,b.nombre,b.tipo,b.iep,b.estado,b.fecha||'—',b.intervencion,b.lat!=null?b.lat.toFixed(5):'—',b.lng!=null?b.lng.toFixed(5):'—']),
+    styles:{font:'helvetica',fontSize:8.5,textColor:[232,234,240],fillColor:[19,22,29],lineColor:[40,44,55],lineWidth:.3,cellPadding:3},
+    headStyles:{fillColor:[26,30,39],textColor:[122,128,153],fontStyle:'bold',fontSize:8},
+    alternateRowStyles:{fillColor:[16,19,26]},
+    didParseCell(data){
+      if(data.section!=='body')return;
+      if(data.column.index===3){const v=parseInt(data.cell.raw);const c=v>=75?[76,175,125]:v>=50?[245,166,35]:[240,79,79];data.cell.styles.textColor=c;data.cell.styles.fontStyle='bold';}
+    }
+  });
+
+  // Observaciones
+  doc.addPage();
+  doc.setFillColor(13,15,20);doc.rect(0,0,W,H,'F');
+  doc.setFillColor(parseInt(hex.slice(0,2),16),parseInt(hex.slice(2,4),16),parseInt(hex.slice(4,6),16));
+  doc.rect(0,0,6,H,'F');
+  doc.setTextColor(232,234,240);doc.setFont('helvetica','bold');doc.setFontSize(15);
+  doc.text('Observaciones y hallazgos',18,16);
+  let cy=26;
+  puentes.filter(b=>b.obs).forEach(b=>{
+    if(cy>H-18)return;
+    doc.setFillColor(26,30,39);doc.roundedRect(18,cy-4,W-28,14,2,2,'F');
+    const ic=b.iep>=75?[76,175,125]:b.iep>=50?[245,166,35]:[240,79,79];
+    doc.setFillColor(...ic);doc.rect(18,cy-4,3,14,'F');
+    doc.setFont('courier','bold');doc.setFontSize(8);doc.setTextColor(...ic);doc.text(b.id,24,cy+2);
+    doc.setFont('helvetica','bold');doc.setTextColor(232,234,240);doc.text(b.nombre,44,cy+2);
+    doc.setFont('helvetica','normal');doc.setTextColor(122,128,153);
+    const lines=doc.splitTextToSize(b.obs,W-90);
+    doc.text(lines[0],44,cy+8);
+    cy+=18;
+  });
+
+  const tp=doc.getNumberOfPages();
+  for(let i=1;i<=tp;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(122,128,153);doc.text(`BMS · ${p?p.nombre:''} · ${fechaStr}`,18,H-6);doc.text(`Pág. ${i}/${tp}`,W-20,H-6);}
+  doc.save(`BMS_${p?p.nombre.replace(/\s+/g,'_'):'proyecto'}_${now.toISOString().slice(0,10)}.pdf`);
+  toast('PDF descargado');
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeLightbox();if(pickingCoords){pickingCoords=false;document.getElementById('pick-banner').classList.remove('show');map.getContainer().style.cursor='';openModal('puente');}}});
+
+renderTabs();
+initMap();
+renderMap();
+renderSidebar();
+</script>
+</body>
+</html>

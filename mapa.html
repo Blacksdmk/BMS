@@ -466,3 +466,95 @@ function guardarProyecto(){
   }
   saveAll(); closeModal('proyecto'); renderTabs(); renderMap(); renderSidebar();
 }
+// ═══════════════════════════════════════════
+//  MAPA
+// ═══════════════════════════════════════════
+function initMap(){
+  const p=pr(currentPrId);
+  const centro=p?p.centro:[19.43,-99.13];
+  const zoom=p?p.zoom:10;
+  map=L.map('map',{zoomControl:true}).setView(centro,zoom);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+  map.on('click',onMapClick);
+}
+
+function renderMap(){
+  if(!map)return;
+  Object.values(markers).forEach(m=>map.removeLayer(m));
+  markers={};
+  const p=pr(currentPrId);
+  if(!p)return;
+  if(p.centro)map.setView(p.centro,p.zoom||10);
+
+  const puentes=puentesDePr(currentPrId);
+  puentes.forEach(b=>{
+    if(b.lat==null||b.lng==null)return;
+    const color=b.estado==='En revisión'?'#4f8ef7':iepColor(b.iep);
+    const icon=L.divIcon({
+      className:'',
+      html:`<div class="custom-marker" style="background:${color};border-color:${color}33">${b.iep}</div>`,
+      iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-18]
+    });
+    const mk=L.marker([b.lat,b.lng],{icon}).addTo(map);
+    mk.bindPopup(`
+      <div class="popup-name">${b.nombre}</div>
+      <div class="popup-id">${b.id}</div>
+      <div class="popup-iep" style="color:${color}">${b.iep}<span style="font-size:12px;color:var(--muted)">/100</span></div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${b.estado} · ${b.intervencion}</div>
+      <button class="popup-btn" onclick="openPanel('${b.id}')">Ver detalles →</button>
+    `,{maxWidth:220});
+    mk.on('click',()=>{ selectedPuenteId=b.id; renderSidebar(); });
+    markers[b.id]=mk;
+  });
+  document.getElementById('map-count').textContent=`${puentes.length} puente${puentes.length!==1?'s':''}`;
+}
+
+// ═══════════════════════════════════════════
+//  PICK COORDS
+// ═══════════════════════════════════════════
+function startPick(){
+  pickingCoords=true;
+  document.getElementById('pick-banner').classList.add('show');
+  closeModal('puente');
+  map.getContainer().style.cursor='crosshair';
+}
+function onMapClick(e){
+  if(!pickingCoords)return;
+  pickingCoords=false;
+  document.getElementById('pick-banner').classList.remove('show');
+  map.getContainer().style.cursor='';
+  const {lat,lng}=e.latlng;
+  document.getElementById('mp-coords').value=`${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  document.getElementById('mp-coords').dataset.lat=lat;
+  document.getElementById('mp-coords').dataset.lng=lng;
+  openModal('puente');
+  toast('Coordenadas capturadas');
+}
+
+// ═══════════════════════════════════════════
+//  SIDEBAR
+// ═══════════════════════════════════════════
+function renderSidebar(){
+  const p=pr(currentPrId);
+  document.getElementById('sidebar-title').textContent=p?p.nombre:'Puentes';
+  const puentes=puentesDePr(currentPrId);
+  const sb=document.getElementById('sidebar-body');
+  if(!puentes.length){sb.innerHTML=`<div style="text-align:center;padding:2rem;color:var(--muted);font-size:13px">Sin puentes en este proyecto.<br><br><button class="btn btn-primary" onclick="openModalPuente()" style="margin:auto">+ Agregar puente</button></div>`;return;}
+  sb.innerHTML=puentes.map(b=>{
+    const c=b.estado==='En revisión'?'#4f8ef7':iepColor(b.iep);
+    const sel=selectedPuenteId===b.id;
+    return`<div onclick="openPanel('${b.id}')" style="padding:10px;border-radius:8px;margin-bottom:6px;cursor:pointer;background:${sel?'rgba(79,142,247,.12)':'var(--bg3)'};border:1px solid ${sel?'rgba(79,142,247,.3)':'transparent'};transition:all .15s">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div style="font-size:13px;font-weight:500">${b.nombre}</div>
+        <div style="font-family:var(--mono);font-size:13px;color:${c};font-weight:600">${b.iep}</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${b.id}</div>
+      <div style="height:4px;background:var(--bg4);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:4px;background:${c};width:${b.iep}%;border-radius:2px"></div></div>
+      <div style="display:flex;gap:6px;margin-top:5px">
+        <span style="font-size:10px;color:${c}">${b.estado}</span>
+        <span style="font-size:10px;color:var(--muted)">·</span>
+        <span style="font-size:10px;color:var(--muted)">${b.intervencion}</span>
+      </div>
+    </div>`;
+  }).join('');
+}

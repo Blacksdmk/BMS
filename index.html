@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>BMS — Sistema de Gestión de Puentes</title>
+<title>BMS — Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -14,180 +13,163 @@
   --bg:#0d0f14;--bg2:#13161d;--bg3:#1a1e27;--bg4:#20242f;
   --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
   --text:#e8eaf0;--muted:#7a8099;
-  --accent:#4f8ef7;--accent2:#2dd4a0;--warn:#f5a623;--danger:#f04f4f;--ok:#4caf7d;
+  --accent:#4f8ef7;--ok:#4caf7d;--warn:#f5a623;--danger:#f04f4f;
   --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;--r:8px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;font-size:14px;}
-
-/* ── LAYOUT ── */
-header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:200;}
-.logo{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;letter-spacing:.02em;}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;gap:12px;height:54px;position:sticky;top:0;z-index:200;}
+.logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;}
 .logo-icon{width:30px;height:30px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;}
-.logo-icon svg{width:18px;height:18px;fill:white;}
-nav{display:flex;gap:4px;}
-.nav-btn{cursor:pointer;border:none;background:transparent;color:var(--muted);padding:8px 14px;border-radius:var(--r);font-family:var(--font);font-size:13px;transition:all .15s;}
+.logo-icon svg{width:17px;height:17px;fill:#fff;}
+nav{display:flex;gap:2px;flex:1;}
+.nav-btn{cursor:pointer;border:none;background:transparent;color:var(--muted);padding:7px 13px;border-radius:var(--r);font-family:var(--font);font-size:13px;transition:all .15s;}
 .nav-btn:hover{background:var(--bg3);color:var(--text);}
 .nav-btn.active{background:var(--bg3);color:var(--text);font-weight:500;}
-.header-right{display:flex;gap:8px;}
-.btn{cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text);padding:7px 14px;border-radius:var(--r);font-family:var(--font);font-size:13px;display:flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap;}
-.btn:hover{background:var(--bg3);border-color:rgba(255,255,255,.22);}
+.nav-link{text-decoration:none;}
+.hdr-right{display:flex;gap:8px;align-items:center;}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex-shrink:0;}
+.sync-dot.off{background:var(--warn);}
+.sync-label{font-size:11px;color:var(--muted);}
+.btn{cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text);padding:7px 13px;border-radius:var(--r);font-family:var(--font);font-size:13px;display:flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap;}
+.btn:hover{background:var(--bg3);}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;}
-.btn-primary:hover{background:#3a7de8;border-color:#3a7de8;}
-.btn-danger{border-color:rgba(240,79,79,.4);color:var(--danger);}
+.btn-primary:hover{background:#3a7de8;}
+.btn-danger{color:var(--danger);border-color:rgba(240,79,79,.35);}
 .btn-danger:hover{background:rgba(240,79,79,.1);}
 .btn-sm{padding:5px 10px;font-size:12px;}
 .btn svg{width:14px;height:14px;flex-shrink:0;}
-main{max-width:1200px;margin:0 auto;padding:2rem;}
-.page{display:none;} .page.active{display:block;}
-.page-title{font-size:22px;font-weight:600;margin-bottom:4px;}
-.page-sub{font-size:13px;color:var(--muted);margin-bottom:1.75rem;}
-
-/* ── METRICS ── */
-.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.75rem;}
+main{max-width:1200px;margin:0 auto;padding:1.75rem;}
+.page{display:none;}.page.active{display:block;}
+.page-title{font-size:21px;font-weight:600;margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:1.5rem;}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem;}
 .metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;}
-.metric-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
-.metric-val{font-size:26px;font-weight:600;font-family:var(--mono);}
-.metric-note{font-size:11px;color:var(--muted);margin-top:4px;}
-
-/* ── FILTERS ── */
-.filters{display:flex;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;align-items:center;}
-.filters select,.search{background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:7px 12px;border-radius:var(--r);font-family:var(--font);font-size:13px;outline:none;}
-.filters select:hover,.search:focus{border-color:rgba(255,255,255,.25);}
-.search{width:220px;} .search::placeholder{color:var(--muted);}
-
-/* ── TABLE ── */
-.table-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:1.75rem;}
+.metric-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+.metric-val{font-size:25px;font-weight:600;font-family:var(--mono);}
+.metric-note{font-size:11px;color:var(--muted);margin-top:3px;}
+.filters{display:flex;gap:8px;margin-bottom:1.1rem;flex-wrap:wrap;align-items:center;}
+.filters select,.search{background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:7px 11px;border-radius:var(--r);font-family:var(--font);font-size:13px;outline:none;}
+.search{width:210px;}.search::placeholder{color:var(--muted);}
+.table-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:1.5rem;}
 table{width:100%;border-collapse:collapse;}
-thead th{padding:10px 14px;text-align:left;font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--bg3);}
+thead th{padding:9px 13px;text-align:left;font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--bg3);}
 tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
 tbody tr:last-child{border-bottom:none;}
 tbody tr:hover{background:var(--bg3);}
 tbody tr.selected{background:rgba(79,142,247,.1);}
-td{padding:10px 14px;vertical-align:middle;}
+td{padding:9px 13px;vertical-align:middle;}
 .mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
 .name{font-weight:500;font-size:13px;}
-.proj{font-size:12px;color:var(--muted);}
-.badge{display:inline-block;font-size:11px;font-weight:500;padding:3px 9px;border-radius:99px;font-family:var(--mono);}
-.iep-bar{display:flex;align-items:center;gap:8px;}
-.iep-track{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;min-width:60px;}
+.proj-text{font-size:12px;color:var(--muted);}
+.badge{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:99px;}
+.iep-bar{display:flex;align-items:center;gap:7px;}
+.iep-track{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;min-width:56px;}
 .iep-fill{height:4px;border-radius:2px;}
-.iep-num{font-family:var(--mono);font-size:12px;min-width:26px;text-align:right;}
+.iep-num{font-family:var(--mono);font-size:12px;min-width:24px;text-align:right;}
 .empty-row td{text-align:center;padding:2.5rem;color:var(--muted);}
-
-/* ── BOTTOM GRID ── */
-.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:1.75rem;}
-.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;}
-.card-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem;}
-.proj-stat{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-.proj-name{font-size:13px;width:160px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.proj-track{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
-.proj-fill{height:6px;border-radius:3px;}
-.proj-num{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:28px;text-align:right;}
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:1.5rem;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.1rem 1.25rem;}
+.card-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.875rem;}
+.proj-stat{display:flex;align-items:center;gap:9px;margin-bottom:9px;}
+.proj-name{font-size:13px;width:155px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.proj-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.proj-fill{height:5px;border-radius:3px;}
+.proj-num{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:26px;text-align:right;}
 .leg-item{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-.leg-left{display:flex;align-items:center;gap:8px;font-size:13px;}
+.leg-left{display:flex;align-items:center;gap:7px;font-size:13px;}
 .leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
 .leg-count{font-family:var(--mono);font-size:13px;color:var(--muted);}
-
-/* ── DETAIL PANEL ── */
-.detail-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;margin-bottom:1.75rem;display:none;}
+.detail-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.4rem;margin-bottom:1.5rem;display:none;}
 .detail-panel.show{display:block;}
-.dp-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.25rem;}
-.dp-title{font-size:17px;font-weight:600;}
+.dp-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.1rem;}
+.dp-title{font-size:16px;font-weight:600;}
 .dp-id{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:3px;}
-.dp-close{cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:2px 6px;border-radius:4px;}
-.dp-close:hover{color:var(--text);background:var(--bg3);}
-.dp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.25rem;}
-.dp-field .dp-key{font-size:11px;color:var(--muted);margin-bottom:4px;}
+.dp-close{cursor:pointer;color:var(--muted);font-size:20px;padding:2px 5px;border-radius:4px;}
+.dp-close:hover{color:var(--text);}
+.dp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.1rem;}
+.dp-field .dp-key{font-size:11px;color:var(--muted);margin-bottom:3px;}
 .dp-field .dp-val{font-size:13px;font-weight:500;}
-.dp-iep-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;}
-.dp-iep-track{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;}
-.dp-iep-fill{height:8px;border-radius:4px;}
-.dp-obs{font-size:13px;color:var(--muted);padding:10px 14px;background:var(--bg3);border-radius:var(--r);border-left:3px solid var(--accent);margin:1rem 0;}
+.dp-iep-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px;}
+.dp-iep-track{height:7px;background:var(--bg3);border-radius:4px;overflow:hidden;}
+.dp-iep-fill{height:7px;border-radius:4px;}
+.dp-obs{font-size:13px;color:var(--muted);padding:9px 13px;background:var(--bg3);border-radius:var(--r);border-left:3px solid var(--accent);margin:1rem 0;}
 .dp-actions{display:flex;gap:8px;flex-wrap:wrap;}
-
-/* ── MODAL ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;}
-.modal-overlay.hidden{display:none;}
-.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:1.75rem;}
-.modal-title{font-size:17px;font-weight:600;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;}
-.modal-close{cursor:pointer;color:var(--muted);font-size:22px;line-height:1;}
-.modal-close:hover{color:var(--text);}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.form-group{display:flex;flex-direction:column;gap:5px;}
-.form-group.full{grid-column:1/-1;}
-.form-group label{font-size:12px;color:var(--muted);}
-.form-group input,.form-group select,.form-group textarea{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:var(--r);font-family:var(--font);font-size:13px;outline:none;}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);}
-.form-group textarea{resize:vertical;min-height:72px;}
-.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1.5rem;}
-.form-error{font-size:12px;color:var(--danger);margin-top:4px;display:none;}
-
-/* ── ADMIN PAGE ── */
-.admin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+/* ADMIN */
+.admin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
 .admin-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
-.admin-card-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.admin-card-header{padding:.875rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .admin-card-title{font-size:13px;font-weight:600;}
-.admin-list{padding:.5rem;}
-.admin-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:6px;transition:background .1s;}
+.admin-list{padding:.4rem;}
+.admin-item{display:flex;align-items:center;justify-content:space-between;padding:7px 9px;border-radius:6px;transition:background .1s;}
 .admin-item:hover{background:var(--bg3);}
-.admin-item-label{display:flex;align-items:center;gap:8px;font-size:13px;}
-.admin-item-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
-.admin-item-actions{display:flex;gap:4px;opacity:0;transition:opacity .1s;}
+.admin-item-label{display:flex;align-items:center;gap:7px;font-size:13px;}
+.admin-item-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+.admin-item-actions{display:flex;gap:3px;opacity:0;transition:opacity .1s;}
 .admin-item:hover .admin-item-actions{opacity:1;}
-.icon-btn{cursor:pointer;border:none;background:transparent;color:var(--muted);padding:3px 6px;border-radius:4px;font-size:13px;line-height:1;}
+.icon-btn{cursor:pointer;border:none;background:transparent;color:var(--muted);padding:3px 5px;border-radius:4px;font-size:13px;}
 .icon-btn:hover{background:var(--bg3);color:var(--text);}
 .icon-btn.del:hover{color:var(--danger);}
-.admin-empty{padding:1.5rem;text-align:center;color:var(--muted);font-size:13px;}
-.color-preview{width:18px;height:18px;border-radius:4px;border:1px solid var(--border2);}
-
-/* ── TOAST ── */
-.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.75rem 1.25rem;font-size:13px;z-index:999;transform:translateY(8px);opacity:0;transition:all .2s;pointer-events:none;}
-.toast.show{transform:translateY(0);opacity:1;}
+.admin-empty{padding:1.4rem;text-align:center;color:var(--muted);font-size:13px;}
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;}
+.modal-overlay.hidden{display:none;}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:1.6rem;}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;}
+.modal-close{cursor:pointer;color:var(--muted);font-size:22px;}
+.modal-close:hover{color:var(--text);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.form-group{display:flex;flex-direction:column;gap:4px;}
+.form-group.full{grid-column:1/-1;}
+.form-group label{font-size:11px;color:var(--muted);}
+.form-group input,.form-group select,.form-group textarea{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 11px;border-radius:var(--r);font-family:var(--font);font-size:13px;outline:none;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);}
+.form-group textarea{resize:vertical;min-height:68px;}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem;}
+.form-error{font-size:12px;color:var(--danger);margin-top:3px;display:none;}
+/* TOAST */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.7rem 1.2rem;font-size:13px;z-index:999;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
 .toast.ok{border-left:3px solid var(--ok);}
 .toast.err{border-left:3px solid var(--danger);}
-
+/* LOADING */
+.loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:3rem;color:var(--muted);font-size:13px;}
+.spinner{width:18px;height:18px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
 footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:12px;border-top:1px solid var(--border);}
-@media(max-width:900px){
-  .metrics{grid-template-columns:repeat(2,1fr);}
-  .bottom-grid,.admin-grid{grid-template-columns:1fr;}
-  .dp-grid{grid-template-columns:repeat(2,1fr);}
-  .form-grid{grid-template-columns:1fr;}
-  nav{display:none;}
-}
+@media(max-width:900px){.metrics{grid-template-columns:repeat(2,1fr);}.bottom-grid,.admin-grid{grid-template-columns:1fr;}.dp-grid{grid-template-columns:repeat(2,1fr);}.form-grid{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
-
 <header>
   <div class="logo">
-    <div class="logo-icon">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M2 17h20v2H2zm1-5h2v4H3zm4-3h2v7H7zm4-4h2v11h-2zm4 2h2v9h-2zm4-3h2v12h-2z"/></svg>
-    </div>
-    BMS · Gestión de Puentes
+    <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M2 17h20v2H2zm1-5h2v4H3zm4-3h2v7H7zm4-4h2v11h-2zm4 2h2v9h-2zm4-3h2v12h-2z"/></svg></div>
+    BMS
   </div>
   <nav>
     <button class="nav-btn active" onclick="showPage('dashboard',this)">Dashboard</button>
     <button class="nav-btn" onclick="showPage('admin',this)">Catálogos</button>
+    <a class="nav-link" href="mapa.html"><button class="nav-btn">🗺 Mapas</button></a>
   </nav>
-  <div class="header-right">
-    <button class="btn" onclick="openModal('puente')">
+  <div class="hdr-right">
+    <div class="sync-dot off" id="sync-dot"></div>
+    <span class="sync-label" id="sync-label">Conectando...</span>
+    <button class="btn btn-sm" onclick="openModalPuente()">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
       Agregar puente
     </button>
-    <button class="btn btn-primary" onclick="descargarPDF()" id="btnPDF">
+    <button class="btn btn-primary btn-sm" onclick="descargarPDF()" id="btnPDF">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7 7-7z"/></svg>
-      Reporte PDF
+      PDF
     </button>
   </div>
 </header>
 
-<!-- ══ DASHBOARD ══ -->
 <main>
 <div id="page-dashboard" class="page active">
   <div class="page-title">Panel general de estructuras</div>
-  <div class="page-sub" id="fecha-sub"></div>
-  <div class="metrics" id="metrics"></div>
+  <div class="page-sub" id="fecha-sub">Cargando datos...</div>
+  <div class="metrics" id="metrics"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
   <div class="filters">
     <input class="search" type="text" id="buscar" placeholder="Buscar puente..." oninput="render()"/>
     <select id="fProyecto" onchange="render()"><option value="">Todos los proyectos</option></select>
@@ -197,13 +179,8 @@ footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:12px;border
   </div>
   <div class="table-card">
     <table>
-      <thead>
-        <tr>
-          <th>ID</th><th>Nombre</th><th>Proyecto / Autopista</th><th>Tipo</th>
-          <th>IEP</th><th>Estado</th><th>Última insp.</th><th>Intervención</th><th></th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
+      <thead><tr><th>ID</th><th>Nombre</th><th>Proyecto</th><th>Tipo</th><th>IEP</th><th>Estado</th><th>Última insp.</th><th>Intervención</th><th></th></tr></thead>
+      <tbody id="tbody"><tr><td colspan="9" class="empty-row"><div class="loading"><div class="spinner"></div>Cargando...</div></td></tr></tbody>
     </table>
   </div>
   <div class="bottom-grid">
@@ -213,59 +190,52 @@ footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:12px;border
   <div class="detail-panel" id="detail-panel"></div>
 </div>
 
-<!-- ══ CATÁLOGOS ══ -->
 <div id="page-admin" class="page">
   <div class="page-title">Catálogos del sistema</div>
-  <div class="page-sub">Administra proyectos, estados e intervenciones disponibles en los formularios</div>
+  <div class="page-sub">Administra proyectos, estados e intervenciones</div>
   <div class="admin-grid" id="admin-grid"></div>
 </div>
 </main>
 
-<!-- ══ MODAL PUENTE ══ -->
+<!-- MODAL PUENTE -->
 <div class="modal-overlay hidden" id="modal-puente">
   <div class="modal">
-    <div class="modal-title">
-      <span id="modal-puente-title">Agregar puente</span>
-      <span class="modal-close" onclick="closeModal('puente')">✕</span>
-    </div>
+    <div class="modal-title"><span id="modal-puente-title">Agregar puente</span><span class="modal-close" onclick="closeModal('puente')">✕</span></div>
     <div class="form-grid">
       <div class="form-group"><label>ID único *</label><input id="f-id" placeholder="PTE-013"/><div class="form-error" id="err-id">ID ya existe</div></div>
-      <div class="form-group"><label>Nombre del puente *</label><input id="f-nombre" placeholder="Puente Río Grande"/></div>
-      <div class="form-group"><label>Proyecto / Autopista *</label><select id="f-proyecto"></select></div>
-      <div class="form-group"><label>Tipo estructural *</label><select id="f-tipo"></select></div>
-      <div class="form-group"><label>IEP (0–100) *</label><input id="f-iep" type="number" min="0" max="100" placeholder="75"/></div>
+      <div class="form-group"><label>Nombre *</label><input id="f-nombre" placeholder="Puente Río Grande"/></div>
+      <div class="form-group"><label>Proyecto *</label><select id="f-proyecto"></select></div>
+      <div class="form-group"><label>Tipo estructural</label><select id="f-tipo"></select></div>
+      <div class="form-group"><label>IEP (0–100) *</label><input id="f-iep" type="number" min="0" max="100"/></div>
       <div class="form-group"><label>Estado *</label><select id="f-estado"></select></div>
-      <div class="form-group"><label>Última inspección *</label><input id="f-fecha" type="date"/></div>
-      <div class="form-group"><label>Intervención requerida *</label><select id="f-intervencion"></select></div>
-      <div class="form-group"><label>Longitud (m)</label><input id="f-long" type="number" placeholder="200"/></div>
-      <div class="form-group"><label>Carriles</label><input id="f-carriles" type="number" placeholder="2"/></div>
-      <div class="form-group"><label>Año de construcción</label><input id="f-año" type="number" placeholder="1998"/></div>
-      <div class="form-group full"><label>Observaciones</label><textarea id="f-obs" placeholder="Notas técnicas, condiciones especiales..."></textarea></div>
+      <div class="form-group"><label>Última inspección</label><input id="f-fecha" type="date"/></div>
+      <div class="form-group"><label>Intervención</label><select id="f-intervencion"></select></div>
+      <div class="form-group"><label>Longitud (m)</label><input id="f-long" type="number"/></div>
+      <div class="form-group"><label>Carriles</label><input id="f-carriles" type="number"/></div>
+      <div class="form-group"><label>Año construcción</label><input id="f-año" type="number"/></div>
+      <div class="form-group"><label>Latitud</label><input id="f-lat" type="number" step="any" placeholder="19.4326"/></div>
+      <div class="form-group"><label>Longitud coord.</label><input id="f-lng" type="number" step="any" placeholder="-99.1332"/></div>
+      <div class="form-group full"><label>Observaciones</label><textarea id="f-obs"></textarea></div>
     </div>
     <div class="form-actions">
       <button class="btn" onclick="closeModal('puente')">Cancelar</button>
-      <button class="btn btn-primary" id="btn-guardar-puente" onclick="guardarPuente()">Guardar puente</button>
+      <button class="btn btn-primary" id="btn-guardar-puente" onclick="guardarPuente()">Guardar</button>
     </div>
   </div>
 </div>
 
-<!-- ══ MODAL CATÁLOGO ══ -->
+<!-- MODAL CATÁLOGO -->
 <div class="modal-overlay hidden" id="modal-catalogo">
-  <div class="modal" style="max-width:380px">
-    <div class="modal-title">
-      <span id="modal-cat-title">Agregar elemento</span>
-      <span class="modal-close" onclick="closeModal('catalogo')">✕</span>
-    </div>
-    <div class="form-grid" style="grid-template-columns:1fr">
-      <div class="form-group"><label id="cat-field-label">Nombre *</label><input id="f-cat-nombre" placeholder="Nombre..."/></div>
-      <div class="form-group" id="cat-color-group"><label>Color (hex)</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input id="f-cat-color" placeholder="#4f8ef7" style="flex:1"/>
-          <div id="cat-color-preview" class="color-preview"></div>
-        </div>
+  <div class="modal" style="max-width:370px">
+    <div class="modal-title"><span id="modal-cat-title">Agregar elemento</span><span class="modal-close" onclick="closeModal('catalogo')">✕</span></div>
+    <div class="form-group" style="margin-bottom:10px"><label id="cat-lbl">Nombre *</label><input id="f-cat-nombre"/></div>
+    <div class="form-group" id="cat-color-grp" style="margin-bottom:10px"><label>Color</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="color" id="f-cat-color" style="width:40px;height:32px;padding:2px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);cursor:pointer"/>
+        <span style="font-size:12px;color:var(--muted)">Color del elemento</span>
       </div>
-      <div class="form-group" id="cat-desc-group"><label>Descripción (opcional)</label><input id="f-cat-desc" placeholder="Descripción breve..."/></div>
     </div>
+    <div class="form-group" id="cat-desc-grp" style="margin-bottom:10px"><label>Descripción</label><input id="f-cat-desc"/></div>
     <div class="form-actions">
       <button class="btn" onclick="closeModal('catalogo')">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarCatalogo()">Guardar</button>
@@ -273,9 +243,9 @@ footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:12px;border
   </div>
 </div>
 
-<!-- ══ CONFIRM MODAL ══ -->
+<!-- CONFIRM -->
 <div class="modal-overlay hidden" id="modal-confirm">
-  <div class="modal" style="max-width:360px">
+  <div class="modal" style="max-width:350px">
     <div class="modal-title"><span id="confirm-title">¿Eliminar?</span></div>
     <p id="confirm-msg" style="font-size:13px;color:var(--muted);margin-bottom:1.5rem"></p>
     <div class="form-actions">
@@ -286,179 +256,144 @@ footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:12px;border
 </div>
 
 <div class="toast" id="toast"></div>
+<footer>BMS v3.0 · Firebase Firestore · Datos en tiempo real</footer>
 
-<footer>BMS v2.0 · Sistema de Gestión de Puentes</footer>
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-<script>
-// ═══════════════════════════════════════════════
-//  DATOS INICIALES
-// ═══════════════════════════════════════════════
-const DEFAULT_PUENTES = [
-  {id:'PTE-001',nombre:'Puente Río Balsas',proyecto:'Autopista del Sol',tipo:'Viga cajón',iep:82,estado:'Bueno',fecha:'2024-11-10',intervencion:'Preventivo',long:420,carriles:4,año:1998,obs:'Impermeabilización programada Q2 2025'},
-  {id:'PTE-002',nombre:'Viaducto Las Palmas',proyecto:'Autopista del Sol',tipo:'Atirantado',iep:91,estado:'Bueno',fecha:'2025-01-15',intervencion:'Ninguna',long:680,carriles:6,año:2005,obs:'Sin observaciones relevantes'},
-  {id:'PTE-003',nombre:'Puente Miravalles',proyecto:'Autopista del Sol',tipo:'Losa',iep:53,estado:'Regular',fecha:'2024-08-22',intervencion:'Correctivo',long:180,carriles:2,año:1985,obs:'Fisuración en juntas de expansión'},
-  {id:'PTE-004',nombre:'Puente Cañón Verde',proyecto:'Libramiento Oriente',tipo:'Arco',iep:34,estado:'Crítico',fecha:'2024-06-05',intervencion:'Urgente',long:310,carriles:2,año:1978,obs:'Daño severo en estribos por socavación'},
-  {id:'PTE-005',nombre:'Paso Superior Km 45',proyecto:'Libramiento Oriente',tipo:'Viga cajón',iep:74,estado:'Bueno',fecha:'2025-02-01',intervencion:'Preventivo',long:90,carriles:4,año:2010,obs:'Pintura anticorrosiva pendiente'},
-  {id:'PTE-006',nombre:'Viaducto Norte',proyecto:'Libramiento Oriente',tipo:'Prelosa',iep:68,estado:'Regular',fecha:'2024-10-18',intervencion:'Correctivo',long:240,carriles:4,año:1999,obs:'Sello de juntas deteriorado'},
-  {id:'PTE-007',nombre:'Puente Coatzacoalcos II',proyecto:'Corredor Transístmico',tipo:'Atirantado',iep:88,estado:'Bueno',fecha:'2025-03-10',intervencion:'Ninguna',long:1010,carriles:4,año:2012,obs:'Excelente estado general'},
-  {id:'PTE-008',nombre:'Paso Inferior Km 112',proyecto:'Corredor Transístmico',tipo:'Losa',iep:45,estado:'En revisión',fecha:'2025-01-28',intervencion:'En revisión',long:60,carriles:2,año:1990,obs:'Inspección especial en curso por impacto vehicular'},
-  {id:'PTE-009',nombre:'Puente Papaloapan',proyecto:'Corredor Transístmico',tipo:'Viga I',iep:61,estado:'Regular',fecha:'2024-12-03',intervencion:'Correctivo',long:380,carriles:4,año:2001,obs:'Corrosión en vigas metálicas'},
-  {id:'PTE-010',nombre:'Puente Mezcala',proyecto:'Autopista Siglo XXI',tipo:'Arco',iep:79,estado:'Bueno',fecha:'2025-02-20',intervencion:'Preventivo',long:520,carriles:4,año:1993,obs:'Mantenimiento rutinario programado'},
-  {id:'PTE-011',nombre:'Viaducto Huetamo',proyecto:'Autopista Siglo XXI',tipo:'Viga cajón',iep:29,estado:'Crítico',fecha:'2024-05-14',intervencion:'Urgente',long:190,carriles:2,año:1980,obs:'Pandeo en viga principal, restricción de carga'},
-  {id:'PTE-012',nombre:'Paso Superior Pto. Mexico',proyecto:'Autopista Siglo XXI',tipo:'Prelosa',iep:77,estado:'Bueno',fecha:'2025-01-09',intervencion:'Ninguna',long:70,carriles:2,año:2008,obs:'Sin observaciones'},
-];
-const DEFAULT_CATALOGOS = {
-  proyectos: [
-    {id:'p1',nombre:'Autopista del Sol',color:'#4f8ef7',desc:''},
-    {id:'p2',nombre:'Libramiento Oriente',color:'#2dd4a0',desc:''},
-    {id:'p3',nombre:'Corredor Transístmico',color:'#f5a623',desc:''},
-    {id:'p4',nombre:'Autopista Siglo XXI',color:'#f04f4f',desc:''},
-  ],
-  estados: [
-    {id:'e1',nombre:'Bueno',color:'#4caf7d',desc:'IEP ≥ 75'},
-    {id:'e2',nombre:'Regular',color:'#f5a623',desc:'IEP 50–74'},
-    {id:'e3',nombre:'Crítico',color:'#f04f4f',desc:'IEP < 50'},
-    {id:'e4',nombre:'En revisión',color:'#4f8ef7',desc:'Inspección en curso'},
-  ],
-  intervenciones: [
-    {id:'i1',nombre:'Ninguna',color:'#7a8099',desc:''},
-    {id:'i2',nombre:'Preventivo',color:'#4f8ef7',desc:''},
-    {id:'i3',nombre:'Correctivo',color:'#f5a623',desc:''},
-    {id:'i4',nombre:'Urgente',color:'#f04f4f',desc:''},
-    {id:'i5',nombre:'En revisión',color:'#4f8ef7',desc:''},
-  ],
-  tipos: [
-    {id:'t1',nombre:'Viga cajón',color:'#7a8099',desc:''},
-    {id:'t2',nombre:'Atirantado',color:'#7a8099',desc:''},
-    {id:'t3',nombre:'Losa',color:'#7a8099',desc:''},
-    {id:'t4',nombre:'Arco',color:'#7a8099',desc:''},
-    {id:'t5',nombre:'Viga I',color:'#7a8099',desc:''},
-    {id:'t6',nombre:'Prelosa',color:'#7a8099',desc:''},
-  ]
+const firebaseConfig = {
+  apiKey: "AIzaSyC0IuDhRe470w5WL8Fb-YOMMJPc5B8-bt8",
+  authDomain: "siap-inspecciones.firebaseapp.com",
+  projectId: "siap-inspecciones",
+  storageBucket: "siap-inspecciones.firebasestorage.app",
+  messagingSenderId: "285150830693",
+  appId: "1:285150830693:web:1053b0b81d42fcf64b668c"
 };
 
-// ═══════════════════════════════════════════════
-//  ESTADO GLOBAL (localStorage)
-// ═══════════════════════════════════════════════
-function load(key,def){try{const v=localStorage.getItem(key);return v?JSON.parse(v):def;}catch(e){return def;}}
-function save(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch(e){}}
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
 
-let PUENTES = load('bms_puentes', DEFAULT_PUENTES);
-let CATALOGOS = load('bms_catalogos', DEFAULT_CATALOGOS);
-let selectedId = null;
-let editingPuenteId = null;
-let catContext = null; // {tipo, editId}
+// ── Colecciones ──
+const colPuentes     = collection(db,'bms_puentes');
+const colProyectos   = collection(db,'bms_proyectos');
+const colCatalogos   = collection(db,'bms_catalogos');
 
-function savePuentes(){save('bms_puentes',PUENTES);}
-function saveCatalogos(){save('bms_catalogos',CATALOGOS);}
+// ── Estado local ──
+let PUENTES     = [];
+let PROYECTOS   = [];
+let CATALOGOS   = { estados:[], intervenciones:[], tipos:[] };
+let selectedId  = null;
+let editingId   = null;
+let catCtx      = null;
 
-// ═══════════════════════════════════════════════
-//  UTILIDADES
-// ═══════════════════════════════════════════════
+// ── Utils ──
 const iepColor = v => v>=75?'#4caf7d':v>=50?'#f5a623':'#f04f4f';
-function getCatColor(tipo,nombre){
-  const cat = CATALOGOS[tipo]?.find(c=>c.nombre===nombre);
-  return cat ? cat.color : '#7a8099';
-}
-function badge(color,nombre){
-  const bg = hexToRgba(color,.15), border = hexToRgba(color,.3);
-  return `<span class="badge" style="background:${bg};color:${color};border:1px solid ${border}">${nombre}</span>`;
-}
-function hexToRgba(hex,a){
-  hex=hex.replace('#','');
-  if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');
-  const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
-  return `rgba(${r},${g},${b},${a})`;
-}
-function genId(){
-  const nums = PUENTES.map(p=>parseInt(p.id.replace('PTE-',''))||0);
-  const next = (nums.length?Math.max(...nums):0)+1;
-  return 'PTE-'+String(next).padStart(3,'0');
-}
-function toast(msg,type='ok'){
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.className='toast show '+(type==='ok'?'ok':'err');
-  setTimeout(()=>t.className='toast',2500);
-}
-function showPage(id,btn){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  if(btn)btn.classList.add('active');
-  if(id==='admin')renderAdmin();
-}
+function getCatColor(lista,nombre){const c=lista.find(x=>x.nombre===nombre);return c?c.color:'#7a8099';}
+function badge(color,nombre){const bg=hexA(color,.15),br=hexA(color,.3);return`<span class="badge" style="background:${bg};color:${color};border:1px solid ${br}">${nombre}</span>`;}
+function hexA(hex,a){hex=hex.replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return`rgba(${r},${g},${b},${a})`;}
+function genId(){const nums=PUENTES.map(p=>parseInt(p.id.replace(/\D+/g,''))||0);return'PTE-'+String((nums.length?Math.max(...nums):0)+1).padStart(3,'0');}
+function toast(msg,type='ok'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+(type==='ok'?'ok':'err');setTimeout(()=>t.className='toast',2600);}
+function openModal(n){document.getElementById('modal-'+n).classList.remove('hidden');}
+function closeModal(n){document.getElementById('modal-'+n).classList.add('hidden');}
+function showPage(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');if(id==='admin')renderAdmin();}
+window.showPage=showPage;
 
-// ═══════════════════════════════════════════════
-//  FILTROS Y SELECTS DINÁMICOS
-// ═══════════════════════════════════════════════
-function populateSelects(){
-  const proy = document.getElementById('fProyecto');
-  const est  = document.getElementById('fEstado');
-  const intv = document.getElementById('fIntervencion');
-  const cur = {p:proy.value,e:est.value,i:intv.value};
+// ── Conexión indicador ──
+function setSync(ok){document.getElementById('sync-dot').className='sync-dot'+(ok?'':' off');document.getElementById('sync-label').textContent=ok?'En línea':'Sin conexión';}
 
-  proy.innerHTML='<option value="">Todos los proyectos</option>';
-  CATALOGOS.proyectos.forEach(p=>{const o=document.createElement('option');o.value=p.nombre;o.textContent=p.nombre;proy.appendChild(o);});
-  est.innerHTML='<option value="">Todos los estados</option>';
-  CATALOGOS.estados.forEach(e=>{const o=document.createElement('option');o.value=e.nombre;o.textContent=e.nombre;est.appendChild(o);});
-  intv.innerHTML='<option value="">Todas las intervenciones</option>';
-  CATALOGOS.intervenciones.forEach(i=>{const o=document.createElement('option');o.value=i.nombre;o.textContent=i.nombre;intv.appendChild(o);});
+// ── Listeners en tiempo real ──
+onSnapshot(colPuentes, snap=>{
+  PUENTES=snap.docs.map(d=>({...d.data(),_docId:d.id}));
+  setSync(true);
+  populateSelects();
+  render();
+  document.getElementById('fecha-sub').textContent=`Actualizado en tiempo real · ${PUENTES.length} estructuras registradas`;
+}, ()=>setSync(false));
 
-  proy.value=cur.p; est.value=cur.e; intv.value=cur.i;
+onSnapshot(colProyectos, snap=>{
+  PROYECTOS=snap.docs.map(d=>({...d.data(),_docId:d.id}));
+  populateSelects();
+  render();
+  renderAdmin();
+});
+
+onSnapshot(colCatalogos, snap=>{
+  snap.docs.forEach(d=>{
+    const data=d.data();
+    if(d.id==='estados')CATALOGOS.estados=data.items||[];
+    if(d.id==='intervenciones')CATALOGOS.intervenciones=data.items||[];
+    if(d.id==='tipos')CATALOGOS.tipos=data.items||[];
+  });
+  populateSelects();
+  render();
+  renderAdmin();
+});
+
+// Inicializar catálogos si están vacíos
+async function initCatalogos(){
+  const snap=await getDocs(colCatalogos);
+  if(!snap.empty)return;
+  const defaults={
+    estados:{items:[{id:'e1',nombre:'Bueno',color:'#4caf7d',desc:'IEP ≥ 75'},{id:'e2',nombre:'Regular',color:'#f5a623',desc:'IEP 50–74'},{id:'e3',nombre:'Crítico',color:'#f04f4f',desc:'IEP < 50'},{id:'e4',nombre:'En revisión',color:'#4f8ef7',desc:''}]},
+    intervenciones:{items:[{id:'i1',nombre:'Ninguna',color:'#7a8099',desc:''},{id:'i2',nombre:'Preventivo',color:'#4f8ef7',desc:''},{id:'i3',nombre:'Correctivo',color:'#f5a623',desc:''},{id:'i4',nombre:'Urgente',color:'#f04f4f',desc:''},{id:'i5',nombre:'En revisión',color:'#4f8ef7',desc:''}]},
+    tipos:{items:[{id:'t1',nombre:'Viga cajón',color:'#7a8099',desc:''},{id:'t2',nombre:'Atirantado',color:'#7a8099',desc:''},{id:'t3',nombre:'Losa',color:'#7a8099',desc:''},{id:'t4',nombre:'Arco',color:'#7a8099',desc:''},{id:'t5',nombre:'Viga I',color:'#7a8099',desc:''},{id:'t6',nombre:'Prelosa',color:'#7a8099',desc:''}]}
+  };
+  for(const[k,v] of Object.entries(defaults)) await setDoc(doc(db,'bms_catalogos',k),v);
 }
+initCatalogos();
 
-function populateFormSelects(){
-  const fp=document.getElementById('f-proyecto');
-  const fe=document.getElementById('f-estado');
-  const fi=document.getElementById('f-intervencion');
-  const ft=document.getElementById('f-tipo');
-  fp.innerHTML=''; CATALOGOS.proyectos.forEach(p=>{const o=document.createElement('option');o.value=p.nombre;o.textContent=p.nombre;fp.appendChild(o);});
-  fe.innerHTML=''; CATALOGOS.estados.forEach(e=>{const o=document.createElement('option');o.value=e.nombre;o.textContent=e.nombre;fe.appendChild(o);});
-  fi.innerHTML=''; CATALOGOS.intervenciones.forEach(i=>{const o=document.createElement('option');o.value=i.nombre;o.textContent=i.nombre;fi.appendChild(o);});
-  ft.innerHTML=''; CATALOGOS.tipos.forEach(t=>{const o=document.createElement('option');o.value=t.nombre;o.textContent=t.nombre;ft.appendChild(o);});
-}
-
+// ── Filtros ──
 function getFiltered(){
   const q=document.getElementById('buscar').value.toLowerCase();
   const p=document.getElementById('fProyecto').value;
   const e=document.getElementById('fEstado').value;
   const i=document.getElementById('fIntervencion').value;
   return PUENTES.filter(d=>
-    (!q||d.nombre.toLowerCase().includes(q)||d.id.toLowerCase().includes(q)||d.proyecto.toLowerCase().includes(q))&&
+    (!q||d.nombre?.toLowerCase().includes(q)||d.id?.toLowerCase().includes(q)||d.proyecto?.toLowerCase().includes(q))&&
     (!p||d.proyecto===p)&&(!e||d.estado===e)&&(!i||d.intervencion===i)
   );
 }
 
-// ═══════════════════════════════════════════════
-//  RENDER DASHBOARD
-// ═══════════════════════════════════════════════
+function populateSelects(){
+  const cur={p:document.getElementById('fProyecto').value,e:document.getElementById('fEstado').value,i:document.getElementById('fIntervencion').value};
+  const proyNombres=[...new Set(PUENTES.map(d=>d.proyecto).filter(Boolean))];
+  document.getElementById('fProyecto').innerHTML='<option value="">Todos los proyectos</option>'+proyNombres.map(p=>`<option value="${p}">${p}</option>`).join('');
+  document.getElementById('fEstado').innerHTML='<option value="">Todos los estados</option>'+CATALOGOS.estados.map(e=>`<option>${e.nombre}</option>`).join('');
+  document.getElementById('fIntervencion').innerHTML='<option value="">Todas las intervenciones</option>'+CATALOGOS.intervenciones.map(i=>`<option>${i.nombre}</option>`).join('');
+  document.getElementById('fProyecto').value=cur.p;
+  document.getElementById('fEstado').value=cur.e;
+  document.getElementById('fIntervencion').value=cur.i;
+}
+
+// ── Render dashboard ──
 function renderMetrics(f){
   const total=f.length,crit=f.filter(d=>d.estado==='Crítico').length;
-  const avgIep=total?Math.round(f.reduce((s,d)=>s+d.iep,0)/total):0;
+  const avgIep=total?Math.round(f.reduce((s,d)=>s+(d.iep||0),0)/total):0;
   const urg=f.filter(d=>d.intervencion==='Urgente').length;
   document.getElementById('metrics').innerHTML=`
-    <div class="metric"><div class="metric-label">Total puentes</div><div class="metric-val">${total}</div><div class="metric-note">${[...new Set(f.map(d=>d.proyecto))].length} proyectos</div></div>
+    <div class="metric"><div class="metric-label">Total puentes</div><div class="metric-val">${total}</div><div class="metric-note">${[...new Set(f.map(d=>d.proyecto))].filter(Boolean).length} proyectos</div></div>
     <div class="metric"><div class="metric-label">IEP promedio</div><div class="metric-val" style="color:${iepColor(avgIep)}">${avgIep}</div><div class="metric-note">Índice de estado</div></div>
     <div class="metric"><div class="metric-label">Estado crítico</div><div class="metric-val" style="color:#f04f4f">${crit}</div><div class="metric-note">${total?Math.round(crit/total*100):0}% del total</div></div>
-    <div class="metric"><div class="metric-label">Intervención urgente</div><div class="metric-val" style="color:#f5a623">${urg}</div><div class="metric-note">Acción inmediata</div></div>
-  `;
+    <div class="metric"><div class="metric-label">Intervención urgente</div><div class="metric-val" style="color:#f5a623">${urg}</div><div class="metric-note">Acción inmediata</div></div>`;
 }
 
 function renderTable(f){
   const tb=document.getElementById('tbody');
-  if(!f.length){tb.innerHTML='<tr class="empty-row"><td colspan="9">Sin resultados para los filtros aplicados</td></tr>';return;}
+  if(!f.length){tb.innerHTML='<tr class="empty-row"><td colspan="9">Sin resultados</td></tr>';return;}
   tb.innerHTML=f.map(d=>{
-    const ec=getCatColor('estados',d.estado);
-    const ic=getCatColor('intervenciones',d.intervencion);
-    return `<tr class="${selectedId===d.id?'selected':''}" onclick="selectRow('${d.id}')">
+    const ec=getCatColor(CATALOGOS.estados,d.estado);
+    const ic=getCatColor(CATALOGOS.intervenciones,d.intervencion);
+    return`<tr class="${selectedId===d.id?'selected':''}" onclick="selectRow('${d.id}')">
       <td class="mono">${d.id}</td>
       <td><div class="name">${d.nombre}</div></td>
-      <td class="proj">${d.proyecto}</td>
-      <td class="proj">${d.tipo}</td>
-      <td><div class="iep-bar"><div class="iep-track"><div class="iep-fill" style="width:${d.iep}%;background:${iepColor(d.iep)}"></div></div><div class="iep-num" style="color:${iepColor(d.iep)}">${d.iep}</div></div></td>
-      <td>${badge(ec,d.estado)}</td>
-      <td class="mono" style="font-size:12px">${d.fecha}</td>
-      <td>${badge(ic,d.intervencion)}</td>
+      <td class="proj-text">${d.proyecto||'—'}</td>
+      <td class="proj-text">${d.tipo||'—'}</td>
+      <td><div class="iep-bar"><div class="iep-track"><div class="iep-fill" style="width:${d.iep||0}%;background:${iepColor(d.iep||0)}"></div></div><div class="iep-num" style="color:${iepColor(d.iep||0)}">${d.iep||0}</div></div></td>
+      <td>${badge(ec,d.estado||'—')}</td>
+      <td class="mono" style="font-size:12px">${d.fecha||'—'}</td>
+      <td>${badge(ic,d.intervencion||'—')}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-sm" onclick="event.stopPropagation();editPuente('${d.id}')">✏️</button>
         <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();confirmDelete('puente','${d.id}')">🗑</button>
@@ -468,14 +403,13 @@ function renderTable(f){
 }
 
 function renderSidebars(f){
-  const proyectos=[...new Set(CATALOGOS.proyectos.map(p=>p.nombre))];
+  const proyectos=[...new Set(PUENTES.map(d=>d.proyecto).filter(Boolean))];
   document.getElementById('proj-stats').innerHTML=proyectos.map(p=>{
     const items=f.filter(d=>d.proyecto===p);
     if(!items.length)return'';
-    const avg=Math.round(items.reduce((s,d)=>s+d.iep,0)/items.length);
+    const avg=Math.round(items.reduce((s,d)=>s+(d.iep||0),0)/items.length);
     return`<div class="proj-stat"><div class="proj-name">${p}</div><div class="proj-track"><div class="proj-fill" style="width:${avg}%;background:${iepColor(avg)}"></div></div><div class="proj-num">${avg}</div></div>`;
   }).join('');
-
   document.getElementById('legend').innerHTML=CATALOGOS.estados.map(e=>{
     const count=f.filter(d=>d.estado===e.nombre).length;
     return`<div class="leg-item"><div class="leg-left"><div class="leg-dot" style="background:${e.color}"></div>${e.nombre}</div><div class="leg-count">${count}</div></div>`;
@@ -488,34 +422,32 @@ function renderDetail(){
   const d=PUENTES.find(x=>x.id===selectedId);
   if(!d){panel.className='detail-panel';return;}
   panel.className='detail-panel show';
-  const ec=getCatColor('estados',d.estado);
-  const ic=getCatColor('intervenciones',d.intervencion);
+  const ec=getCatColor(CATALOGOS.estados,d.estado);
+  const ic=getCatColor(CATALOGOS.intervenciones,d.intervencion);
   panel.innerHTML=`
-    <div class="dp-header">
-      <div><div class="dp-title">${d.nombre} ${badge(ec,d.estado)}</div><div class="dp-id">${d.id} · ${d.proyecto}</div></div>
-      <span class="dp-close" onclick="selectedId=null;render()">✕</span>
-    </div>
+    <div class="dp-header"><div><div class="dp-title">${d.nombre} ${badge(ec,d.estado||'')}</div><div class="dp-id">${d.id} · ${d.proyecto||''}</div></div><span class="dp-close" onclick="selectedId=null;render()">✕</span></div>
     <div class="dp-grid">
-      <div class="dp-field"><div class="dp-key">Tipo estructural</div><div class="dp-val">${d.tipo}</div></div>
-      <div class="dp-field"><div class="dp-key">Longitud</div><div class="dp-val">${d.long||'—'} m</div></div>
+      <div class="dp-field"><div class="dp-key">Tipo</div><div class="dp-val">${d.tipo||'—'}</div></div>
+      <div class="dp-field"><div class="dp-key">Longitud</div><div class="dp-val">${d.long?d.long+' m':'—'}</div></div>
       <div class="dp-field"><div class="dp-key">Carriles</div><div class="dp-val">${d.carriles||'—'}</div></div>
-      <div class="dp-field"><div class="dp-key">Año construcción</div><div class="dp-val">${d.año||'—'}</div></div>
-      <div class="dp-field"><div class="dp-key">Última inspección</div><div class="dp-val">${d.fecha}</div></div>
-      <div class="dp-field"><div class="dp-key">Intervención</div><div class="dp-val">${badge(ic,d.intervencion)}</div></div>
+      <div class="dp-field"><div class="dp-key">Año</div><div class="dp-val">${d.año||'—'}</div></div>
+      <div class="dp-field"><div class="dp-key">Última insp.</div><div class="dp-val">${d.fecha||'—'}</div></div>
+      <div class="dp-field"><div class="dp-key">Intervención</div><div class="dp-val">${badge(ic,d.intervencion||'—')}</div></div>
     </div>
-    <div><div class="dp-iep-label"><span>IEP</span><span style="color:${iepColor(d.iep)};font-family:var(--mono)">${d.iep}/100</span></div>
-    <div class="dp-iep-track"><div class="dp-iep-fill" style="width:${d.iep}%;background:${iepColor(d.iep)}"></div></div></div>
-    <div class="dp-obs">${d.obs||'Sin observaciones'}</div>
-    <div class="dp-actions">
+    <div><div class="dp-iep-label"><span>IEP</span><span style="color:${iepColor(d.iep||0)};font-family:var(--mono)">${d.iep||0}/100</span></div>
+    <div class="dp-iep-track"><div class="dp-iep-fill" style="width:${d.iep||0}%;background:${iepColor(d.iep||0)}"></div></div></div>
+    ${d.obs?`<div class="dp-obs">${d.obs}</div>`:''}
+    <div class="dp-actions" style="margin-top:1rem">
       <button class="btn btn-sm" onclick="editPuente('${d.id}')">✏️ Editar</button>
       <button class="btn btn-sm btn-danger" onclick="confirmDelete('puente','${d.id}')">🗑 Eliminar</button>
-      <button class="btn btn-sm" onclick="descargarPDFPuente('${d.id}')"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7 7-7z"/></svg> Ficha PDF</button>
-    </div>
-  `;
+      <a href="mapa.html" class="btn btn-sm">🗺 Ver en mapa</a>
+    </div>`;
 }
 
 function selectRow(id){selectedId=selectedId===id?null:id;render();}
+window.selectRow=selectRow;
 function resetFiltros(){document.getElementById('buscar').value='';document.getElementById('fProyecto').value='';document.getElementById('fEstado').value='';document.getElementById('fIntervencion').value='';render();}
+window.resetFiltros=resetFiltros;
 
 function render(){
   const f=getFiltered();
@@ -523,381 +455,171 @@ function render(){
   renderTable(f);
   renderSidebars(f);
   renderDetail();
-  populateSelects();
 }
 
-// ═══════════════════════════════════════════════
-//  MODAL PUENTE — AGREGAR / EDITAR
-// ═══════════════════════════════════════════════
-function openModal(name){document.getElementById('modal-'+name).classList.remove('hidden');}
-function closeModal(name){document.getElementById('modal-'+name).classList.add('hidden');}
-
+// ── Modal puente ──
 function openModalPuente(){
-  editingPuenteId=null;
+  editingId=null;
   document.getElementById('modal-puente-title').textContent='Agregar puente';
   document.getElementById('btn-guardar-puente').textContent='Guardar puente';
   document.getElementById('f-id').value=genId();
   document.getElementById('f-id').disabled=false;
-  document.getElementById('f-nombre').value='';
-  document.getElementById('f-iep').value='';
+  ['f-nombre','f-obs','f-lat','f-lng'].forEach(i=>document.getElementById(i).value='');
+  ['f-long','f-carriles','f-año','f-iep'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('f-fecha').value=new Date().toISOString().slice(0,10);
-  document.getElementById('f-long').value='';
-  document.getElementById('f-carriles').value='';
-  document.getElementById('f-año').value='';
-  document.getElementById('f-obs').value='';
   document.getElementById('err-id').style.display='none';
-  populateFormSelects();
+  populateFormSels();
   openModal('puente');
 }
+window.openModalPuente=openModalPuente;
 
 function editPuente(id){
-  const d=PUENTES.find(p=>p.id===id);
-  if(!d)return;
-  editingPuenteId=id;
+  const d=PUENTES.find(p=>p.id===id);if(!d)return;
+  editingId=id;
   document.getElementById('modal-puente-title').textContent='Editar puente';
   document.getElementById('btn-guardar-puente').textContent='Guardar cambios';
-  populateFormSelects();
-  document.getElementById('f-id').value=d.id;
-  document.getElementById('f-id').disabled=true;
-  document.getElementById('f-nombre').value=d.nombre;
-  document.getElementById('f-proyecto').value=d.proyecto;
-  document.getElementById('f-tipo').value=d.tipo;
-  document.getElementById('f-iep').value=d.iep;
-  document.getElementById('f-estado').value=d.estado;
-  document.getElementById('f-fecha').value=d.fecha;
-  document.getElementById('f-intervencion').value=d.intervencion;
+  document.getElementById('f-id').value=d.id;document.getElementById('f-id').disabled=true;
+  document.getElementById('f-nombre').value=d.nombre||'';
+  document.getElementById('f-iep').value=d.iep||'';
+  document.getElementById('f-fecha').value=d.fecha||'';
   document.getElementById('f-long').value=d.long||'';
   document.getElementById('f-carriles').value=d.carriles||'';
   document.getElementById('f-año').value=d.año||'';
   document.getElementById('f-obs').value=d.obs||'';
+  document.getElementById('f-lat').value=d.lat||'';
+  document.getElementById('f-lng').value=d.lng||'';
   document.getElementById('err-id').style.display='none';
+  populateFormSels(d);
   openModal('puente');
 }
+window.editPuente=editPuente;
 
-function guardarPuente(){
+function populateFormSels(d=null){
+  const proyNombres=[...new Set(PUENTES.map(p=>p.proyecto).filter(Boolean))];
+  document.getElementById('f-proyecto').innerHTML=proyNombres.map(p=>`<option value="${p}">${p}</option>`).join('');
+  document.getElementById('f-tipo').innerHTML=CATALOGOS.tipos.map(t=>`<option>${t.nombre}</option>`).join('');
+  document.getElementById('f-estado').innerHTML=CATALOGOS.estados.map(e=>`<option>${e.nombre}</option>`).join('');
+  document.getElementById('f-intervencion').innerHTML=CATALOGOS.intervenciones.map(i=>`<option>${i.nombre}</option>`).join('');
+  if(d){document.getElementById('f-proyecto').value=d.proyecto||'';document.getElementById('f-tipo').value=d.tipo||'';document.getElementById('f-estado').value=d.estado||'';document.getElementById('f-intervencion').value=d.intervencion||'';}
+}
+
+async function guardarPuente(){
   const id=document.getElementById('f-id').value.trim();
   const nombre=document.getElementById('f-nombre').value.trim();
   const proyecto=document.getElementById('f-proyecto').value;
-  const tipo=document.getElementById('f-tipo').value;
   const iep=parseInt(document.getElementById('f-iep').value);
   const estado=document.getElementById('f-estado').value;
-  const fecha=document.getElementById('f-fecha').value;
-  const intervencion=document.getElementById('f-intervencion').value;
-
-  if(!id||!nombre||!proyecto||!tipo||isNaN(iep)||!estado||!fecha||!intervencion){toast('Completa todos los campos obligatorios','err');return;}
-  if(iep<0||iep>100){toast('El IEP debe estar entre 0 y 100','err');return;}
-
-  if(!editingPuenteId && PUENTES.find(p=>p.id===id)){
-    document.getElementById('err-id').style.display='block';return;
-  }
-  document.getElementById('err-id').style.display='none';
-
-  const puente={
-    id,nombre,proyecto,tipo,iep,estado,fecha,intervencion,
-    long:parseInt(document.getElementById('f-long').value)||0,
-    carriles:parseInt(document.getElementById('f-carriles').value)||0,
-    año:parseInt(document.getElementById('f-año').value)||0,
-    obs:document.getElementById('f-obs').value.trim()
-  };
-
-  if(editingPuenteId){
-    const idx=PUENTES.findIndex(p=>p.id===editingPuenteId);
-    PUENTES[idx]=puente;
-    toast('Puente actualizado');
-  } else {
-    PUENTES.push(puente);
-    toast('Puente agregado');
-  }
-  savePuentes();
-  closeModal('puente');
-  render();
+  if(!id||!nombre||!proyecto||isNaN(iep)||!estado){toast('Completa los campos obligatorios','err');return;}
+  if(!editingId&&PUENTES.find(p=>p.id===id)){document.getElementById('err-id').style.display='block';return;}
+  const puente={id,nombre,proyecto,tipo:document.getElementById('f-tipo').value,iep,estado,
+    fecha:document.getElementById('f-fecha').value,intervencion:document.getElementById('f-intervencion').value,
+    long:parseInt(document.getElementById('f-long').value)||0,carriles:parseInt(document.getElementById('f-carriles').value)||0,
+    año:parseInt(document.getElementById('f-año').value)||0,obs:document.getElementById('f-obs').value.trim(),
+    lat:parseFloat(document.getElementById('f-lat').value)||null,lng:parseFloat(document.getElementById('f-lng').value)||null,
+    updatedAt:Date.now()};
+  try{
+    await setDoc(doc(db,'bms_puentes',id),puente);
+    toast(editingId?'Puente actualizado':'Puente agregado');
+    closeModal('puente');
+  }catch(e){toast('Error al guardar','err');console.error(e);}
 }
+window.guardarPuente=guardarPuente;
 
-// ═══════════════════════════════════════════════
-//  CATÁLOGOS (proyectos, estados, intervenciones, tipos)
-// ═══════════════════════════════════════════════
-const CAT_CONFIG = {
-  proyectos:    {label:'Proyectos / Autopistas', showColor:true, showDesc:true},
-  estados:      {label:'Estados estructurales',  showColor:true, showDesc:true},
-  intervenciones:{label:'Tipos de intervención', showColor:true, showDesc:false},
-  tipos:        {label:'Tipos estructurales',    showColor:false,showDesc:false},
-};
+// ── Catálogos ──
+const CAT_CFG={estados:{label:'Estados estructurales',showColor:true,showDesc:true},intervenciones:{label:'Intervenciones',showColor:true,showDesc:false},tipos:{label:'Tipos estructurales',showColor:false,showDesc:false}};
 
 function renderAdmin(){
   const grid=document.getElementById('admin-grid');
-  grid.innerHTML=Object.entries(CAT_CONFIG).map(([tipo,cfg])=>`
+  if(!grid)return;
+  grid.innerHTML=Object.entries(CAT_CFG).map(([tipo,cfg])=>`
     <div class="admin-card">
-      <div class="admin-card-header">
-        <div class="admin-card-title">${cfg.label}</div>
-        <button class="btn btn-sm" onclick="openCatModal('${tipo}',null)">+ Agregar</button>
-      </div>
-      <div class="admin-list" id="cat-list-${tipo}">${renderCatList(tipo)}</div>
-    </div>
-  `).join('');
+      <div class="admin-card-header"><div class="admin-card-title">${cfg.label}</div><button class="btn btn-sm" onclick="openCatModal('${tipo}',null)">+ Agregar</button></div>
+      <div class="admin-list">${renderCatList(tipo)}</div>
+    </div>`).join('');
 }
 
 function renderCatList(tipo){
-  const items=CATALOGOS[tipo];
-  if(!items||!items.length)return'<div class="admin-empty">Sin elementos</div>';
-  const cfg=CAT_CONFIG[tipo];
+  const items=CATALOGOS[tipo]||[];
+  if(!items.length)return'<div class="admin-empty">Sin elementos</div>';
+  const cfg=CAT_CFG[tipo];
   return items.map(item=>`
     <div class="admin-item">
-      <div class="admin-item-label">
-        ${cfg.showColor?`<div class="admin-item-dot" style="background:${item.color}"></div>`:''}
-        <span>${item.nombre}</span>
-        ${item.desc?`<span style="font-size:11px;color:var(--muted)">${item.desc}</span>`:''}
-      </div>
+      <div class="admin-item-label">${cfg.showColor?`<div class="admin-item-dot" style="background:${item.color}"></div>`:''}<span>${item.nombre}</span>${item.desc?`<span style="font-size:11px;color:var(--muted)">${item.desc}</span>`:''}</div>
       <div class="admin-item-actions">
-        <button class="icon-btn" onclick="openCatModal('${tipo}','${item.id}')" title="Editar">✏️</button>
-        <button class="icon-btn del" onclick="confirmDelete('cat','${tipo}|${item.id}')" title="Eliminar">🗑</button>
+        <button class="icon-btn" onclick="openCatModal('${tipo}','${item.id}')">✏️</button>
+        <button class="icon-btn del" onclick="confirmDelete('cat','${tipo}|${item.id}')">🗑</button>
       </div>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
+window.renderAdmin=renderAdmin;
 
 function openCatModal(tipo,editId){
-  catContext={tipo,editId};
-  const cfg=CAT_CONFIG[tipo];
-  document.getElementById('modal-cat-title').textContent=editId?`Editar ${cfg.label.toLowerCase()}`:`Agregar a ${cfg.label.toLowerCase()}`;
-  document.getElementById('cat-color-group').style.display=cfg.showColor?'flex':'none';
-  document.getElementById('cat-desc-group').style.display=cfg.showDesc?'flex':'none';
-  document.getElementById('cat-field-label').textContent=tipo==='tipos'?'Tipo estructural *':'Nombre *';
-
-  if(editId){
-    const item=CATALOGOS[tipo].find(i=>i.id===editId);
-    if(item){
-      document.getElementById('f-cat-nombre').value=item.nombre;
-      document.getElementById('f-cat-color').value=item.color||'';
-      document.getElementById('f-cat-desc').value=item.desc||'';
-      updateColorPreview(item.color||'');
-    }
-  } else {
-    document.getElementById('f-cat-nombre').value='';
-    document.getElementById('f-cat-color').value='';
-    document.getElementById('f-cat-desc').value='';
-    updateColorPreview('');
-  }
+  catCtx={tipo,editId};
+  const cfg=CAT_CFG[tipo];
+  document.getElementById('modal-cat-title').textContent=editId?'Editar elemento':'Agregar elemento';
+  document.getElementById('cat-color-grp').style.display=cfg.showColor?'flex':'none';
+  document.getElementById('cat-desc-grp').style.display=cfg.showDesc?'flex':'none';
+  if(editId){const item=CATALOGOS[tipo].find(i=>i.id===editId);if(item){document.getElementById('f-cat-nombre').value=item.nombre;document.getElementById('f-cat-color').value=item.color||'#7a8099';document.getElementById('f-cat-desc').value=item.desc||'';}}
+  else{document.getElementById('f-cat-nombre').value='';document.getElementById('f-cat-color').value='#7a8099';document.getElementById('f-cat-desc').value='';}
   openModal('catalogo');
 }
+window.openCatModal=openCatModal;
 
-function updateColorPreview(hex){
-  const preview=document.getElementById('cat-color-preview');
-  preview.style.background=hex||'transparent';
-}
-document.addEventListener('input',e=>{if(e.target.id==='f-cat-color')updateColorPreview(e.target.value);});
-
-function guardarCatalogo(){
-  const {tipo,editId}=catContext;
+async function guardarCatalogo(){
+  const{tipo,editId}=catCtx;
   const nombre=document.getElementById('f-cat-nombre').value.trim();
-  const color=document.getElementById('f-cat-color').value.trim()||'#7a8099';
+  const color=document.getElementById('f-cat-color').value||'#7a8099';
   const desc=document.getElementById('f-cat-desc').value.trim();
-  if(!nombre){toast('El nombre es obligatorio','err');return;}
-
+  if(!nombre){toast('Nombre obligatorio','err');return;}
+  const items=[...(CATALOGOS[tipo]||[])];
   if(editId){
-    const idx=CATALOGOS[tipo].findIndex(i=>i.id===editId);
-    if(idx>=0){
-      const old=CATALOGOS[tipo][idx].nombre;
-      CATALOGOS[tipo][idx]={...CATALOGOS[tipo][idx],nombre,color,desc};
-      // actualizar puentes si cambió el nombre
-      if(old!==nombre){
-        const field={proyectos:'proyecto',estados:'estado',intervenciones:'intervencion',tipos:'tipo'}[tipo];
-        if(field)PUENTES.forEach(p=>{if(p[field]===old)p[field]=nombre;});
-        savePuentes();
-      }
-      toast('Elemento actualizado');
-    }
-  } else {
-    const newId=tipo[0]+Date.now();
-    CATALOGOS[tipo].push({id:newId,nombre,color,desc});
-    toast('Elemento agregado');
-  }
-  saveCatalogos();
-  closeModal('catalogo');
-  renderAdmin();
-  populateSelects();
-  render();
+    const idx=items.findIndex(i=>i.id===editId);
+    if(idx>=0){const old=items[idx].nombre;items[idx]={...items[idx],nombre,color,desc};
+      if(old!==nombre){const field={estados:'estado',intervenciones:'intervencion',tipos:'tipo'}[tipo];if(field){for(const p of PUENTES){if(p[field]===old){await setDoc(doc(db,'bms_puentes',p.id),{...p,[field]:nombre});}}}}}
+  }else{items.push({id:tipo[0]+Date.now(),nombre,color,desc});}
+  try{await setDoc(doc(db,'bms_catalogos',tipo),{items});toast('Guardado');closeModal('catalogo');}
+  catch(e){toast('Error','err');}
 }
+window.guardarCatalogo=guardarCatalogo;
 
-// ═══════════════════════════════════════════════
-//  CONFIRMAR ELIMINACIÓN
-// ═══════════════════════════════════════════════
+// ── Eliminar ──
 function confirmDelete(tipo,id){
+  const b=tipo==='puente'?PUENTES.find(p=>p.id===id):null;
   document.getElementById('confirm-title').textContent=tipo==='puente'?'¿Eliminar puente?':'¿Eliminar elemento?';
-  const msg = tipo==='puente'
-    ? `Se eliminará permanentemente el puente "${PUENTES.find(p=>p.id===id)?.nombre||id}". Esta acción no se puede deshacer.`
-    : `Se eliminará el elemento del catálogo. Los puentes asociados quedarán con el valor anterior.`;
-  document.getElementById('confirm-msg').textContent=msg;
-  const btn=document.getElementById('confirm-ok');
-  btn.onclick=()=>{
-    if(tipo==='puente'){
-      PUENTES=PUENTES.filter(p=>p.id!==id);
-      savePuentes();
-      if(selectedId===id)selectedId=null;
-      toast('Puente eliminado');
-      render();
-    } else {
-      const [catTipo,catId]=id.split('|');
-      CATALOGOS[catTipo]=CATALOGOS[catTipo].filter(i=>i.id!==catId);
-      saveCatalogos();
-      toast('Elemento eliminado');
-      renderAdmin();
-      populateSelects();
-    }
-    closeModal('confirm');
+  document.getElementById('confirm-msg').textContent=tipo==='puente'?`Se eliminará "${b?.nombre||id}" permanentemente.`:'Se eliminará el elemento del catálogo.';
+  document.getElementById('confirm-ok').onclick=async()=>{
+    try{
+      if(tipo==='puente'){await deleteDoc(doc(db,'bms_puentes',id));if(selectedId===id)selectedId=null;toast('Puente eliminado');}
+      else{const[catTipo,catId]=id.split('|');const items=CATALOGOS[catTipo].filter(i=>i.id!==catId);await setDoc(doc(db,'bms_catalogos',catTipo),{items});toast('Elemento eliminado');}
+      closeModal('confirm');
+    }catch(e){toast('Error al eliminar','err');}
   };
   openModal('confirm');
 }
+window.confirmDelete=confirmDelete;
+window.closeModal=closeModal;
 
-// ═══════════════════════════════════════════════
-//  PDF GENERAL
-// ═══════════════════════════════════════════════
+// ── PDF ──
 function descargarPDF(){
-  const btn=document.getElementById('btnPDF');
-  btn.innerHTML='Generando...'; btn.disabled=true;
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  const now=new Date();
-  const fechaStr=now.toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'});
-  const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight();
+  const btn=document.getElementById('btnPDF');btn.textContent='Generando...';btn.disabled=true;
+  const{jsPDF}=window.jspdf;const doc2=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  const now=new Date();const fechaStr=now.toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'});
+  const W=doc2.internal.pageSize.getWidth(),H=doc2.internal.pageSize.getHeight();
   const f=getFiltered();
-
-  // — Portada —
-  doc.setFillColor(13,15,20); doc.rect(0,0,W,H,'F');
-  doc.setFillColor(79,142,247); doc.rect(0,0,6,H,'F');
-  doc.setTextColor(232,234,240);
-  doc.setFont('helvetica','bold'); doc.setFontSize(26);
-  doc.text('REPORTE GENERAL DE ESTRUCTURAS',18,36);
-  doc.setFont('helvetica','normal'); doc.setFontSize(13); doc.setTextColor(122,128,153);
-  doc.text('Sistema de Gestión de Puentes — BMS',18,46);
-  doc.text(`Fecha de emisión: ${fechaStr}`,18,54);
-
-  const total=f.length, avgIep=total?Math.round(f.reduce((s,d)=>s+d.iep,0)/total):0;
-  const crit=f.filter(d=>d.estado==='Crítico').length, urg=f.filter(d=>d.intervencion==='Urgente').length;
-  [{l:'Total puentes',v:total},{l:'IEP promedio',v:avgIep},{l:'Estado crítico',v:crit},{l:'Intervención urgente',v:urg}].forEach((k,i)=>{
-    const x=18+i*66;
-    doc.setFillColor(26,30,39); doc.roundedRect(x,68,62,24,2,2,'F');
-    doc.setTextColor(122,128,153); doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.text(k.l,x+6,77);
-    doc.setTextColor(232,234,240); doc.setFontSize(20); doc.setFont('helvetica','bold'); doc.text(String(k.v),x+6,88);
-  });
-
-  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(122,128,153);
-  doc.text('RESUMEN POR PROYECTO',18,108);
-  const proyectos=[...new Set(PUENTES.map(d=>d.proyecto))];
-  proyectos.forEach((p,i)=>{
-    const items=f.filter(d=>d.proyecto===p); if(!items.length)return;
-    const avg=Math.round(items.reduce((s,d)=>s+d.iep,0)/items.length);
-    const y=116+i*10;
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(232,234,240); doc.text(p,18,y);
-    doc.setTextColor(122,128,153); doc.text(`${items.length} puentes · IEP: ${avg}`,130,y);
-    const bx=220,bw=50;
-    doc.setFillColor(26,30,39); doc.roundedRect(bx,y-4,bw,3.5,1,1,'F');
-    const [r,g,b]=avg>=75?[76,175,125]:avg>=50?[245,166,35]:[240,79,79];
-    doc.setFillColor(r,g,b); doc.roundedRect(bx,y-4,Math.round(bw*avg/100),3.5,1,1,'F');
-    doc.setTextColor(r,g,b); doc.setFont('helvetica','bold'); doc.text(String(avg),bx+bw+3,y);
-  });
-
-  // — Tabla —
-  doc.addPage();
-  doc.setFillColor(13,15,20); doc.rect(0,0,W,H,'F');
-  doc.setFillColor(79,142,247); doc.rect(0,0,6,H,'F');
-  doc.setTextColor(232,234,240); doc.setFont('helvetica','bold'); doc.setFontSize(16);
-  doc.text('Inventario completo de estructuras',18,18);
-  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(122,128,153);
-  doc.text(`${f.length} registros · ${fechaStr}`,18,26);
-
-  doc.autoTable({
-    startY:32,margin:{left:18,right:10},
-    head:[['ID','Nombre','Proyecto','Tipo','IEP','Estado','Últ. insp.','Intervención','Long.','Año']],
-    body:f.map(d=>[d.id,d.nombre,d.proyecto,d.tipo,d.iep,d.estado,d.fecha,d.intervencion,d.long||'',d.año||'']),
-    styles:{font:'helvetica',fontSize:8.5,textColor:[232,234,240],fillColor:[19,22,29],lineColor:[40,44,55],lineWidth:.3,cellPadding:3},
-    headStyles:{fillColor:[26,30,39],textColor:[122,128,153],fontStyle:'bold',fontSize:8},
-    alternateRowStyles:{fillColor:[16,19,26]},
-    columnStyles:{0:{cellWidth:18,font:'courier'},1:{cellWidth:44},2:{cellWidth:40},3:{cellWidth:22},4:{cellWidth:12,halign:'center'},5:{cellWidth:22},6:{cellWidth:22,font:'courier'},7:{cellWidth:22},8:{cellWidth:16,halign:'right'},9:{cellWidth:13,halign:'center'}},
-    didParseCell(data){
-      if(data.section!=='body')return;
-      if(data.column.index===4){const v=parseInt(data.cell.raw);const[r,g,b]=v>=75?[76,175,125]:v>=50?[245,166,35]:[240,79,79];data.cell.styles.textColor=[r,g,b];data.cell.styles.fontStyle='bold';}
-      if(data.column.index===5){const c=getCatColor('estados',data.cell.raw);const hex=c.replace('#','');data.cell.styles.textColor=[parseInt(hex.slice(0,2),16),parseInt(hex.slice(2,4),16),parseInt(hex.slice(4,6),16)];}
-    }
-  });
-
-  // — Observaciones —
-  doc.addPage();
-  doc.setFillColor(13,15,20); doc.rect(0,0,W,H,'F');
-  doc.setFillColor(79,142,247); doc.rect(0,0,6,H,'F');
-  doc.setTextColor(232,234,240); doc.setFont('helvetica','bold'); doc.setFontSize(16);
-  doc.text('Observaciones técnicas',18,18);
-  let cy=30;
-  f.filter(d=>d.obs).forEach(d=>{
-    if(cy>H-20)return;
-    doc.setFillColor(26,30,39); doc.roundedRect(18,cy-4,W-28,14,2,2,'F');
-    const c=getCatColor('estados',d.estado).replace('#','');
-    const[r,g,b]=[parseInt(c.slice(0,2),16),parseInt(c.slice(2,4),16),parseInt(c.slice(4,6),16)];
-    doc.setFillColor(r,g,b); doc.rect(18,cy-4,3,14,'F');
-    doc.setFont('courier','bold'); doc.setFontSize(8.5); doc.setTextColor(r,g,b); doc.text(d.id,24,cy+2);
-    doc.setFont('helvetica','bold'); doc.setTextColor(232,234,240); doc.text(d.nombre,44,cy+2);
-    doc.setFont('helvetica','normal'); doc.setTextColor(122,128,153); doc.text(d.obs,44,cy+8);
-    cy+=18;
-  });
-
-  const total2=doc.getNumberOfPages();
-  for(let i=1;i<=total2;i++){
-    doc.setPage(i);
-    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(122,128,153);
-    doc.text(`BMS · Reporte General · ${fechaStr}`,18,H-6);
-    doc.text(`Página ${i} de ${total2}`,W-30,H-6);
-  }
-  doc.save(`BMS_Reporte_${now.toISOString().slice(0,10)}.pdf`);
-  btn.innerHTML=`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7 7-7z"/></svg> Reporte PDF`;
-  btn.disabled=false;
+  doc2.setFillColor(13,15,20);doc2.rect(0,0,W,H,'F');
+  doc2.setFillColor(79,142,247);doc2.rect(0,0,6,H,'F');
+  doc2.setTextColor(232,234,240);doc2.setFont('helvetica','bold');doc2.setFontSize(24);doc2.text('REPORTE GENERAL DE ESTRUCTURAS',18,34);
+  doc2.setFont('helvetica','normal');doc2.setFontSize(12);doc2.setTextColor(122,128,153);doc2.text('Sistema de Gestión de Puentes — BMS',18,44);doc2.text(`Fecha: ${fechaStr}`,18,52);
+  const total=f.length,avg=total?Math.round(f.reduce((s,d)=>s+(d.iep||0),0)/total):0,crit=f.filter(d=>d.estado==='Crítico').length,urg=f.filter(d=>d.intervencion==='Urgente').length;
+  [{l:'Total',v:total},{l:'IEP prom.',v:avg},{l:'Críticos',v:crit},{l:'Urgentes',v:urg}].forEach((k,i)=>{const x=18+i*66;doc2.setFillColor(26,30,39);doc2.roundedRect(x,62,62,22,2,2,'F');doc2.setTextColor(122,128,153);doc2.setFontSize(9);doc2.setFont('helvetica','normal');doc2.text(k.l,x+5,71);doc2.setTextColor(232,234,240);doc2.setFontSize(18);doc2.setFont('helvetica','bold');doc2.text(String(k.v),x+5,82);});
+  doc2.addPage();doc2.setFillColor(13,15,20);doc2.rect(0,0,W,H,'F');doc2.setFillColor(79,142,247);doc2.rect(0,0,6,H,'F');
+  doc2.setTextColor(232,234,240);doc2.setFont('helvetica','bold');doc2.setFontSize(15);doc2.text('Inventario completo',18,16);
+  doc2.autoTable({startY:22,margin:{left:18,right:10},head:[['ID','Nombre','Proyecto','Tipo','IEP','Estado','Últ. insp.','Intervención']],body:f.map(d=>[d.id,d.nombre,d.proyecto||'',d.tipo||'',d.iep||0,d.estado||'',d.fecha||'',d.intervencion||'']),styles:{font:'helvetica',fontSize:8.5,textColor:[232,234,240],fillColor:[19,22,29],lineColor:[40,44,55],lineWidth:.3,cellPadding:3},headStyles:{fillColor:[26,30,39],textColor:[122,128,153],fontStyle:'bold',fontSize:8},alternateRowStyles:{fillColor:[16,19,26]},didParseCell(data){if(data.section!=='body')return;if(data.column.index===4){const v=parseInt(data.cell.raw);const[r,g,b]=v>=75?[76,175,125]:v>=50?[245,166,35]:[240,79,79];data.cell.styles.textColor=[r,g,b];data.cell.styles.fontStyle='bold';}}});
+  const tp=doc2.getNumberOfPages();for(let i=1;i<=tp;i++){doc2.setPage(i);doc2.setFont('helvetica','normal');doc2.setFontSize(8);doc2.setTextColor(122,128,153);doc2.text(`BMS · ${fechaStr}`,18,H-6);doc2.text(`Pág. ${i}/${tp}`,W-20,H-6);}
+  doc2.save(`BMS_Reporte_${now.toISOString().slice(0,10)}.pdf`);
+  btn.textContent='PDF';btn.disabled=false;
 }
-
-function descargarPDFPuente(id){
-  const d=PUENTES.find(x=>x.id===id); if(!d)return;
-  const{jsPDF}=window.jspdf;
-  const doc=new jsPDF({unit:'mm',format:'a4'});
-  const now=new Date();
-  const fechaStr=now.toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'});
-  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
-  doc.setFillColor(13,15,20); doc.rect(0,0,W,H,'F');
-  doc.setFillColor(79,142,247); doc.rect(0,0,5,H,'F');
-  doc.setTextColor(232,234,240); doc.setFont('helvetica','bold'); doc.setFontSize(20);
-  doc.text(d.nombre,16,28);
-  doc.setFont('courier','normal'); doc.setFontSize(10); doc.setTextColor(122,128,153);
-  doc.text(`${d.id} · ${d.proyecto}`,16,38);
-  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.text(`Emitido: ${fechaStr}`,16,46);
-  [[`Tipo`,d.tipo],[`Longitud`,`${d.long||'—'} m`],[`Carriles`,d.carriles||'—'],[`Año`,d.año||'—'],[`Última insp.`,d.fecha],[`Intervención`,d.intervencion]].forEach(([k,v],i)=>{
-    const x=i%2===0?16:105,y=62+Math.floor(i/2)*14;
-    doc.setFillColor(26,30,39); doc.roundedRect(x,y-5,85,12,2,2,'F');
-    doc.setTextColor(122,128,153); doc.setFontSize(8); doc.text(k,x+4,y+1);
-    doc.setTextColor(232,234,240); doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.text(String(v),x+4,y+8); doc.setFont('helvetica','normal');
-  });
-  const[r,g,b]=d.iep>=75?[76,175,125]:d.iep>=50?[245,166,35]:[240,79,79];
-  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(122,128,153); doc.text('IEP',16,118);
-  doc.setFillColor(26,30,39); doc.roundedRect(16,122,178,8,2,2,'F');
-  doc.setFillColor(r,g,b); doc.roundedRect(16,122,Math.round(178*d.iep/100),8,2,2,'F');
-  doc.setTextColor(r,g,b); doc.setFont('courier','bold'); doc.setFontSize(14); doc.text(`${d.iep}/100`,16,144);
-  if(d.obs){
-    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(122,128,153); doc.text('Observaciones',16,158);
-    doc.setFillColor(26,30,39); doc.roundedRect(16,162,178,20,2,2,'F');
-    doc.setFillColor(r,g,b); doc.rect(16,162,3,20,'F');
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(232,234,240);
-    doc.text(doc.splitTextToSize(d.obs,168),22,170);
-  }
-  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(122,128,153);
-  doc.text(`BMS · Ficha técnica · ${fechaStr}`,16,H-10);
-  doc.save(`BMS_Ficha_${d.id}_${now.toISOString().slice(0,10)}.pdf`);
-}
-
-// ═══════════════════════════════════════════════
-//  ARRANQUE
-// ═══════════════════════════════════════════════
-// Exponer openModalPuente al botón del header
-document.querySelector('button[onclick="openModal(\'puente\')"]').setAttribute('onclick','openModalPuente()');
-
-const now2=new Date();
-document.getElementById('fecha-sub').textContent=`Actualizado: ${now2.toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'})} · ${PUENTES.length} estructuras registradas`;
-populateSelects();
-render();
+window.descargarPDF=descargarPDF;
 </script>
 </body>
 </html>

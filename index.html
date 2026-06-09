@@ -158,6 +158,10 @@ footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:12px;border
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
       Agregar puente
     </button>
+    <button class="btn btn-sm" onclick="openModalProyecto()">
+  <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+  Nuevo proyecto
+</button>
     <button class="btn btn-primary btn-sm" onclick="descargarPDF()" id="btnPDF">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7 7-7z"/></svg>
       PDF
@@ -224,6 +228,23 @@ footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:12px;border
   </div>
 </div>
 
+  <!-- MODAL PROYECTO -->
+<div class="modal-overlay hidden" id="modal-proyecto">
+  <div class="modal" style="max-width:370px">
+    <div class="modal-title"><span id="mpr-title">Nuevo proyecto</span><span class="modal-close" onclick="closeModal('proyecto')">✕</span></div>
+    <div class="form-group" style="margin-bottom:9px"><label>Nombre *</label><input id="mpr-nombre" placeholder="Autopista del Sol"/></div>
+    <div class="form-group" style="margin-bottom:9px"><label>Color en mapa</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="color" id="mpr-color" value="#4f8ef7" style="width:42px;height:32px;padding:2px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);cursor:pointer"/>
+        <span style="font-size:12px;color:var(--muted)">Color de los marcadores</span>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:9px"><label>Centro del mapa (lat, lng)</label><input id="mpr-centro" placeholder="19.4326, -99.1332"/></div>
+    <div class="form-group" style="margin-bottom:9px"><label>Zoom inicial (1–18)</label><input id="mpr-zoom" type="number" min="1" max="18" value="12"/></div>
+    <div class="form-actions"><button class="btn" onclick="closeModal('proyecto')">Cancelar</button><button class="btn btn-primary" onclick="guardarProyecto()">Guardar</button></div>
+  </div>
+</div>
+
 <!-- MODAL CATÁLOGO -->
 <div class="modal-overlay hidden" id="modal-catalogo">
   <div class="modal" style="max-width:370px">
@@ -275,6 +296,47 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 
+let editingPrId = null;
+
+  //Proyecto
+function openModalProyecto(editId = null) {
+  editingPrId = editId;
+  const p = editId ? PROYECTOS.find(x => x.id === editId) : null;
+  document.getElementById('mpr-title').textContent = editId ? 'Editar proyecto' : 'Nuevo proyecto';
+  document.getElementById('mpr-nombre').value = p ? p.nombre : '';
+  document.getElementById('mpr-color').value = p ? p.color : '#4f8ef7';
+  document.getElementById('mpr-centro').value = p ? `${p.centro[0]}, ${p.centro[1]}` : '';
+  document.getElementById('mpr-zoom').value = p ? p.zoom : 12;
+  openModal('proyecto');
+}
+
+async function guardarProyecto() {
+  const nombre = document.getElementById('mpr-nombre').value.trim();
+  if (!nombre) { toast('Nombre obligatorio', 'err'); return; }
+  const color = document.getElementById('mpr-color').value;
+  const centroRaw = document.getElementById('mpr-centro').value.trim();
+  let centro = [19.43, -99.13];
+  if (centroRaw) {
+    const p = centroRaw.split(',').map(s => parseFloat(s.trim()));
+    if (p.length === 2 && !isNaN(p[0])) centro = p;
+  }
+  const zoom = parseInt(document.getElementById('mpr-zoom').value) || 12;
+  const id = editingPrId || (nombre.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now());
+  try {
+    await setDoc(doc(db, 'bms_proyectos', id), { id, nombre, color, centro, zoom });
+    toast('Proyecto guardado');
+    closeModal('proyecto');
+    if (!editingPrId) {
+      // Opcional: seleccionar el nuevo proyecto como filtro actual
+      document.getElementById('fProyecto').value = nombre;
+      render();
+    }
+  } catch (e) { toast('Error', 'err'); console.error(e); }
+}
+
+  
+
+  
 // ── Colecciones ──
 const colPuentes     = collection(db,'bms_puentes');
 const colProyectos   = collection(db,'bms_proyectos');
@@ -356,15 +418,24 @@ function getFiltered(){
   );
 }
 
-function populateSelects(){
-  const cur={p:document.getElementById('fProyecto').value,e:document.getElementById('fEstado').value,i:document.getElementById('fIntervencion').value};
-  const proyNombres=[...new Set(PUENTES.map(d=>d.proyecto).filter(Boolean))];
-  document.getElementById('fProyecto').innerHTML='<option value="">Todos los proyectos</option>'+proyNombres.map(p=>`<option value="${p}">${p}</option>`).join('');
-  document.getElementById('fEstado').innerHTML='<option value="">Todos los estados</option>'+CATALOGOS.estados.map(e=>`<option>${e.nombre}</option>`).join('');
-  document.getElementById('fIntervencion').innerHTML='<option value="">Todas las intervenciones</option>'+CATALOGOS.intervenciones.map(i=>`<option>${i.nombre}</option>`).join('');
-  document.getElementById('fProyecto').value=cur.p;
-  document.getElementById('fEstado').value=cur.e;
-  document.getElementById('fIntervencion').value=cur.i;
+function populateSelects() {
+  const cur = {
+    p: document.getElementById('fProyecto').value,
+    e: document.getElementById('fEstado').value,
+    i: document.getElementById('fIntervencion').value
+  };
+  // Ahora usa PROYECTOS en lugar de deducir de los puentes
+  const proyectosNombres = PROYECTOS.map(p => p.nombre);
+  document.getElementById('fProyecto').innerHTML = '<option value="">Todos los proyectos</option>' +
+    proyectosNombres.map(p => `<option value="${p}">${p}</option>`).join('');
+  document.getElementById('fEstado').innerHTML = '<option value="">Todos los estados</option>' +
+    CATALOGOS.estados.map(e => `<option>${e.nombre}</option>`).join('');
+  document.getElementById('fIntervencion').innerHTML = '<option value="">Todas las intervenciones</option>' +
+    CATALOGOS.intervenciones.map(i => `<option>${i.nombre}</option>`).join('');
+  // Restaurar valores seleccionados
+  document.getElementById('fProyecto').value = cur.p;
+  document.getElementById('fEstado').value = cur.e;
+  document.getElementById('fIntervencion').value = cur.i;
 }
 
 // ── Render dashboard ──
@@ -494,13 +565,19 @@ function editPuente(id){
 }
 window.editPuente=editPuente;
 
-function populateFormSels(d=null){
-  const proyNombres=[...new Set(PUENTES.map(p=>p.proyecto).filter(Boolean))];
-  document.getElementById('f-proyecto').innerHTML=proyNombres.map(p=>`<option value="${p}">${p}</option>`).join('');
-  document.getElementById('f-tipo').innerHTML=CATALOGOS.tipos.map(t=>`<option>${t.nombre}</option>`).join('');
-  document.getElementById('f-estado').innerHTML=CATALOGOS.estados.map(e=>`<option>${e.nombre}</option>`).join('');
-  document.getElementById('f-intervencion').innerHTML=CATALOGOS.intervenciones.map(i=>`<option>${i.nombre}</option>`).join('');
-  if(d){document.getElementById('f-proyecto').value=d.proyecto||'';document.getElementById('f-tipo').value=d.tipo||'';document.getElementById('f-estado').value=d.estado||'';document.getElementById('f-intervencion').value=d.intervencion||'';}
+function populateFormSels(d = null) {
+  // Ahora usa la lista real de proyectos desde Firestore
+  const proyectosList = PROYECTOS.map(p => p.nombre);
+  document.getElementById('f-proyecto').innerHTML = proyectosList.map(p => `<option value="${p}">${p}</option>`).join('');
+  document.getElementById('f-tipo').innerHTML = CATALOGOS.tipos.map(t => `<option>${t.nombre}</option>`).join('');
+  document.getElementById('f-estado').innerHTML = CATALOGOS.estados.map(e => `<option>${e.nombre}</option>`).join('');
+  document.getElementById('f-intervencion').innerHTML = CATALOGOS.intervenciones.map(i => `<option>${i.nombre}</option>`).join('');
+  if (d) {
+    document.getElementById('f-proyecto').value = d.proyecto || '';
+    document.getElementById('f-tipo').value = d.tipo || '';
+    document.getElementById('f-estado').value = d.estado || '';
+    document.getElementById('f-intervencion').value = d.intervencion || '';
+  }
 }
 
 async function guardarPuente(){

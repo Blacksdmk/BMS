@@ -1949,8 +1949,14 @@ window._shareB = function(id) {
    MAP
 ══════════════════════════════════════ */
 function updateMapData() {
+  // Defer init until the Map tab is actually visible (MapLibre needs a sized container).
+  const panel = document.getElementById('panel-map');
+  if (!panel || !panel.classList.contains('active')) {
+    S._mapDirty = true;
+    return;
+  }
   if (!S.map) initMap();
-  else refreshMapLayers();
+  else { refreshMapLayers(); S.map.resize(); }
 }
 
 function initMap() {
@@ -2541,7 +2547,12 @@ function switchTab(name) {
   if (tabBtn) tabBtn.classList.add('active');
   const panel = document.getElementById('panel-'+name);
   if (panel) panel.classList.add('active');
-  if (name==='map' && S.map) setTimeout(()=>S.map.resize(), 60);
+  if (name === 'map') {
+    setTimeout(() => {
+      if (!S.map) initMap();
+      else { S.map.resize(); if (S._mapDirty) { refreshMapLayers(); S._mapDirty = false; } }
+    }, 80);
+  }
 }
 
 document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
@@ -2624,6 +2635,62 @@ if (bridgeParam) {
 window.addEventListener('resize', () => { if (S.map) S.map.resize(); });
 
 console.log('🚀 BMS Global v2.0 listo.');
+
+
+/* ══════════════════════════════════════
+   FIX: Botón "Nuevo puente"
+══════════════════════════════════════ */
+document.getElementById('addBridgeBtn')?.addEventListener('click', async () => {
+  snd.click();
+  const projectIds = Object.keys(S.projects);
+  if (!projectIds.length) { toast('No hay proyectos disponibles aún', 'warning'); return; }
+  const projList = projectIds.map((id,i) => `${i+1}. ${S.projects[id].info?.name || id}`).join('\n');
+  const choice = prompt('Selecciona el proyecto (número):\n\n' + projList);
+  if (!choice) return;
+  const idx = parseInt(choice,10) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= projectIds.length) { toast('Proyecto inválido', 'error'); return; }
+  const pid = projectIds[idx];
+
+  const name = prompt('Nombre del puente:'); if (!name) return;
+  const code = prompt('Código del puente:', 'PB-' + Date.now().toString().slice(-5)); if (!code) return;
+  const lat  = parseFloat(prompt('Latitud (ej. 19.05):'));
+  const lng  = parseFloat(prompt('Longitud (ej. -99.20):'));
+  if (isNaN(lat) || isNaN(lng)) { toast('Coordenadas inválidas', 'error'); return; }
+  const cond = prompt('Condición inicial (Optimo / Bueno / Regular / Malo / Critico):', 'Bueno') || 'Bueno';
+
+  try {
+    const newRef = push(ref(db, `projects/${pid}/bridges`));
+    await update(newRef, {
+      name, code,
+      coordinates: { lat, lng },
+      currentCondition: cond,
+      createdAt: new Date().toISOString(),
+      additionalData: {}
+    });
+    toast('Puente agregado correctamente', 'success');
+    snd.success();
+  } catch (e) {
+    console.error(e);
+    toast('Error al guardar: ' + e.message, 'error');
+    snd.error();
+  }
+});
+
+/* ══════════════════════════════════════
+   FIX: Indicador de conexión con timeout
+══════════════════════════════════════ */
+setTimeout(() => {
+  const lbl = document.getElementById('statusLabel');
+  const dot = document.getElementById('statusDot');
+  const loader = document.getElementById('app-loader');
+  if (lbl && lbl.textContent === 'Conectando…') {
+    lbl.textContent = 'Sin conexión';
+    if (dot) dot.style.background = 'var(--c-critical)';
+    toast('No se pudo conectar a la base de datos. Revisa la configuración de Firebase (Auth anónimo habilitado y reglas de RTDB).', 'warning', 6000);
+  }
+  if (loader && loader.style.display !== 'none') hideLoader();
+}, 7000);
+
 </script>
 </body>
 </html>

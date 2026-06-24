@@ -1,1285 +1,2629 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BMS Global - Puentes</title>
-    <!-- MapLibre -->
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" />
-    <!-- Chart.js -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/Chart.min.css" />
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-    <style>
-        /* ===== VARIABLES ===== */
-        :root {
-            --bg-primary: #f4f7fc;
-            --bg-secondary: #ffffff;
-            --bg-card: #ffffff;
-            --text-primary: #1a2332;
-            --text-secondary: #3a4a5e;
-            --border-color: #dce4ec;
-            --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-            --radius: 16px;
-            --accent-color: #2563eb;
-            --accent-hover: #1d4ed8;
-        }
-        [data-theme="dark"] {
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --bg-card: #1e293b;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --border-color: #334155;
-            --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-        body {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            transition: background 0.3s, color 0.3s;
-            overflow: hidden;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        /* ===== BARRA SUPERIOR ===== */
-        #topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px 20px;
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border-color);
-            flex-shrink: 0;
-            z-index: 10;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        #topbar .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.2rem; }
-        #topbar .logo i { color: var(--accent-color); font-size: 1.6rem; }
-        .right-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .top-btn {
-            background: transparent; border: none; color: var(--text-secondary);
-            font-size: 1.2rem; cursor: pointer; padding: 6px 10px; border-radius: 8px;
-            transition: background 0.2s;
-        }
-        .top-btn:hover { background: var(--border-color); color: var(--text-primary); }
-        #status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 4px; }
-        #status-indicator.online { background: #22c55e; }
-        #status-indicator.offline { background: #f59e0b; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BMS Global — Sistema de Gestión de Puentes</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS & VARIABLES
+═══════════════════════════════════════════ */
+:root {
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Mono', monospace;
 
-        /* ===== TABS ===== */
-        #tabs {
-            display: flex; gap: 2px; background: var(--bg-secondary);
-            padding: 0 20px; border-bottom: 1px solid var(--border-color);
-            flex-shrink: 0; overflow-x: auto;
-        }
-        .tab-btn {
-            padding: 12px 24px; background: transparent; border: none;
-            border-bottom: 3px solid transparent; font-weight: 600;
-            color: var(--text-secondary); cursor: pointer; transition: 0.2s;
-            white-space: nowrap; font-size: 0.95rem;
-        }
-        .tab-btn i { margin-right: 8px; }
-        .tab-btn:hover { color: var(--text-primary); background: var(--bg-primary); }
-        .tab-btn.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+  /* Light */
+  --bg-canvas:    #eef1f7;
+  --bg-surface:   #ffffff;
+  --bg-elevated:  #f8fafd;
+  --bg-glass:     rgba(255,255,255,0.72);
+  --text-primary: #0d1b2e;
+  --text-muted:   #566880;
+  --text-faint:   #94a3b8;
+  --border:       rgba(0,0,0,0.08);
+  --border-strong:rgba(0,0,0,0.14);
+  --shadow-sm:    0 1px 4px rgba(0,0,0,0.07), 0 0 1px rgba(0,0,0,0.05);
+  --shadow-md:    0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
+  --shadow-lg:    0 12px 40px rgba(0,0,0,0.14);
+  --shadow-xl:    0 24px 64px rgba(0,0,0,0.18);
 
-        /* ===== PANELES ===== */
-        #main-container { flex: 1; display: flex; overflow: hidden; position: relative; }
-        .panel { display: none; width: 100%; height: 100%; overflow-y: auto; padding: 20px; animation: fadeIn 0.3s ease; }
-        .panel.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  /* Accent / brand */
+  --accent:       #2563eb;
+  --accent-dim:   rgba(37,99,235,0.12);
+  --accent-glow:  rgba(37,99,235,0.35);
+  --accent2:      #7c3aed;
+  --accent-hover: #1d4ed8;
 
-        /* ===== DASHBOARD ===== */
-        .kpi-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px; margin-bottom: 24px;
-        }
-        .kpi-card {
-            background: var(--bg-card); padding: 18px 20px; border-radius: var(--radius);
-            box-shadow: var(--shadow); border-left: 5px solid var(--accent-color);
-        }
-        .kpi-card .label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
-        .kpi-card .value { font-size: 2rem; font-weight: 700; margin-top: 4px; }
-        .kpi-card.critical { border-left-color: #ef4444; }
-        .kpi-card.good { border-left-color: #22c55e; }
-        .kpi-card.warning { border-left-color: #f59e0b; }
+  /* Status */
+  --c-optimal:  #10b981; --c-optimal-bg:  #d1fae5;
+  --c-good:     #3b82f6; --c-good-bg:     #dbeafe;
+  --c-regular:  #f59e0b; --c-regular-bg:  #fef3c7;
+  --c-bad:      #f97316; --c-bad-bg:      #ffedd5;
+  --c-critical: #ef4444; --c-critical-bg: #fee2e2;
 
-        /* ===== DIRECTORIO ===== */
-        .filters-row {
-            display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
-            align-items: center; background: var(--bg-card); padding: 16px;
-            border-radius: var(--radius); box-shadow: var(--shadow);
-        }
-        .filters-row select, .filters-row input {
-            padding: 8px 14px; border: 1px solid var(--border-color); border-radius: 8px;
-            background: var(--bg-primary); color: var(--text-primary); font-size: 0.9rem;
-            min-width: 130px;
-        }
-        .filters-row input[type="text"] { flex: 1; min-width: 200px; }
-        .table-wrap { overflow-x: auto; background: var(--bg-card); border-radius: var(--radius); box-shadow: var(--shadow); }
-        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        th { background: var(--bg-primary); text-align: left; padding: 12px 16px; color: var(--text-secondary); font-weight: 600; border-bottom: 2px solid var(--border-color); }
-        td { padding: 10px 16px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
-        tr:hover td { background: var(--bg-primary); }
-        .badge-condition {
-            padding: 4px 12px; border-radius: 20px; font-size: 0.75rem;
-            font-weight: 600; display: inline-block;
-        }
-        .badge-condition.optimo { background: #dcfce7; color: #166534; }
-        .badge-condition.bueno { background: #dbeafe; color: #1e40af; }
-        .badge-condition.regular { background: #fef9c3; color: #854d0e; }
-        .badge-condition.malo { background: #fed7aa; color: #9a3412; }
-        .badge-condition.critico { background: #fecaca; color: #991b1b; }
-        .btn-sm {
-            padding: 4px 12px; border: none; border-radius: 6px; font-size: 0.8rem;
-            cursor: pointer; background: var(--accent-color); color: white; transition: 0.2s;
-        }
-        .btn-sm:hover { background: var(--accent-hover); }
-        .btn-sm.outline { background: transparent; border: 1px solid var(--accent-color); color: var(--accent-color); }
-        .btn-sm.outline:hover { background: var(--accent-color); color: white; }
+  --radius-sm: 8px;
+  --radius:    14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+  --topbar-h: 56px;
+  --tabs-h:   46px;
+}
 
-        /* ===== MAPA ===== */
-        #map-container { width: 100%; height: 100%; position: relative; }
-        #map { width: 100%; height: 100%; background: #e5e7eb; }
-        .map-controls {
-            position: absolute; top: 16px; right: 16px;
-            display: flex; flex-direction: column; gap: 8px; z-index: 5;
-        }
-        .map-controls button {
-            background: var(--bg-card); border: 1px solid var(--border-color);
-            border-radius: 8px; padding: 8px 12px; box-shadow: var(--shadow);
-            color: var(--text-primary); cursor: pointer; font-size: 0.9rem;
-            transition: 0.2s; display: flex; align-items: center; gap: 6px;
-        }
-        .map-controls button:hover { background: var(--bg-primary); }
-        .map-controls button.toggle-on { background: var(--accent-color); color: white; }
+[data-theme="dark"] {
+  --bg-canvas:    #080e1a;
+  --bg-surface:   #101828;
+  --bg-elevated:  #151f2f;
+  --bg-glass:     rgba(16,24,40,0.82);
+  --text-primary: #e8edf5;
+  --text-muted:   #8da0bb;
+  --text-faint:   #4a6080;
+  --border:       rgba(255,255,255,0.07);
+  --border-strong:rgba(255,255,255,0.12);
+  --shadow-sm:    0 1px 4px rgba(0,0,0,0.4);
+  --shadow-md:    0 4px 20px rgba(0,0,0,0.5);
+  --shadow-lg:    0 12px 48px rgba(0,0,0,0.6);
+  --shadow-xl:    0 24px 80px rgba(0,0,0,0.7);
+  --accent-dim:   rgba(37,99,235,0.18);
+  --accent-glow:  rgba(37,99,235,0.45);
 
-        /* ===== MODAL ===== */
-        .modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;
-            backdrop-filter: blur(4px);
-        }
-        .modal-overlay.open { display: flex; }
-        .modal-box {
-            background: var(--bg-card); max-width: 800px; width: 95%; max-height: 90vh;
-            border-radius: var(--radius); box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            overflow-y: auto; padding: 24px 28px; position: relative; animation: fadeIn 0.3s ease;
-        }
-        .modal-close { position: sticky; top: 0; float: right; background: none; border: none; font-size: 1.8rem; color: var(--text-secondary); cursor: pointer; }
-        .modal-close:hover { color: var(--text-primary); }
+  --c-optimal-bg:  rgba(16,185,129,0.15);
+  --c-good-bg:     rgba(59,130,246,0.15);
+  --c-regular-bg:  rgba(245,158,11,0.15);
+  --c-bad-bg:      rgba(249,115,22,0.15);
+  --c-critical-bg: rgba(239,68,68,0.15);
+}
 
-        /* ===== FORMULARIOS ===== */
-        .form-group { margin-bottom: 16px; }
-        .form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.9rem; }
-        .form-group input, .form-group select, .form-group textarea {
-            width: 100%; padding: 10px 14px; border: 1px solid var(--border-color);
-            border-radius: 8px; background: var(--bg-primary); color: var(--text-primary);
-            font-size: 0.95rem;
-        }
-        .form-group textarea { min-height: 80px; resize: vertical; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+/* ═══════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: background 0.3s, color 0.3s;
+  -webkit-font-smoothing: antialiased;
+}
 
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 768px) {
-            #topbar .logo span { display: none; }
-            .tab-btn { padding: 10px 14px; font-size: 0.8rem; }
-            .tab-btn i { margin-right: 4px; }
-            .kpi-grid { grid-template-columns: 1fr 1fr; }
-            .filters-row select, .filters-row input { min-width: 100px; }
-        }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: var(--bg-primary); }
-        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 8px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
-    </style>
+/* ═══════════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════════ */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--radius-pill); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+/* ═══════════════════════════════════════════
+   TOP BAR
+═══════════════════════════════════════════ */
+#topbar {
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  z-index: 100;
+  position: relative;
+}
+#topbar::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+  opacity: 0.4;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.logo-icon {
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; color: #fff;
+  box-shadow: 0 2px 10px var(--accent-glow);
+}
+.logo-text { display: flex; flex-direction: column; line-height: 1; }
+.logo-text small { font-size: 0.62rem; font-weight: 500; color: var(--text-muted); letter-spacing: 0.12em; text-transform: uppercase; }
+
+.top-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.top-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 500;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px #22c55e;
+  flex-shrink: 0;
+}
+.status-dot.offline { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+
+.icon-btn {
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; cursor: pointer;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  transition: background 0.15s, color 0.15s;
+}
+.icon-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.icon-btn.active { background: var(--accent-dim); color: var(--accent); }
+
+/* ═══════════════════════════════════════════
+   TABS NAV
+═══════════════════════════════════════════ */
+#tabs {
+  height: var(--tabs-h);
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+#tabs::-webkit-scrollbar { display: none; }
+.tab-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 18px;
+  background: transparent; border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 0.85rem; font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+}
+.tab-btn:hover { color: var(--text-primary); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn i { font-size: 0.9rem; }
+.tab-badge {
+  background: var(--c-critical-bg);
+  color: var(--c-critical);
+  border-radius: var(--radius-pill);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  min-width: 18px;
+  text-align: center;
+  display: none;
+}
+.tab-badge.show { display: inline-block; }
+
+/* ═══════════════════════════════════════════
+   MAIN AREA
+═══════════════════════════════════════════ */
+#main-container { flex: 1; overflow: hidden; position: relative; }
+.panel { display: none; width: 100%; height: 100%; overflow-y: auto; padding: 24px; animation: panelIn 0.25s ease; }
+.panel.active { display: block; }
+@keyframes panelIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+#panel-map.active { display: flex; padding: 0; }
+
+/* ═══════════════════════════════════════════
+   CARDS & SURFACES
+═══════════════════════════════════════════ */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.card-elevated { box-shadow: var(--shadow-md); }
+.section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 14px;
+}
+
+/* ═══════════════════════════════════════════
+   DASHBOARD
+═══════════════════════════════════════════ */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.kpi-card.k-total::before    { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+.kpi-card.k-avg::before      { background: var(--c-optimal); }
+.kpi-card.k-critical::before { background: var(--c-critical); }
+.kpi-card.k-month::before    { background: var(--c-regular); }
+.kpi-card.k-proj::before     { background: var(--c-good); }
+
+.kpi-icon {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  margin-bottom: 14px;
+}
+.kpi-card.k-total .kpi-icon    { background: var(--accent-dim); color: var(--accent); }
+.kpi-card.k-avg .kpi-icon      { background: rgba(16,185,129,0.12); color: var(--c-optimal); }
+.kpi-card.k-critical .kpi-icon { background: var(--c-critical-bg); color: var(--c-critical); }
+.kpi-card.k-month .kpi-icon    { background: var(--c-regular-bg); color: var(--c-regular); }
+.kpi-card.k-proj .kpi-icon     { background: var(--c-good-bg); color: var(--c-good); }
+
+.kpi-value {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: 4px;
+}
+.kpi-sub {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.kpi-sub .up   { color: var(--c-optimal); }
+.kpi-sub .down { color: var(--c-critical); }
+
+/* Dashboard bottom row */
+.dash-row {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+}
+@media (max-width: 900px) { .dash-row { grid-template-columns: 1fr; } }
+
+/* Alerts panel */
+.alerts-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+.alert-item:hover { background: var(--bg-canvas); }
+.alert-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.alert-dot.critical { background: var(--c-critical); box-shadow: 0 0 6px var(--c-critical); animation: pulse 2s infinite; }
+.alert-dot.warning  { background: var(--c-regular); }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.85)} }
+.alert-info { flex: 1; }
+.alert-name { font-size: 0.85rem; font-weight: 600; }
+.alert-meta { font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; }
+.alert-score {
+  font-size: 0.82rem; font-weight: 700; font-family: var(--font-mono);
+  background: var(--c-critical-bg); color: var(--c-critical);
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  align-self: center;
+}
+.alert-score.warn { background: var(--c-regular-bg); color: var(--c-regular); }
+
+/* Mini chart in dashboard */
+.chart-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.chart-panel canvas { max-height: 220px; }
+
+/* Progress bars */
+.cond-bar-row { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.cond-row { display: flex; align-items: center; gap: 10px; font-size: 0.82rem; }
+.cond-name { width: 72px; flex-shrink: 0; font-weight: 600; }
+.cond-bar-wrap { flex: 1; height: 7px; background: var(--bg-elevated); border-radius: var(--radius-pill); overflow: hidden; }
+.cond-bar { height: 100%; border-radius: var(--radius-pill); transition: width 0.6s ease; }
+.cond-count { width: 28px; text-align: right; color: var(--text-muted); font-weight: 600; }
+
+/* ═══════════════════════════════════════════
+   MAPA
+═══════════════════════════════════════════ */
+#map-wrap { position: relative; width: 100%; height: 100%; }
+#map { width: 100%; height: 100%; }
+
+/* Map sidebar */
+#map-sidebar {
+  position: absolute;
+  top: 12px; left: 12px; bottom: 12px;
+  width: 280px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  transition: transform 0.3s ease;
+}
+#map-sidebar.collapsed { transform: translateX(-300px); }
+.sidebar-head {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.sidebar-head h3 { font-size: 0.88rem; font-weight: 700; }
+.sidebar-scroll { overflow-y: auto; flex: 1; padding: 12px; }
+
+.map-project-item {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.map-project-item:hover { background: var(--bg-elevated); }
+.map-project-item.active { background: var(--accent-dim); }
+.proj-color-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.proj-item-info { flex: 1; min-width: 0; }
+.proj-item-name { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proj-item-meta { font-size: 0.72rem; color: var(--text-muted); }
+.proj-bridge-count {
+  font-size: 0.7rem; font-weight: 700;
+  background: var(--bg-elevated);
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Map controls */
+.map-controls-group {
+  position: absolute;
+  top: 12px; right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 10;
+}
+.map-ctrl-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  transition: background 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+.map-ctrl-btn:hover { background: var(--bg-elevated); box-shadow: var(--shadow-md); }
+.map-ctrl-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.map-ctrl-btn i { font-size: 0.85rem; }
+
+/* Measure result tooltip */
+#measure-result {
+  position: absolute;
+  bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-strong);
+  padding: 10px 20px;
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  z-index: 20;
+  display: none;
+  box-shadow: var(--shadow-md);
+}
+#measure-result.show { display: block; }
+
+/* Map legend */
+#map-legend {
+  position: absolute;
+  bottom: 16px; right: 12px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  z-index: 10;
+  box-shadow: var(--shadow-sm);
+}
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; margin-bottom: 5px; }
+.legend-item:last-child { margin-bottom: 0; }
+.legend-dot { width: 11px; height: 11px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5); }
+
+/* ═══════════════════════════════════════════
+   DIRECTORIO
+═══════════════════════════════════════════ */
+.filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  align-items: center;
+}
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.filter-label { font-size: 0.68rem; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em; }
+.filter-control {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-family: var(--font-ui);
+  outline: none;
+  transition: border-color 0.15s;
+  min-width: 130px;
+}
+.filter-control:focus { border-color: var(--accent); }
+.filter-control.wide { min-width: 200px; }
+.filter-search-wrap { flex: 1; min-width: 180px; position: relative; }
+.filter-search-wrap i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-faint); font-size: 0.8rem; }
+.filter-search-wrap input { padding-left: 32px; }
+.clear-btn {
+  padding: 7px 16px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: background 0.15s, color 0.15s;
+  align-self: flex-end;
+}
+.clear-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+/* Export btn */
+.dir-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.dir-header h2 { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.dir-actions { display: flex; gap: 8px; }
+
+/* Table */
+.table-wrap {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+thead th {
+  background: var(--bg-elevated);
+  padding: 11px 14px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+thead th:hover { color: var(--text-primary); }
+thead th i.sort-icon { margin-left: 4px; font-size: 0.65rem; opacity: 0.5; }
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+tbody tr { transition: background 0.1s; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg-elevated); }
+.bridge-code {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.bridge-name-cell { font-weight: 600; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.badge-optimo   { background: var(--c-optimal-bg);  color: var(--c-optimal);  }
+.badge-bueno    { background: var(--c-good-bg);     color: var(--c-good);     }
+.badge-regular  { background: var(--c-regular-bg);  color: var(--c-regular);  }
+.badge-malo     { background: var(--c-bad-bg);      color: var(--c-bad);      }
+.badge-critico  { background: var(--c-critical-bg); color: var(--c-critical); }
+.badge-na       { background: var(--bg-elevated);   color: var(--text-muted); }
+
+.score-mono {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.score-bar-wrap { width: 60px; height: 5px; background: var(--bg-elevated); border-radius: var(--radius-pill); overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 6px; }
+.score-bar { height: 100%; border-radius: var(--radius-pill); }
+
+.action-cell { display: flex; gap: 5px; }
+.act-btn {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.act-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.act-btn.fav-on { color: #f59e0b; border-color: #f59e0b44; background: rgba(245,158,11,0.1); }
+.act-btn.map-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pagination-controls { display: flex; gap: 4px; }
+.page-btn {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.page-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ═══════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════ */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 2000;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(6px);
+  padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+
+.modal-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  width: 100%;
+  max-width: 820px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes modalIn { from { opacity: 0; transform: scale(0.93) translateY(12px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+.modal-header {
+  padding: 20px 24px 0;
+  flex-shrink: 0;
+}
+.modal-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.modal-title-main { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }
+.modal-title-code { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-top: 2px; }
+.modal-close {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.modal-close:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+.modal-tabs {
+  display: flex;
+  gap: 0;
+  margin-top: 16px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.modal-tabs::-webkit-scrollbar { display: none; }
+.modal-tab-btn {
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  font-family: var(--font-ui);
+  white-space: nowrap;
+}
+.modal-tab-btn:hover { color: var(--text-primary); }
+.modal-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.modal-body { overflow-y: auto; flex: 1; padding: 20px 24px 24px; }
+
+/* Bridge info grid */
+.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+@media (max-width: 600px) { .info-grid { grid-template-columns: 1fr 1fr; } }
+.info-item {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.info-item-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; }
+.info-item-value { font-size: 0.9rem; font-weight: 600; }
+.info-item-value.mono { font-family: var(--font-mono); }
+
+/* Score ring */
+.modal-score-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+}
+.score-ring-wrap { position: relative; flex-shrink: 0; }
+.score-ring-text {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+.score-detail { flex: 1; }
+.score-detail-title { font-size: 0.88rem; font-weight: 700; margin-bottom: 4px; }
+.score-detail-meta { font-size: 0.78rem; color: var(--text-muted); }
+
+/* Inspection cards */
+.inspection-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: border-color 0.15s;
+}
+.inspection-card:hover { border-color: var(--border-strong); }
+.insp-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.insp-date { font-size: 0.78rem; color: var(--text-muted); }
+.insp-score-badge {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+}
+.insp-meta-row { display: flex; gap: 16px; flex-wrap: wrap; margin: 10px 0 8px; }
+.insp-meta { font-size: 0.8rem; color: var(--text-muted); }
+.insp-meta strong { color: var(--text-primary); }
+.insp-obs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.obs-tag {
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+/* Add inspection form */
+.insp-form {
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+.insp-form h4 { font-size: 0.88rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 540px) { .form-row { grid-template-columns: 1fr; } }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.form-control {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: var(--font-ui);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+.form-control:focus { border-color: var(--accent); }
+textarea.form-control { resize: vertical; min-height: 80px; }
+.score-input-wrap { position: relative; }
+.score-input-wrap .score-preview {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+.obs-checkboxes { display: flex; flex-wrap: wrap; gap: 6px; }
+.obs-chip {
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.obs-chip.selected { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+.photo-upload-area {
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  color: var(--text-muted);
+  font-size: 0.83rem;
+}
+.photo-upload-area:hover { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+.photo-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; margin-top: 10px; }
+.photo-preview { position: relative; }
+.photo-preview img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-sm); }
+.photo-remove {
+  position: absolute; top: 2px; right: 2px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.7);
+  color: white;
+  border: none; cursor: pointer;
+  font-size: 0.6rem;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* CTA buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent-hover); box-shadow: 0 4px 12px var(--accent-glow); }
+.btn-secondary { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--bg-canvas); }
+.btn-danger { background: var(--c-critical-bg); color: var(--c-critical); }
+.btn-danger:hover { background: var(--c-critical); color: white; }
+.btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.btn-sm { padding: 6px 12px; font-size: 0.78rem; }
+
+/* Gallery */
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.gallery-item {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  aspect-ratio: 1;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+.gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s; }
+.gallery-item:hover img { transform: scale(1.04); }
+.gallery-caption {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  color: white;
+  font-size: 0.7rem;
+  padding: 4px 6px;
+}
+
+/* Chart history */
+.history-wrap { height: 260px; position: relative; }
+
+/* Modal footer */
+.modal-footer {
+  padding: 14px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+}
+.modal-footer-left { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ═══════════════════════════════════════════
+   TOAST NOTIFICATIONS
+═══════════════════════════════════════════ */
+#toast-container {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.84rem;
+  font-weight: 500;
+  pointer-events: all;
+  animation: toastIn 0.3s ease forwards;
+  min-width: 240px;
+  max-width: 340px;
+}
+.toast.success { border-left: 3px solid var(--c-optimal); }
+.toast.error   { border-left: 3px solid var(--c-critical); }
+.toast.info    { border-left: 3px solid var(--accent); }
+.toast.warning { border-left: 3px solid var(--c-regular); }
+.toast-icon { font-size: 1rem; flex-shrink: 0; }
+.toast.success .toast-icon { color: var(--c-optimal); }
+.toast.error   .toast-icon { color: var(--c-critical); }
+.toast.info    .toast-icon { color: var(--accent); }
+.toast.warning .toast-icon { color: var(--c-regular); }
+.toast-out { animation: toastOut 0.3s ease forwards; }
+@keyframes toastIn  { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(30px); } }
+
+/* ═══════════════════════════════════════════
+   LOADER
+═══════════════════════════════════════════ */
+#app-loader {
+  position: fixed; inset: 0;
+  background: var(--bg-canvas);
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  transition: opacity 0.5s ease;
+}
+#app-loader.hiding { opacity: 0; pointer-events: none; }
+.loader-logo {
+  width: 64px; height: 64px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; color: white;
+  box-shadow: 0 8px 32px var(--accent-glow);
+  animation: loaderPulse 1.5s ease infinite;
+}
+@keyframes loaderPulse { 0%,100%{transform:scale(1);box-shadow:0 8px 32px var(--accent-glow)} 50%{transform:scale(1.07);box-shadow:0 12px 48px var(--accent-glow)} }
+.loader-text { font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; }
+.loader-sub { font-size: 0.8rem; color: var(--text-muted); }
+.loader-bar { width: 200px; height: 3px; background: var(--border); border-radius: var(--radius-pill); overflow: hidden; }
+.loader-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: var(--radius-pill); animation: loaderBar 1.5s ease infinite; }
+@keyframes loaderBar { 0%{width:0;margin-left:0} 60%{width:80%;margin-left:0} 100%{width:0;margin-left:100%} }
+
+/* ═══════════════════════════════════════════
+   MINI MODAL (Confirm)
+═══════════════════════════════════════════ */
+.confirm-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 3000;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.confirm-overlay.open { display: flex; }
+.confirm-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  max-width: 360px;
+  width: 95%;
+  box-shadow: var(--shadow-xl);
+  animation: modalIn 0.2s ease;
+}
+.confirm-icon { font-size: 2rem; margin-bottom: 12px; }
+.confirm-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 6px; }
+.confirm-msg { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ═══════════════════════════════════════════
+   EMPTY STATES
+═══════════════════════════════════════════ */
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-faint);
+}
+.empty-state i { font-size: 2.5rem; margin-bottom: 12px; display: block; }
+.empty-state h4 { font-size: 0.95rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+.empty-state p { font-size: 0.82rem; }
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .logo .logo-text span.logo-sub { display: none; }
+  .panel { padding: 14px; }
+  .info-grid { grid-template-columns: 1fr 1fr; }
+  #map-sidebar { display: none; }
+  .modal-box { border-radius: var(--radius-lg); }
+  .dash-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .dashboard-grid { grid-template-columns: 1fr 1fr; }
+  .tab-btn { padding: 0 12px; font-size: 0.78rem; }
+  .tab-btn i { display: none; }
+}
+</style>
 </head>
 <body>
 
-    <!-- ===== BARRA SUPERIOR ===== -->
-    <header id="topbar">
-        <div class="logo"><i class="fas fa-bridge"></i><span>BMS Global</span></div>
-        <div class="right-actions">
-            <span id="status-indicator" class="online" title="Estado de conexión"></span>
-            <button class="top-btn" id="themeToggle" title="Modo oscuro"><i class="fas fa-moon"></i></button>
-            <button class="top-btn" id="soundToggle" title="Sonidos"><i class="fas fa-volume-up"></i></button>
-            <button class="top-btn" id="presentationBtn" title="Presentación"><i class="fas fa-expand"></i></button>
-        </div>
-    </header>
+<!-- LOADER -->
+<div id="app-loader">
+  <div class="loader-logo"><i class="fas fa-bridge"></i></div>
+  <div class="loader-text">BMS Global</div>
+  <div class="loader-sub">Conectando a la base de datos…</div>
+  <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
 
-    <!-- ===== TABS ===== -->
-    <nav id="tabs">
-        <button class="tab-btn active" data-tab="dashboard"><i class="fas fa-chart-pie"></i> Dashboard</button>
-        <button class="tab-btn" data-tab="map"><i class="fas fa-map"></i> Mapa</button>
-        <button class="tab-btn" data-tab="directory"><i class="fas fa-list"></i> Directorio</button>
-    </nav>
+<!-- TOP BAR -->
+<header id="topbar">
+  <a class="logo" href="#">
+    <div class="logo-icon"><i class="fas fa-bridge"></i></div>
+    <div class="logo-text">
+      <span>BMS Global</span>
+      <small>Sistema de Gestión de Puentes</small>
+    </div>
+  </a>
+  <div class="top-right">
+    <div class="top-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusLabel">Conectando…</span>
+    </div>
+    <button class="icon-btn" id="themeToggle" title="Cambiar tema"><i class="fas fa-moon"></i></button>
+    <button class="icon-btn" id="soundToggle" title="Sonidos"><i class="fas fa-volume-up"></i></button>
+    <button class="icon-btn" id="presentationBtn" title="Modo presentación"><i class="fas fa-expand"></i></button>
+  </div>
+</header>
 
-    <!-- ===== CONTENEDOR ===== -->
-    <div id="main-container">
-        <!-- PANEL DASHBOARD -->
-        <div id="panel-dashboard" class="panel active">
-            <h2 style="margin-bottom:20px;"><i class="fas fa-chart-line"></i> Resumen Ejecutivo</h2>
-            <div class="kpi-grid" id="kpiGrid">
-                <div class="kpi-card"><div class="label">Puentes totales</div><div class="value" id="kpiTotal">0</div></div>
-                <div class="kpi-card good"><div class="label">Puntaje promedio</div><div class="value" id="kpiAvg">0</div></div>
-                <div class="kpi-card critical"><div class="label">Puentes críticos</div><div class="value" id="kpiCritical">0</div></div>
-                <div class="kpi-card warning"><div class="label">Inspecciones este mes</div><div class="value" id="kpiInspections">0</div></div>
-            </div>
-            <div style="background:var(--bg-card); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow);">
-                <h3>Últimas alertas</h3>
-                <div id="alertList" style="margin-top:12px; color:var(--text-secondary);">No hay alertas activas.</div>
-            </div>
-        </div>
+<!-- TABS -->
+<nav id="tabs">
+  <button class="tab-btn active" data-tab="dashboard"><i class="fas fa-chart-pie"></i> Dashboard</button>
+  <button class="tab-btn" data-tab="map"><i class="fas fa-map-marked-alt"></i> Mapa 3D</button>
+  <button class="tab-btn" data-tab="directory"><i class="fas fa-database"></i> Directorio</button>
+</nav>
 
-        <!-- PANEL MAPA -->
-        <div id="panel-map" class="panel">
-            <div id="map-container">
-                <div id="map"></div>
-                <div class="map-controls">
-                    <button id="toggleHeatmap" class="toggle-off"><i class="fas fa-fire"></i> Calor</button>
-                    <button id="toggleWeather" class="toggle-off"><i class="fas fa-cloud-sun"></i> Clima</button>
-                    <button id="measureBtn"><i class="fas fa-ruler"></i> Medir</button>
-                    <button id="resetViewBtn"><i class="fas fa-home"></i> Reiniciar</button>
-                </div>
-            </div>
-        </div>
+<!-- MAIN -->
+<div id="main-container">
 
-        <!-- PANEL DIRECTORIO -->
-        <div id="panel-directory" class="panel">
-            <h2 style="margin-bottom:16px;"><i class="fas fa-table"></i> Directorio de Puentes</h2>
-            <div class="filters-row">
-                <select id="filterProject"><option value="">Todos los proyectos</option></select>
-                <select id="filterRegion"><option value="">Todas las regiones</option></select>
-                <select id="filterCondition"><option value="">Todas las condiciones</option></select>
-                <select id="filterInspector"><option value="">Todos los inspectores</option></select>
-                <input type="text" id="filterSearch" placeholder="🔍 Buscar...">
-                <button class="btn-sm" id="clearFilters">Limpiar</button>
-            </div>
-            <div class="table-wrap">
-                <table>
-                    <thead><tr>
-                        <th>Código</th><th>Nombre</th><th>Proyecto</th><th>Región</th>
-                        <th>Estado</th><th>Últ. Puntaje</th><th>Acciones</th>
-                    </tr></thead>
-                    <tbody id="directoryBody"><tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">Cargando...</td></tr></tbody>
-                </table>
-            </div>
-        </div>
+  <!-- ── DASHBOARD ── -->
+  <div id="panel-dashboard" class="panel active">
+    <div class="dashboard-grid" id="kpiGrid">
+      <div class="kpi-card k-total">
+        <div class="kpi-icon"><i class="fas fa-bridge"></i></div>
+        <div class="kpi-value" id="kpiTotal">–</div>
+        <div class="kpi-label">Puentes registrados</div>
+        <div class="kpi-sub"><i class="fas fa-circle-dot"></i> <span id="kpiProjects">–</span> proyectos</div>
+      </div>
+      <div class="kpi-card k-avg">
+        <div class="kpi-icon"><i class="fas fa-star-half-stroke"></i></div>
+        <div class="kpi-value" id="kpiAvg">–</div>
+        <div class="kpi-label">Puntaje promedio</div>
+        <div class="kpi-sub"><span id="kpiAvgTrend"></span></div>
+      </div>
+      <div class="kpi-card k-critical">
+        <div class="kpi-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <div class="kpi-value" id="kpiCritical">–</div>
+        <div class="kpi-label">Puentes críticos</div>
+        <div class="kpi-sub"><i class="fas fa-arrow-right"></i> Puntaje &lt; 40</div>
+      </div>
+      <div class="kpi-card k-month">
+        <div class="kpi-icon"><i class="fas fa-clipboard-check"></i></div>
+        <div class="kpi-value" id="kpiInspections">–</div>
+        <div class="kpi-label">Inspecciones este mes</div>
+        <div class="kpi-sub" id="kpiInspSub"></div>
+      </div>
+      <div class="kpi-card k-proj">
+        <div class="kpi-icon"><i class="fas fa-road"></i></div>
+        <div class="kpi-value" id="kpiGoodPct">–</div>
+        <div class="kpi-label">En buen estado o mejor</div>
+        <div class="kpi-sub"><i class="fas fa-percent"></i> del total evaluado</div>
+      </div>
     </div>
 
-    <!-- ===== MODAL ===== -->
-    <div class="modal-overlay" id="bridgeModal">
-        <div class="modal-box">
-            <button class="modal-close" id="closeModal">&times;</button>
-            <div id="bridgeDetailContent">
-                <h2 id="modalBridgeName">Puente</h2>
-                <div id="modalTabs" style="display:flex; gap:8px; margin:16px 0; border-bottom:1px solid var(--border-color);">
-                    <button class="tab-btn active" data-modal-tab="info">Ficha</button>
-                    <button class="tab-btn" data-modal-tab="inspections">Inspecciones</button>
-                    <button class="tab-btn" data-modal-tab="history">Histórico</button>
-                    <button class="tab-btn" data-modal-tab="gallery">Galería</button>
-                </div>
-                <div id="modalTabContent"></div>
-            </div>
+    <div class="dash-row">
+      <div>
+        <div class="section-title">Alertas activas</div>
+        <div id="alertsPanel"></div>
+        <div class="section-title" style="margin-top:24px;">Distribución por condición</div>
+        <div class="card" style="padding:18px;">
+          <div class="cond-bar-row" id="condBars"></div>
         </div>
+      </div>
+      <div>
+        <div class="section-title">Últimas inspecciones</div>
+        <div id="recentInspectionsPanel"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MAPA ── -->
+  <div id="panel-map" class="panel">
+    <div id="map-wrap">
+      <div id="map"></div>
+
+      <!-- Sidebar -->
+      <div id="map-sidebar">
+        <div class="sidebar-head">
+          <h3><i class="fas fa-layer-group" style="color:var(--accent);margin-right:6px;"></i>Proyectos</h3>
+          <button class="icon-btn" id="sidebarCollapseBtn" title="Ocultar panel"><i class="fas fa-chevron-left"></i></button>
+        </div>
+        <div class="sidebar-scroll" id="projectListMap"></div>
+      </div>
+
+      <!-- Controls -->
+      <div class="map-controls-group">
+        <button class="map-ctrl-btn" id="toggleHeatmap"><i class="fas fa-fire"></i> Calor</button>
+        <button class="map-ctrl-btn" id="measureBtn"><i class="fas fa-ruler-combined"></i> Medir</button>
+        <button class="map-ctrl-btn" id="geoBtn"><i class="fas fa-location-crosshairs"></i> Mi posición</button>
+        <button class="map-ctrl-btn" id="resetViewBtn"><i class="fas fa-house"></i> Reiniciar</button>
+        <button class="map-ctrl-btn" id="sidebarShowBtn" style="display:none;"><i class="fas fa-list"></i> Proyectos</button>
+      </div>
+
+      <!-- Measure result -->
+      <div id="measure-result"><i class="fas fa-ruler"></i> <span id="measureText">Haz clic en el mapa</span></div>
+
+      <!-- Legend -->
+      <div id="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#10b981;"></div>Óptimo (80–100)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div>Bueno (60–79)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div>Regular (40–59)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f97316;"></div>Malo (20–39)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div>Crítico (0–19)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DIRECTORIO ── -->
+  <div id="panel-directory" class="panel">
+    <div class="dir-header">
+      <h2><i class="fas fa-database" style="color:var(--accent);"></i> Directorio de Puentes</h2>
+      <div class="dir-actions">
+        <button class="btn btn-secondary btn-sm" id="exportCsvBtn"><i class="fas fa-file-csv"></i> Exportar CSV</button>
+        <button class="btn btn-primary btn-sm" id="addBridgeBtn"><i class="fas fa-plus"></i> Nuevo puente</button>
+      </div>
     </div>
 
-    <!-- ===== SCRIPTS ===== -->
-    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/Chart.min.js"></script>
+    <div class="filters-bar">
+      <div class="filter-group">
+        <div class="filter-label">Proyecto</div>
+        <select class="filter-control" id="filterProject"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Región</div>
+        <select class="filter-control" id="filterRegion"><option value="">Todas</option></select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Condición</div>
+        <select class="filter-control" id="filterCondition">
+          <option value="">Todas</option>
+          <option>Optimo</option><option>Bueno</option><option>Regular</option><option>Malo</option><option>Critico</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Inspector</div>
+        <select class="filter-control" id="filterInspector"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group" style="flex:1; min-width:160px;">
+        <div class="filter-label">Buscar</div>
+        <div class="filter-search-wrap">
+          <i class="fas fa-search"></i>
+          <input type="text" class="filter-control wide" id="filterSearch" placeholder="Código o nombre…">
+        </div>
+      </div>
+      <button class="clear-btn" id="clearFilters"><i class="fas fa-times"></i> Limpiar</button>
+    </div>
 
-    <!-- Firebase Modules -->
-    <script type="importmap">
-        {
-            "imports": {
-                "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
-                "firebase/database": "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js",
-                "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th data-col="code">Código <i class="fas fa-sort sort-icon"></i></th>
+            <th data-col="name">Nombre <i class="fas fa-sort sort-icon"></i></th>
+            <th data-col="project">Proyecto <i class="fas fa-sort sort-icon"></i></th>
+            <th data-col="region">Región</th>
+            <th data-col="condition">Condición <i class="fas fa-sort sort-icon"></i></th>
+            <th data-col="score">Puntaje <i class="fas fa-sort sort-icon"></i></th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="directoryBody"><tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-faint);">Cargando datos…</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <span id="paginationInfo">–</span>
+      <div class="pagination-controls" id="paginationControls"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BRIDGE MODAL ═══ -->
+<div class="modal-overlay" id="bridgeModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title-row">
+        <div>
+          <div class="modal-title-main" id="modalBridgeName">Puente</div>
+          <div class="modal-title-code" id="modalBridgeCode"></div>
+        </div>
+        <button class="modal-close" id="closeModal"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-tabs">
+        <button class="modal-tab-btn active" data-modal-tab="info"><i class="fas fa-info-circle"></i> Ficha</button>
+        <button class="modal-tab-btn" data-modal-tab="inspections"><i class="fas fa-clipboard-list"></i> Inspecciones</button>
+        <button class="modal-tab-btn" data-modal-tab="history"><i class="fas fa-chart-line"></i> Histórico</button>
+        <button class="modal-tab-btn" data-modal-tab="gallery"><i class="fas fa-images"></i> Galería</button>
+      </div>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <div class="modal-footer-left">
+        <button class="btn btn-secondary btn-sm" id="modalShareBtn"><i class="fas fa-share-nodes"></i> Compartir</button>
+        <button class="btn btn-secondary btn-sm" id="modalMapBtn"><i class="fas fa-map-pin"></i> Ver en mapa</button>
+      </div>
+      <button class="btn btn-primary btn-sm" id="modalAddInspBtn"><i class="fas fa-plus"></i> Nueva inspección</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD INSPECTION MODAL -->
+<div class="modal-overlay" id="addInspModal">
+  <div class="modal-box" style="max-width:600px;">
+    <div class="modal-header">
+      <div class="modal-title-row">
+        <div class="modal-title-main">Nueva Inspección</div>
+        <button class="modal-close" id="closeAddInsp"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Inspector *</label>
+          <input class="form-control" id="inspInspector" type="text" placeholder="Nombre del inspector" required>
+        </div>
+        <div class="form-group">
+          <label>Condición climática</label>
+          <select class="form-control" id="inspWeather">
+            <option>Soleado</option><option>Nublado</option><option>Lluvia ligera</option>
+            <option>Lluvia fuerte</option><option>Viento</option><option>Neblina</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:12px;">
+        <label>Puntaje de condición (0 – 100) *</label>
+        <div class="score-input-wrap">
+          <input class="form-control" id="inspScore" type="number" min="0" max="100" placeholder="Ej. 72" required>
+          <span class="score-preview" id="inspScorePreview" style="color:var(--text-faint)">–</span>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:12px;">
+        <label>Observaciones (selecciona o escribe)</label>
+        <div class="obs-checkboxes" id="obsChips">
+          <span class="obs-chip" data-obs="Fisuración en losa">Fisuración en losa</span>
+          <span class="obs-chip" data-obs="Corrosión en armaduras">Corrosión</span>
+          <span class="obs-chip" data-obs="Socavación en pilares">Socavación</span>
+          <span class="obs-chip" data-obs="Desgaste de junta">Desgaste de junta</span>
+          <span class="obs-chip" data-obs="Drenaje obstruido">Drenaje obstruido</span>
+          <span class="obs-chip" data-obs="Deflexión excesiva">Deflexión</span>
+          <span class="obs-chip" data-obs="Humedad excesiva">Humedad</span>
+          <span class="obs-chip" data-obs="Sin novedades">Sin novedades</span>
+        </div>
+        <input class="form-control" id="inspObsCustom" type="text" placeholder="Observaciones adicionales…" style="margin-top:8px;">
+      </div>
+      <div class="form-group" style="margin-top:12px;">
+        <label>Recomendaciones</label>
+        <textarea class="form-control" id="inspRec" placeholder="Ej. Sellado de grietas, inspección subestructura…"></textarea>
+      </div>
+      <div class="form-group" style="margin-top:12px;">
+        <label>Fotografías (opcional)</label>
+        <div class="photo-upload-area" id="photoUploadArea">
+          <i class="fas fa-camera" style="font-size:1.4rem; margin-bottom:6px; display:block;"></i>
+          Haz clic para seleccionar fotos
+          <input type="file" id="photoInput" accept="image/*" multiple style="display:none;">
+        </div>
+        <div class="photo-preview-grid" id="photoPreviewGrid"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-footer-left">
+        <button class="btn btn-ghost btn-sm" id="cancelAddInsp">Cancelar</button>
+      </div>
+      <button class="btn btn-primary" id="saveInspectionBtn"><i class="fas fa-save"></i> Guardar inspección</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- SCRIPTS -->
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/Chart.min.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
+    "firebase/database": "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"
+  }
+}
+</script>
+
+<script type="module">
+import { initializeApp } from 'firebase/app';
+import { getDatabase, ref, onValue, update, push, get } from 'firebase/database';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+
+/* ══════════════════════════════════════
+   FIREBASE INIT
+══════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyA77Cb1TaMCDpEcIED5kd98RlFUC9OInnM",
+  authDomain: "bms-9eb1f.firebaseapp.com",
+  databaseURL: "https://bms-9eb1f-default-rtdb.firebaseio.com",
+  projectId: "bms-9eb1f",
+  storageBucket: "bms-9eb1f.firebasestorage.app",
+  messagingSenderId: "98687468935",
+  appId: "1:98687468935:web:2ae09901d8224d03c2bf22"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+const auth = getAuth(app);
+
+/* ══════════════════════════════════════
+   STATE
+══════════════════════════════════════ */
+const S = {
+  darkMode: true,
+  soundOn: true,
+  map: null,
+  allBridges: [],
+  inspections: {},
+  projects: {},
+  favorites: JSON.parse(localStorage.getItem('bms_favorites') || '[]'),
+  currentBridgeId: null,
+  currentAddInspBridgeId: null,
+  // directory
+  sortCol: 'score', sortDir: -1,
+  page: 1, perPage: 20,
+  filteredBridges: [],
+  // map
+  measureMode: false,
+  measurePoints: [],
+  measureSourceAdded: false,
+  heatmapOn: false,
+  // inspection form
+  selectedObs: [],
+  pendingPhotos: [],
+  // chart
+  chart: null,
+};
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+/* ══════════════════════════════════════
+   AUDIO
+══════════════════════════════════════ */
+function beep(freq=440, dur=0.06, type='sine', vol=0.15) {
+  if (!S.soundOn) return;
+  try {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch(e){}
+}
+const snd = {
+  click:   () => beep(800, 0.04, 'sine', 0.1),
+  success: () => { beep(523,0.08); setTimeout(()=>beep(659,0.08),90); setTimeout(()=>beep(784,0.12),180); },
+  error:   () => { beep(220, 0.1, 'sawtooth', 0.15); setTimeout(()=>beep(180,0.1,'sawtooth',0.1),110); },
+  hover:   () => beep(1000, 0.03, 'sine', 0.06),
+};
+
+/* ══════════════════════════════════════
+   TOAST
+══════════════════════════════════════ */
+function toast(msg, type='info', dur=3500) {
+  const icons = { success:'fa-circle-check', error:'fa-circle-xmark', info:'fa-circle-info', warning:'fa-triangle-exclamation' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<i class="fas ${icons[type]} toast-icon"></i><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => { el.classList.add('toast-out'); el.addEventListener('animationend', () => el.remove()); }, dur);
+}
+
+/* ══════════════════════════════════════
+   HELPERS
+══════════════════════════════════════ */
+function conditionFromScore(s) {
+  if (s >= 80) return 'Optimo';
+  if (s >= 60) return 'Bueno';
+  if (s >= 40) return 'Regular';
+  if (s >= 20) return 'Malo';
+  return 'Critico';
+}
+function conditionColor(c) {
+  return { Optimo:'#10b981', Bueno:'#3b82f6', Regular:'#f59e0b', Malo:'#f97316', Critico:'#ef4444' }[c] || '#94a3b8';
+}
+function conditionBadgeClass(c) {
+  return { Optimo:'badge-optimo', Bueno:'badge-bueno', Regular:'badge-regular', Malo:'badge-malo', Critico:'badge-critico' }[c] || 'badge-na';
+}
+function scoreColor(s) {
+  if (s >= 80) return '#10b981';
+  if (s >= 60) return '#3b82f6';
+  if (s >= 40) return '#f59e0b';
+  if (s >= 20) return '#f97316';
+  return '#ef4444';
+}
+function getLastScore(bridgeId) {
+  const insp = S.inspections[bridgeId] || [];
+  if (!insp.length) return null;
+  const sorted = [...insp].sort((a,b) => new Date(b.date)-new Date(a.date));
+  return sorted[0].manualScore ?? null;
+}
+function getLastInspection(bridgeId) {
+  const insp = S.inspections[bridgeId] || [];
+  if (!insp.length) return null;
+  return [...insp].sort((a,b) => new Date(b.date)-new Date(a.date))[0];
+}
+function fmtDate(d) {
+  const dt = new Date(d);
+  return dt.toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' });
+}
+function fmtDateShort(d) { return new Date(d).toLocaleDateString('es-MX', { day:'2-digit', month:'short' }); }
+
+/* ══════════════════════════════════════
+   AUTH & DATA LOAD
+══════════════════════════════════════ */
+signInAnonymously(auth).catch(e => { console.warn(e); hideLoader(); });
+
+onAuthStateChanged(auth, user => {
+  if (!user) return;
+  document.getElementById('statusDot').className = 'status-dot';
+  document.getElementById('statusLabel').textContent = 'En línea';
+  listenData();
+});
+
+function listenData() {
+  onValue(ref(db, '/'), snap => {
+    const data = snap.val();
+    if (!data || !data.projects || Object.keys(data.projects).length === 0) {
+      seedData();
+    } else {
+      processData(data);
+      hideLoader();
+    }
+  }, err => { toast('Error cargando datos: '+err.message, 'error'); hideLoader(); });
+}
+
+function hideLoader() {
+  const loader = document.getElementById('app-loader');
+  loader.classList.add('hiding');
+  setTimeout(() => loader.style.display = 'none', 500);
+}
+
+/* ══════════════════════════════════════
+   SEED DATA
+══════════════════════════════════════ */
+function seedData() {
+  const now = new Date().toISOString();
+  const demo = {
+    projects: {
+      proj1: {
+        info: { name: 'Autopista México-Querétaro', region: 'Querétaro', status: 'Activo',
+          routeColor: '#3b82f6', routeCoords: [[-99.55,19.42],[-99.40,19.55],[-99.20,19.65],[-99.00,19.75],[-98.80,19.88]] },
+        bridges: {
+          b1: { code:'QRO-001', name:'Viaducto Constituyentes', coordinates:{lat:19.55,lng:-99.40},
+            currentCondition:'Optimo', lastInspectionDate:'2026-06-10', projectId:'proj1',
+            length:180, width:14, year:2004, material:'Concreto Postensado', spans:3 },
+          b2: { code:'QRO-002', name:'Puente Huimilpan', coordinates:{lat:19.65,lng:-99.20},
+            currentCondition:'Regular', lastInspectionDate:'2026-05-22', projectId:'proj1',
+            length:95, width:10, year:1992, material:'Concreto Reforzado', spans:2 },
+        },
+        inspections: {
+          b1: {
+            ins1a: { date:'2026-06-10T09:00:00Z', inspectorName:'Ing. Laura Méndez', manualScore:88,
+              weather:'Soleado', observations:['Sin novedades'], damages:[], recommendations:'Mantenimiento preventivo en 12 meses.' },
+            ins1b: { date:'2026-01-15T10:30:00Z', inspectorName:'Ing. Carlos Ruiz', manualScore:85,
+              weather:'Nublado', observations:['Leve humedad en junta'], damages:[], recommendations:'Sellar juntas.' }
+          },
+          b2: {
+            ins2a: { date:'2026-05-22T08:00:00Z', inspectorName:'Ing. Pedro García', manualScore:54,
+              weather:'Nublado', observations:['Fisuración en losa','Drenaje obstruido'],
+              damages:[{type:'Fisura',severity:'Moderado',location:'Tablero',sizeCm:2.1,imageBase64:''}],
+              recommendations:'Sellado de grietas urgente.' },
+            ins2b: { date:'2025-11-10T11:00:00Z', inspectorName:'Ing. Pedro García', manualScore:63,
+              weather:'Soleado', observations:['Drenaje parcialmente obstruido'], damages:[], recommendations:'Limpieza de drenaje.' }
+          }
+        }
+      },
+      proj2: {
+        info: { name: 'Libramiento Guerrero', region: 'Guerrero', status: 'Activo',
+          routeColor: '#f59e0b', routeCoords: [[-99.60,17.60],[-99.40,17.65],[-99.20,17.55],[-99.00,17.45]] },
+        bridges: {
+          b3: { code:'GRO-001', name:'Puente Mezcala', coordinates:{lat:17.65,lng:-99.40},
+            currentCondition:'Critico', lastInspectionDate:'2026-06-01', projectId:'proj2',
+            length:230, width:12, year:1986, material:'Acero y Concreto', spans:5 },
+          b4: { code:'GRO-002', name:'Puente La Venta', coordinates:{lat:17.55,lng:-99.20},
+            currentCondition:'Bueno', lastInspectionDate:'2026-04-18', projectId:'proj2',
+            length:145, width:11, year:2011, material:'Concreto Prefabricado', spans:3 },
+        },
+        inspections: {
+          b3: {
+            ins3a: { date:'2026-06-01T11:00:00Z', inspectorName:'Ing. Carlos Ruiz', manualScore:28,
+              weather:'Soleado', observations:['Corrosión en armaduras','Socavación en pilares','Deflexión excesiva'],
+              damages:[{type:'Corrosión severa',severity:'Alto',location:'Pilares',sizeCm:0,imageBase64:''}],
+              recommendations:'INTERVENCIÓN URGENTE. Cierre preventivo recomendado.' },
+            ins3b: { date:'2025-09-12T09:30:00Z', inspectorName:'Ing. Ana Torres', manualScore:38,
+              weather:'Nublado', observations:['Corrosión inicial en armaduras','Socavación incipiente'],
+              damages:[], recommendations:'Monitoreo mensual. Plan de refuerzo urgente.' }
+          },
+          b4: {
+            ins4a: { date:'2026-04-18T09:00:00Z', inspectorName:'Ing. Laura Méndez', manualScore:74,
+              weather:'Soleado', observations:['Leve desgaste de junta'], damages:[], recommendations:'Reemplazar junta en próxima parada de mantenimiento.' }
+          }
+        }
+      }
+    }
+  };
+
+  const updates = {};
+  Object.entries(demo.projects).forEach(([pid, p]) => {
+    updates[`projects/${pid}/info`] = p.info;
+    Object.entries(p.bridges).forEach(([bid, b]) => { updates[`projects/${pid}/bridges/${bid}`] = b; });
+    Object.entries(p.inspections).forEach(([bid, insps]) => {
+      Object.entries(insps).forEach(([iid, ins]) => { updates[`projects/${pid}/inspections/${bid}/${iid}`] = ins; });
+    });
+  });
+  update(ref(db), updates).then(() => toast('Datos de demostración cargados', 'info'));
+}
+
+/* ══════════════════════════════════════
+   PROCESS DATA
+══════════════════════════════════════ */
+function processData(data) {
+  S.projects = data.projects || {};
+  const bridges = [], inspections = {};
+
+  Object.entries(S.projects).forEach(([pid, proj]) => {
+    const bs = proj.bridges || {};
+    Object.entries(bs).forEach(([bid, b]) => {
+      b.id = bid; b.projectId = pid;
+      b.projectName = proj.info?.name || pid;
+      b.region = proj.info?.region || '—';
+      b.routeColor = proj.info?.routeColor || '#64748b';
+      bridges.push(b);
+      const raw = proj.inspections?.[bid] || {};
+      inspections[bid] = Object.entries(raw).map(([iid,ins]) => ({ ...ins, _id:iid }));
+    });
+  });
+
+  S.allBridges = bridges;
+  S.inspections = inspections;
+
+  updateDashboard();
+  updateDirectory();
+  updateMapData();
+  populateFilters();
+}
+
+/* ══════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════ */
+function updateDashboard() {
+  const bridges = S.allBridges;
+  const inspections = S.inspections;
+  const now = new Date();
+  const thisMonth = now.getMonth(), thisYear = now.getFullYear();
+
+  let scores = [], critical = 0, monthCount = 0;
+  const condCounts = { Optimo:0, Bueno:0, Regular:0, Malo:0, Critico:0 };
+  const recentInsp = [];
+
+  bridges.forEach(b => {
+    const insp = inspections[b.id] || [];
+    if (insp.length) {
+      const last = [...insp].sort((a,c) => new Date(c.date)-new Date(a.date))[0];
+      if (last.manualScore != null) {
+        scores.push(last.manualScore);
+        if (last.manualScore < 40) critical++;
+      }
+      const d = new Date(last.date);
+      if (d.getMonth() === thisMonth && d.getFullYear() === thisYear) monthCount++;
+      recentInsp.push({ bridge:b, ins:last });
+    }
+    const c = b.currentCondition || 'Regular';
+    if (condCounts[c] !== undefined) condCounts[c]++;
+    else condCounts['Regular']++;
+  });
+
+  const avg = scores.length ? Math.round(scores.reduce((a,v)=>a+v,0)/scores.length) : 0;
+  const goodCount = scores.filter(s=>s>=60).length;
+  const goodPct = scores.length ? Math.round(goodCount/scores.length*100) : 0;
+
+  document.getElementById('kpiTotal').textContent = bridges.length;
+  document.getElementById('kpiProjects').textContent = Object.keys(S.projects).length;
+  document.getElementById('kpiAvg').textContent = avg;
+  document.getElementById('kpiCritical').textContent = critical;
+  document.getElementById('kpiInspections').textContent = monthCount;
+  document.getElementById('kpiGoodPct').textContent = goodPct+'%';
+
+  const avgColor = scoreColor(avg);
+  document.getElementById('kpiAvg').style.color = avgColor;
+  document.getElementById('kpiCritical').style.color = critical > 0 ? 'var(--c-critical)' : 'var(--c-optimal)';
+
+  // Alerts
+  const alertsEl = document.getElementById('alertsPanel');
+  const alertBridges = bridges
+    .filter(b => { const s = getLastScore(b.id); return s !== null && s < 40; })
+    .sort((a,b) => getLastScore(a.id) - getLastScore(b.id));
+
+  if (alertBridges.length === 0) {
+    alertsEl.innerHTML = `<div class="card" style="padding:16px;display:flex;align-items:center;gap:10px;color:var(--c-optimal);">
+      <i class="fas fa-circle-check" style="font-size:1.2rem;"></i>
+      <span style="font-weight:600;">Sin alertas activas — todos los puentes evaluados en estado aceptable.</span>
+    </div>`;
+    document.querySelectorAll('.tab-badge').forEach(b => b.classList.remove('show'));
+  } else {
+    alertsEl.innerHTML = alertBridges.map(b => {
+      const s = getLastScore(b.id);
+      const ins = getLastInspection(b.id);
+      return `<div class="alert-item" onclick="window._viewBridge('${b.id}')">
+        <div class="alert-dot ${s < 20 ? 'critical' : 'warning'}"></div>
+        <div class="alert-info">
+          <div class="alert-name">${b.name}</div>
+          <div class="alert-meta">${b.code} · ${b.projectName} · ${ins ? fmtDate(ins.date) : '—'}</div>
+        </div>
+        <div class="alert-score ${s >= 20 ? 'warn':''}">${s}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Condition bars
+  const total = bridges.length || 1;
+  const colors = { Optimo:'#10b981', Bueno:'#3b82f6', Regular:'#f59e0b', Malo:'#f97316', Critico:'#ef4444' };
+  document.getElementById('condBars').innerHTML = Object.entries(condCounts).map(([name, count]) =>
+    `<div class="cond-row">
+      <div class="cond-name" style="color:${colors[name]}">${name}</div>
+      <div class="cond-bar-wrap"><div class="cond-bar" style="width:${Math.round(count/total*100)}%;background:${colors[name]};"></div></div>
+      <div class="cond-count">${count}</div>
+    </div>`
+  ).join('');
+
+  // Recent inspections panel
+  const recentEl = document.getElementById('recentInspectionsPanel');
+  recentInsp.sort((a,b)=>new Date(b.ins.date)-new Date(a.ins.date));
+  const last5 = recentInsp.slice(0,5);
+  if (!last5.length) { recentEl.innerHTML = '<div class="empty-state"><i class="fas fa-clipboard"></i><p>Sin inspecciones</p></div>'; return; }
+  recentEl.innerHTML = last5.map(({bridge:b, ins}) => {
+    const s = ins.manualScore;
+    const c = conditionFromScore(s ?? 50);
+    return `<div class="alert-item" onclick="window._viewBridge('${b.id}')" style="margin-bottom:8px;">
+      <div class="legend-dot" style="width:11px;height:11px;border-radius:50%;background:${conditionColor(c)};flex-shrink:0;box-shadow:0 0 4px ${conditionColor(c)};"></div>
+      <div class="alert-info">
+        <div class="alert-name">${b.name}</div>
+        <div class="alert-meta">${ins.inspectorName || '—'} · ${fmtDate(ins.date)}</div>
+      </div>
+      <div class="alert-score ${s >= 40 ? 'warn':''}" style="${s>=40?'background:var(--c-regular-bg);color:var(--c-regular)':''}">
+        ${s ?? '—'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════
+   DIRECTORY + FILTERS + SORT + PAGINATION
+══════════════════════════════════════ */
+function populateFilters() {
+  const projects = [...new Set(S.allBridges.map(b=>b.projectName))];
+  const regions  = [...new Set(S.allBridges.map(b=>b.region))];
+  const inspectorsSet = new Set();
+  Object.values(S.inspections).forEach(insp => insp.forEach(i => { if(i.inspectorName) inspectorsSet.add(i.inspectorName); }));
+
+  const pSel = document.getElementById('filterProject');
+  const prev = pSel.value;
+  pSel.innerHTML = '<option value="">Todos</option>' + projects.map(p=>`<option>${p}</option>`).join('');
+  pSel.value = prev;
+
+  const rSel = document.getElementById('filterRegion');
+  const prevR = rSel.value;
+  rSel.innerHTML = '<option value="">Todas</option>' + regions.map(r=>`<option>${r}</option>`).join('');
+  rSel.value = prevR;
+
+  const iSel = document.getElementById('filterInspector');
+  iSel.innerHTML = '<option value="">Todos</option>' + [...inspectorsSet].map(n=>`<option>${n}</option>`).join('');
+}
+
+function updateDirectory() {
+  const pf = document.getElementById('filterProject')?.value || '';
+  const rf = document.getElementById('filterRegion')?.value || '';
+  const cf = document.getElementById('filterCondition')?.value || '';
+  const iff = document.getElementById('filterInspector')?.value || '';
+  const sf = (document.getElementById('filterSearch')?.value || '').toLowerCase();
+
+  let filtered = S.allBridges.filter(b => {
+    if (pf && b.projectName !== pf) return false;
+    if (rf && b.region !== rf) return false;
+    if (cf && b.currentCondition !== cf) return false;
+    if (sf && !b.name.toLowerCase().includes(sf) && !b.code.toLowerCase().includes(sf)) return false;
+    if (iff) {
+      const insp = S.inspections[b.id] || [];
+      const last = [...insp].sort((a,c)=>new Date(c.date)-new Date(a.date))[0];
+      if (!last || last.inspectorName !== iff) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    let av, bv;
+    if (S.sortCol === 'score') { av = getLastScore(a.id) ?? -1; bv = getLastScore(b.id) ?? -1; }
+    else if (S.sortCol === 'code') { av = a.code; bv = b.code; }
+    else if (S.sortCol === 'name') { av = a.name; bv = b.name; }
+    else if (S.sortCol === 'project') { av = a.projectName; bv = b.projectName; }
+    else if (S.sortCol === 'condition') { av = a.currentCondition || ''; bv = b.currentCondition || ''; }
+    else { av = a[S.sortCol] || ''; bv = b[S.sortCol] || ''; }
+    if (typeof av === 'string') return S.sortDir * av.localeCompare(bv);
+    return S.sortDir * (av - bv);
+  });
+
+  S.filteredBridges = filtered;
+  S.page = 1;
+  renderDirectoryPage();
+}
+
+function renderDirectoryPage() {
+  const total = S.filteredBridges.length;
+  const pages = Math.ceil(total / S.perPage);
+  const start = (S.page - 1) * S.perPage;
+  const slice = S.filteredBridges.slice(start, start + S.perPage);
+
+  const body = document.getElementById('directoryBody');
+  if (!slice.length) {
+    body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;">
+      <div style="color:var(--text-faint);"><i class="fas fa-search" style="font-size:1.5rem;margin-bottom:8px;display:block;"></i>No hay puentes que coincidan con los filtros.</div>
+    </td></tr>`;
+  } else {
+    body.innerHTML = slice.map(b => {
+      const score = getLastScore(b.id);
+      const cond = b.currentCondition || 'Regular';
+      const isFav = S.favorites.includes(b.id);
+      const scorePct = score !== null ? score : 0;
+      return `<tr>
+        <td><span class="bridge-code">${b.code}</span></td>
+        <td class="bridge-name-cell">${b.name}</td>
+        <td>${b.projectName || '—'}</td>
+        <td>${b.region || '—'}</td>
+        <td><span class="badge ${conditionBadgeClass(cond)}">${cond}</span></td>
+        <td>
+          ${score !== null
+            ? `<span class="score-mono" style="color:${scoreColor(score)};">${score}</span>
+               <span class="score-bar-wrap"><span class="score-bar" style="width:${scorePct}%;background:${scoreColor(score)};"></span></span>`
+            : '<span style="color:var(--text-faint)">—</span>'}
+        </td>
+        <td>
+          <div class="action-cell">
+            <button class="act-btn map-btn" onclick="window._viewBridge('${b.id}')" title="Ver detalle"><i class="fas fa-eye"></i></button>
+            <button class="act-btn ${isFav?'fav-on':''}" onclick="window._toggleFav('${b.id}')" title="${isFav?'Quitar favorito':'Favorito'}"><i class="fas fa-star"></i></button>
+            <button class="act-btn" onclick="window._shareB('${b.id}')" title="Compartir"><i class="fas fa-share-nodes"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Pagination
+  document.getElementById('paginationInfo').textContent = total
+    ? `Mostrando ${start+1}–${Math.min(start+S.perPage, total)} de ${total} puentes`
+    : '0 puentes';
+  const ctrl = document.getElementById('paginationControls');
+  if (pages <= 1) { ctrl.innerHTML = ''; return; }
+  let html = `<button class="page-btn" onclick="window._goPage(${S.page-1})" ${S.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
+  for (let i=1;i<=pages;i++) {
+    if (i===1||i===pages||Math.abs(i-S.page)<=1) {
+      html += `<button class="page-btn ${i===S.page?'active':''}" onclick="window._goPage(${i})">${i}</button>`;
+    } else if (Math.abs(i-S.page)===2) {
+      html += `<button class="page-btn" style="pointer-events:none;opacity:0.4;">…</button>`;
+    }
+  }
+  html += `<button class="page-btn" onclick="window._goPage(${S.page+1})" ${S.page>=pages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
+  ctrl.innerHTML = html;
+}
+
+window._goPage = function(p) {
+  S.page = p;
+  renderDirectoryPage();
+};
+
+// Column sorting
+document.querySelectorAll('thead th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (S.sortCol === col) S.sortDir *= -1;
+    else { S.sortCol = col; S.sortDir = 1; }
+    document.querySelectorAll('thead th .sort-icon').forEach(i => i.className = 'fas fa-sort sort-icon');
+    const icon = th.querySelector('.sort-icon');
+    if (icon) icon.className = `fas fa-sort-${S.sortDir===1?'up':'down'} sort-icon`;
+    updateDirectory();
+    snd.click();
+  });
+});
+
+// CSV export
+document.getElementById('exportCsvBtn').addEventListener('click', () => {
+  const rows = [['Código','Nombre','Proyecto','Región','Condición','Último Puntaje','Inspector']];
+  S.filteredBridges.forEach(b => {
+    const ins = getLastInspection(b.id);
+    rows.push([b.code, b.name, b.projectName, b.region, b.currentCondition, getLastScore(b.id)??'', ins?.inspectorName||'']);
+  });
+  const csv = rows.map(r => r.map(c=>`"${c}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'BMS_Export_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  toast('Exportación CSV generada', 'success');
+  snd.success();
+});
+
+/* ══════════════════════════════════════
+   GLOBAL WINDOW FUNCTIONS
+══════════════════════════════════════ */
+window._viewBridge = function(id) { openBridgeModal(id); snd.click(); };
+window._toggleFav = function(id) {
+  const idx = S.favorites.indexOf(id);
+  idx > -1 ? S.favorites.splice(idx,1) : S.favorites.push(id);
+  localStorage.setItem('bms_favorites', JSON.stringify(S.favorites));
+  updateDirectory();
+  snd.click();
+  toast(idx > -1 ? 'Quitado de favoritos' : 'Añadido a favoritos', 'info');
+};
+window._shareB = function(id) {
+  const url = window.location.href.split('?')[0] + '?bridge=' + id;
+  if (navigator.share) {
+    const b = S.allBridges.find(x=>x.id===id);
+    navigator.share({ title: b?.name, url });
+  } else {
+    navigator.clipboard.writeText(url).then(() => toast('Enlace copiado al portapapeles', 'success'));
+  }
+  snd.click();
+};
+
+/* ══════════════════════════════════════
+   MAP
+══════════════════════════════════════ */
+function updateMapData() {
+  if (!S.map) initMap();
+  else refreshMapLayers();
+}
+
+function initMap() {
+  S.map = new maplibregl.Map({
+    container: 'map',
+    style: {
+      version: 8,
+      sources: {
+        'osm': { type:'raster', tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize:256, attribution:'© OpenStreetMap' }
+      },
+      layers: [{ id:'osm', type:'raster', source:'osm' }]
+    },
+    center: [-99.2, 19.0], zoom: 8, pitch: 45, bearing: 0, antialias: true
+  });
+  S.map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+  S.map.on('load', () => {
+    refreshMapLayers();
+  });
+  S.map.on('click', 'bridges-circles', e => {
+    if (S.measureMode) return;
+    const id = e.features[0].properties.id;
+    openBridgeModal(id);
+    snd.click();
+  });
+  S.map.on('mouseenter', 'bridges-circles', e => {
+    S.map.getCanvas().style.cursor = 'pointer';
+    snd.hover();
+    const props = e.features[0].properties;
+    new maplibregl.Popup({ closeButton:false, className:'map-popup' })
+      .setLngLat(e.features[0].geometry.coordinates)
+      .setHTML(`<div style="font-family:var(--font-ui);padding:2px;">
+        <strong style="font-size:0.85rem;">${props.name}</strong><br>
+        <span style="font-size:0.75rem;opacity:0.7;">${props.code}</span><br>
+        <span style="font-size:0.78rem;color:${conditionColor(props.condition)};font-weight:700;">${props.condition} · ${props.score ?? '—'}</span>
+      </div>`)
+      .addTo(S.map);
+  });
+  S.map.on('mouseleave', 'bridges-circles', () => {
+    S.map.getCanvas().style.cursor = '';
+    document.querySelectorAll('.maplibregl-popup').forEach(p => p.remove());
+  });
+
+  // Populate project list sidebar
+  buildProjectSidebar();
+}
+
+function refreshMapLayers() {
+  const map = S.map;
+  if (!map.isStyleLoaded()) { setTimeout(refreshMapLayers, 200); return; }
+
+  // Clean up old layers
+  ['bridges-circles','bridges-heatmap','measure-line','measure-points'].forEach(id => {
+    if (map.getLayer(id)) map.removeLayer(id);
+  });
+  ['bridges','measure'].forEach(id => {
+    if (map.getSource(id)) map.removeSource(id);
+  });
+  // Remove route layers
+  Object.keys(S.projects).forEach(pid => {
+    if (map.getLayer('route-'+pid)) map.removeLayer('route-'+pid);
+    if (map.getSource('route-'+pid)) map.removeSource('route-'+pid);
+  });
+
+  const features = S.allBridges.map(b => ({
+    type: 'Feature',
+    geometry: { type:'Point', coordinates:[b.coordinates.lng, b.coordinates.lat] },
+    properties: {
+      id: b.id, name: b.name, code: b.code,
+      condition: b.currentCondition || 'Regular',
+      color: conditionColor(b.currentCondition || 'Regular'),
+      score: getLastScore(b.id)
+    }
+  }));
+
+  map.addSource('bridges', { type:'geojson', data:{ type:'FeatureCollection', features } });
+
+  map.addLayer({
+    id: 'bridges-heatmap', type:'heatmap', source:'bridges',
+    layout: { visibility: S.heatmapOn ? 'visible' : 'none' },
+    paint: {
+      'heatmap-weight': ['interpolate',['linear'],['get','score'],0,0,100,1],
+      'heatmap-intensity': ['interpolate',['linear'],['zoom'],0,1,15,3],
+      'heatmap-color': ['interpolate',['linear'],['heatmap-density'],
+        0,'rgba(0,0,255,0)',0.2,'royalblue',0.4,'cyan',0.6,'lime',0.8,'yellow',1,'red'],
+      'heatmap-radius': ['interpolate',['linear'],['zoom'],0,2,15,40],
+      'heatmap-opacity': 0.7
+    }
+  });
+
+  map.addLayer({
+    id: 'bridges-circles', type:'circle', source:'bridges',
+    paint: {
+      'circle-radius': ['interpolate',['linear'],['zoom'],6,6,14,20],
+      'circle-color': ['get','color'],
+      'circle-opacity': 0.95,
+      'circle-stroke-color': [
+        'case',['==',['feature-state','hover'],true],'#ffffff',
+        'rgba(255,255,255,0.5)'
+      ],
+      'circle-stroke-width': ['interpolate',['linear'],['zoom'],6,1.5,14,3],
+      'circle-pitch-alignment': 'map'
+    }
+  });
+
+  // Routes with animation
+  Object.entries(S.projects).forEach(([pid, proj]) => {
+    if (!proj.info?.routeCoords?.length) return;
+    map.addSource('route-'+pid, {
+      type:'geojson',
+      data:{ type:'Feature', geometry:{ type:'LineString', coordinates:proj.info.routeCoords }, properties:{} }
+    });
+    map.addLayer({
+      id:'route-'+pid, type:'line', source:'route-'+pid,
+      layout:{ 'line-join':'round', 'line-cap':'round' },
+      paint: { 'line-color': proj.info.routeColor || '#64748b', 'line-width':3, 'line-opacity':0.7, 'line-dasharray':[2,1] }
+    }, 'bridges-heatmap');
+  });
+}
+
+function buildProjectSidebar() {
+  const el = document.getElementById('projectListMap');
+  el.innerHTML = Object.entries(S.projects).map(([pid, proj]) => {
+    const bridges = S.allBridges.filter(b => b.projectId === pid);
+    return `<div class="map-project-item" onclick="window._flyToProject('${pid}')">
+      <div class="proj-color-dot" style="background:${proj.info?.routeColor||'#64748b'};"></div>
+      <div class="proj-item-info">
+        <div class="proj-item-name">${proj.info?.name || pid}</div>
+        <div class="proj-item-meta">${proj.info?.region || '—'}</div>
+      </div>
+      <div class="proj-bridge-count">${bridges.length}</div>
+    </div>`;
+  }).join('');
+}
+
+window._flyToProject = function(pid) {
+  const bridges = S.allBridges.filter(b=>b.projectId===pid);
+  if (!bridges.length || !S.map) return;
+  const lngs = bridges.map(b=>b.coordinates.lng);
+  const lats = bridges.map(b=>b.coordinates.lat);
+  const centerLng = (Math.min(...lngs)+Math.max(...lngs))/2;
+  const centerLat = (Math.min(...lats)+Math.max(...lats))/2;
+  S.map.flyTo({ center:[centerLng,centerLat], zoom:11, pitch:50, speed:0.8 });
+  snd.click();
+};
+
+// Heatmap toggle
+document.getElementById('toggleHeatmap').addEventListener('click', function() {
+  S.heatmapOn = !S.heatmapOn;
+  this.classList.toggle('on', S.heatmapOn);
+  if (S.map?.getLayer('bridges-heatmap')) {
+    S.map.setLayoutProperty('bridges-heatmap', 'visibility', S.heatmapOn ? 'visible' : 'none');
+  }
+  snd.click();
+  toast(S.heatmapOn ? 'Mapa de calor activado' : 'Mapa de calor desactivado', 'info');
+});
+
+// Measure
+document.getElementById('measureBtn').addEventListener('click', function() {
+  S.measureMode = !S.measureMode;
+  this.classList.toggle('on', S.measureMode);
+  const resultEl = document.getElementById('measure-result');
+  if (S.measureMode) {
+    S.measurePoints = [];
+    document.getElementById('measureText').textContent = 'Clic 1: punto inicial';
+    resultEl.classList.add('show');
+    S.map.on('click', handleMeasureClick);
+    toast('Modo medición activado. Haz clic en el mapa.', 'info');
+  } else {
+    S.map.off('click', handleMeasureClick);
+    resultEl.classList.remove('show');
+    S.measurePoints = [];
+    if (S.map.getLayer('measure-line'))   S.map.removeLayer('measure-line');
+    if (S.map.getLayer('measure-points')) S.map.removeLayer('measure-points');
+    if (S.map.getSource('measure'))       S.map.removeSource('measure');
+    S.measureSourceAdded = false;
+    toast('Modo medición desactivado', 'info');
+  }
+  snd.click();
+});
+
+function handleMeasureClick(e) {
+  S.measurePoints.push([e.lngLat.lng, e.lngLat.lat]);
+  const pts = S.measurePoints;
+  const geojson = {
+    type:'FeatureCollection',
+    features: [
+      { type:'Feature', geometry:{ type:'LineString', coordinates:pts }, properties:{} },
+      ...pts.map(p => ({ type:'Feature', geometry:{ type:'Point', coordinates:p }, properties:{} }))
+    ]
+  };
+  if (!S.measureSourceAdded) {
+    S.map.addSource('measure', { type:'geojson', data:geojson });
+    S.map.addLayer({ id:'measure-line', type:'line', source:'measure',
+      filter:['==','$type','LineString'],
+      paint:{ 'line-color':'#ef4444','line-width':2.5,'line-dasharray':[4,3] }
+    });
+    S.map.addLayer({ id:'measure-points', type:'circle', source:'measure',
+      filter:['==','$type','Point'],
+      paint:{ 'circle-radius':5,'circle-color':'#ef4444','circle-stroke-color':'#fff','circle-stroke-width':2 }
+    });
+    S.measureSourceAdded = true;
+  } else {
+    S.map.getSource('measure').setData(geojson);
+  }
+  if (pts.length >= 2) {
+    let total = 0;
+    for (let i=1;i<pts.length;i++) {
+      const [lng1,lat1]=pts[i-1],[lng2,lat2]=pts[i];
+      const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+      const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+      total += R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    }
+    document.getElementById('measureText').textContent = `${pts.length} puntos · ${total.toFixed(2)} km`;
+    snd.click();
+  } else {
+    document.getElementById('measureText').textContent = 'Clic 2: punto final (o más)';
+  }
+}
+
+// Geolocate
+document.getElementById('geoBtn').addEventListener('click', () => {
+  if (!navigator.geolocation) { toast('Geolocalización no disponible', 'warning'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const {latitude:lat, longitude:lng} = pos.coords;
+    S.map?.flyTo({ center:[lng,lat], zoom:14, pitch:45 });
+    new maplibregl.Marker({ color:'#3b82f6' }).setLngLat([lng,lat]).addTo(S.map);
+    toast('Posición localizada', 'success');
+    snd.success();
+  }, () => toast('No se pudo obtener la posición', 'error'));
+  snd.click();
+});
+
+// Reset view
+document.getElementById('resetViewBtn').addEventListener('click', () => {
+  S.map?.flyTo({ center:[-99.2, 19.0], zoom:8, pitch:45, bearing:0 });
+  snd.click();
+});
+
+// Sidebar collapse
+document.getElementById('sidebarCollapseBtn').addEventListener('click', () => {
+  document.getElementById('map-sidebar').classList.add('collapsed');
+  document.getElementById('sidebarShowBtn').style.display = 'flex';
+  snd.click();
+});
+document.getElementById('sidebarShowBtn').addEventListener('click', () => {
+  document.getElementById('map-sidebar').classList.remove('collapsed');
+  document.getElementById('sidebarShowBtn').style.display = 'none';
+  snd.click();
+});
+
+/* ══════════════════════════════════════
+   BRIDGE MODAL
+══════════════════════════════════════ */
+function openBridgeModal(bridgeId) {
+  const bridge = S.allBridges.find(b=>b.id===bridgeId);
+  if (!bridge) return;
+  S.currentBridgeId = bridgeId;
+
+  document.getElementById('modalBridgeName').textContent = bridge.name;
+  document.getElementById('modalBridgeCode').textContent = `${bridge.code} · ${bridge.projectName} · ${bridge.region}`;
+  document.getElementById('bridgeModal').classList.add('open');
+
+  // Activate first tab
+  document.querySelectorAll('.modal-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.modal-tab-btn[data-modal-tab="info"]').classList.add('active');
+  renderModalTab('info', bridge);
+
+  document.getElementById('modalMapBtn').onclick = () => {
+    document.getElementById('bridgeModal').classList.remove('open');
+    switchTab('map');
+    setTimeout(() => {
+      S.map?.flyTo({ center:[bridge.coordinates.lng, bridge.coordinates.lat], zoom:14, pitch:55 });
+    }, 300);
+    snd.click();
+  };
+  document.getElementById('modalShareBtn').onclick = () => { window._shareB(bridgeId); };
+  document.getElementById('modalAddInspBtn').onclick = () => {
+    S.currentAddInspBridgeId = bridgeId;
+    openAddInspModal();
+  };
+
+  document.querySelectorAll('.modal-tab-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.modal-tab-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      renderModalTab(btn.dataset.modalTab, bridge);
+      snd.click();
+    };
+  });
+}
+
+function renderModalTab(tab, bridge) {
+  const body = document.getElementById('modalBody');
+  const insp = [...(S.inspections[bridge.id]||[])].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const lastInsp = insp[0] || null;
+  const score = lastInsp?.manualScore ?? null;
+  const cond = bridge.currentCondition || 'Regular';
+
+  if (tab === 'info') {
+    body.innerHTML = `
+      <div class="modal-score-row">
+        ${score !== null ? `
+        <div class="score-ring-wrap">
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle cx="40" cy="40" r="33" fill="none" stroke="var(--border)" stroke-width="7"/>
+            <circle cx="40" cy="40" r="33" fill="none" stroke="${scoreColor(score)}" stroke-width="7"
+              stroke-dasharray="${2*Math.PI*33}" stroke-dashoffset="${2*Math.PI*33*(1-score/100)}"
+              stroke-linecap="round" transform="rotate(-90 40 40)"
+              style="transition:stroke-dashoffset 0.8s ease;"/>
+          </svg>
+          <div class="score-ring-text" style="color:${scoreColor(score)};">${score}</div>
+        </div>` : '<div style="width:80px;height:80px;background:var(--bg-elevated);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text-faint);">—</div>'}
+        <div class="score-detail">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span class="badge ${conditionBadgeClass(cond)}">${cond}</span>
+          </div>
+          <div class="score-detail-title">${score !== null ? 'Última inspección: '+fmtDate(lastInsp.date) : 'Sin inspecciones'}</div>
+          <div class="score-detail-meta">${lastInsp ? 'Inspector: '+lastInsp.inspectorName : 'Registra la primera inspección'}</div>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><div class="info-item-label">Código</div><div class="info-item-value mono">${bridge.code}</div></div>
+        <div class="info-item"><div class="info-item-label">Proyecto</div><div class="info-item-value">${bridge.projectName}</div></div>
+        <div class="info-item"><div class="info-item-label">Región</div><div class="info-item-value">${bridge.region}</div></div>
+        <div class="info-item"><div class="info-item-label">Longitud</div><div class="info-item-value mono">${bridge.length ? bridge.length+' m' : '—'}</div></div>
+        <div class="info-item"><div class="info-item-label">Ancho</div><div class="info-item-value mono">${bridge.width ? bridge.width+' m' : '—'}</div></div>
+        <div class="info-item"><div class="info-item-label">Año de construcción</div><div class="info-item-value mono">${bridge.year || '—'}</div></div>
+        <div class="info-item"><div class="info-item-label">Material</div><div class="info-item-value">${bridge.material || '—'}</div></div>
+        <div class="info-item"><div class="info-item-label">Tramos</div><div class="info-item-value mono">${bridge.spans || '—'}</div></div>
+        <div class="info-item"><div class="info-item-label">Coordenadas</div><div class="info-item-value mono" style="font-size:0.78rem;">${bridge.coordinates?.lat?.toFixed(4)}, ${bridge.coordinates?.lng?.toFixed(4)}</div></div>
+      </div>
+      ${lastInsp?.recommendations ? `<div style="background:var(--bg-elevated);border-left:3px solid var(--accent);border-radius:var(--radius-sm);padding:12px 14px;margin-top:4px;">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Recomendación</div>
+        <div style="font-size:0.85rem;">${lastInsp.recommendations}</div>
+      </div>` : ''}
+    `;
+  } else if (tab === 'inspections') {
+    if (!insp.length) {
+      body.innerHTML = `<div class="empty-state"><i class="fas fa-clipboard"></i><h4>Sin inspecciones</h4><p>Registra la primera inspección con el botón inferior.</p></div>`;
+      return;
+    }
+    body.innerHTML = insp.map((ins, i) => {
+      const s = ins.manualScore;
+      const c = conditionFromScore(s ?? 50);
+      return `<div class="inspection-card">
+        <div class="insp-header">
+          <div>
+            <div style="font-weight:700;font-size:0.92rem;">Inspección ${insp.length - i}</div>
+            <div class="insp-date">${fmtDate(ins.date)}</div>
+          </div>
+          <span class="insp-score-badge" style="background:${conditionColor(c)}22;color:${conditionColor(c)};">${s ?? '—'}/100</span>
+        </div>
+        <div class="insp-meta-row">
+          <div class="insp-meta"><strong>Inspector:</strong> ${ins.inspectorName || '—'}</div>
+          <div class="insp-meta"><strong>Clima:</strong> ${ins.weather || '—'}</div>
+          <div class="insp-meta"><strong>Condición:</strong> <span class="badge ${conditionBadgeClass(c)}">${c}</span></div>
+        </div>
+        ${ins.observations?.length ? `<div class="insp-obs">${ins.observations.map(o=>`<span class="obs-tag">${o}</span>`).join('')}</div>` : ''}
+        ${ins.recommendations ? `<div style="margin-top:10px;font-size:0.82rem;color:var(--text-muted);"><i class="fas fa-lightbulb" style="color:var(--c-regular);margin-right:4px;"></i>${ins.recommendations}</div>` : ''}
+      </div>`;
+    }).join('');
+  } else if (tab === 'history') {
+    body.innerHTML = `<div class="history-wrap"><canvas id="historyChart"></canvas></div>`;
+    if (insp.length < 1) {
+      body.innerHTML = `<div class="empty-state"><i class="fas fa-chart-line"></i><h4>Sin datos históricos</h4></div>`;
+      return;
+    }
+    setTimeout(() => {
+      const ctx = document.getElementById('historyChart');
+      if (!ctx) return;
+      if (S.chart) S.chart.destroy();
+      const sorted = [...insp].reverse();
+      const labels = sorted.map(i=>fmtDateShort(i.date));
+      const data = sorted.map(i=>i.manualScore ?? null);
+      const isDark = document.documentElement.dataset.theme === 'dark';
+      S.chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Puntaje',
+            data,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.08)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: data.map(v => v !== null ? scoreColor(v) : '#94a3b8'),
+            pointRadius: 5,
+            pointHoverRadius: 7
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: { label: ctx => ' Puntaje: ' + ctx.raw }
             }
+          },
+          scales: {
+            y: { min:0, max:100, grid:{ color: isDark?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.06)' },
+              ticks: { color: isDark ? '#8da0bb' : '#566880', font:{ size:11 } } },
+            x: { grid:{ display:false },
+              ticks: { color: isDark ? '#8da0bb' : '#566880', font:{ size:11 } } }
+          }
         }
-    </script>
+      });
+    }, 80);
+  } else if (tab === 'gallery') {
+    const images = [];
+    insp.forEach(ins => {
+      (ins.damages||[]).forEach(d => {
+        if (d.imageBase64 && d.imageBase64.length > 200)
+          images.push({ src:d.imageBase64, caption:d.type || 'Daño', date:ins.date });
+      });
+    });
+    if (!images.length) {
+      body.innerHTML = `<div class="empty-state"><i class="fas fa-images"></i><h4>Sin imágenes</h4><p>Agrega fotos al registrar una inspección.</p></div>`;
+      return;
+    }
+    body.innerHTML = `<div class="gallery-grid">${images.map(img=>`
+      <div class="gallery-item" onclick="window.open('${img.src}')">
+        <img src="${img.src}" alt="${img.caption}">
+        <div class="gallery-caption">${img.caption} · ${fmtDateShort(img.date)}</div>
+      </div>`).join('')}</div>`;
+  }
+}
 
-    <script type="module">
-        // --------------------------------------------------------------
-        // 1. FIREBASE CONFIG
-        // --------------------------------------------------------------
-        import { initializeApp } from 'firebase/app';
-        import { getDatabase, ref, onValue, set, update, push, onDisconnect } from 'firebase/database';
-        import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+/* ══════════════════════════════════════
+   ADD INSPECTION MODAL
+══════════════════════════════════════ */
+function openAddInspModal() {
+  S.selectedObs = [];
+  S.pendingPhotos = [];
+  document.getElementById('inspInspector').value = '';
+  document.getElementById('inspScore').value = '';
+  document.getElementById('inspScorePreview').textContent = '–';
+  document.getElementById('inspScorePreview').style.color = 'var(--text-faint)';
+  document.getElementById('inspObsCustom').value = '';
+  document.getElementById('inspRec').value = '';
+  document.getElementById('photoPreviewGrid').innerHTML = '';
+  document.querySelectorAll('.obs-chip').forEach(c => c.classList.remove('selected'));
+  document.getElementById('addInspModal').classList.add('open');
+  snd.click();
+}
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyA77Cb1TaMCDpEcIED5kd98RlFUC9OInnM",
-            authDomain: "bms-9eb1f.firebaseapp.com",
-            databaseURL: "https://bms-9eb1f-default-rtdb.firebaseio.com",
-            projectId: "bms-9eb1f",
-            storageBucket: "bms-9eb1f.firebasestorage.app",
-            messagingSenderId: "98687468935",
-            appId: "1:98687468935:web:2ae09901d8224d03c2bf22"
-        };
+// Score preview
+document.getElementById('inspScore').addEventListener('input', function() {
+  const v = parseInt(this.value);
+  const prev = document.getElementById('inspScorePreview');
+  if (!isNaN(v) && v>=0 && v<=100) {
+    const c = conditionFromScore(v);
+    prev.textContent = c;
+    prev.style.color = scoreColor(v);
+  } else {
+    prev.textContent = '–';
+    prev.style.color = 'var(--text-faint)';
+  }
+});
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const auth = getAuth(app);
+// Obs chips
+document.querySelectorAll('.obs-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const obs = chip.dataset.obs;
+    if (chip.classList.toggle('selected')) {
+      if (!S.selectedObs.includes(obs)) S.selectedObs.push(obs);
+    } else {
+      S.selectedObs = S.selectedObs.filter(o=>o!==obs);
+    }
+    snd.click();
+  });
+});
 
-        // --------------------------------------------------------------
-        // 2. ESTADO GLOBAL
-        // --------------------------------------------------------------
-        const state = {
-            projects: {},
-            bridges: [],
-            inspections: {},
-            favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
-            map: null,
-            chart: null,
-            soundEnabled: true,
-            darkMode: false,
-            heatmapVisible: false,
-            weatherVisible: false,
-            measureMode: false,
-            measurePoints: [],
-            currentBridgeId: null,
-            allBridges: [],
-        };
+// Photo upload
+document.getElementById('photoUploadArea').addEventListener('click', () => {
+  document.getElementById('photoInput').click();
+});
+document.getElementById('photoInput').addEventListener('change', function() {
+  Array.from(this.files).forEach(file => compressAndAddPhoto(file));
+});
 
-        // --------------------------------------------------------------
-        // 3. SONIDOS (Web Audio)
-        // --------------------------------------------------------------
-        class SoundFX {
-            constructor() { this.ctx = null; this.enabled = true; }
-            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
-            play(freq, dur = 0.15, type = 'sine', vol = 0.3) {
-                if (!this.enabled) return;
-                try {
-                    this.init();
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = type;
-                    osc.frequency.value = freq;
-                    gain.gain.value = vol;
-                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + dur);
-                } catch (e) {}
-            }
-            hover() { this.play(600, 0.08, 'sine', 0.2); }
-            click() { this.play(800, 0.1, 'sine', 0.25); }
-            success() { this.play(523, 0.1); setTimeout(() => this.play(659, 0.1), 120); setTimeout(() => this.play(784, 0.15), 240); }
-            error() { this.play(200, 0.3, 'sawtooth', 0.2); }
-            zoom() { this.play(300, 0.3, 'sine', 0.15); this.play(600, 0.3, 'sine', 0.1); }
-        }
-        const sound = new SoundFX();
+function compressAndAddPhoto(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let [w,h] = [img.width, img.height];
+      const maxW=800, maxH=600;
+      if (w>maxW) { h=h*maxW/w; w=maxW; }
+      if (h>maxH) { w=w*maxH/h; h=maxH; }
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const b64 = canvas.toDataURL('image/jpeg', 0.75);
+      S.pendingPhotos.push(b64);
+      renderPhotoPreviews();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
 
-        // --------------------------------------------------------------
-        // 4. AUTENTICACIÓN ANÓNIMA
-        // --------------------------------------------------------------
-        signInAnonymously(auth).catch(err => console.warn('Auth error:', err));
-        onAuthStateChanged(auth, user => {
-            if (user) {
-                document.getElementById('status-indicator').className = 'online';
-                const connectedRef = ref(db, '.info/connected');
-                onValue(connectedRef, snap => {
-                    document.getElementById('status-indicator').className = snap.val() ? 'online' : 'offline';
-                });
-                loadData();
-            } else {
-                document.getElementById('status-indicator').className = 'offline';
-            }
-        });
+function renderPhotoPreviews() {
+  const grid = document.getElementById('photoPreviewGrid');
+  grid.innerHTML = S.pendingPhotos.map((src,i)=>`
+    <div class="photo-preview">
+      <img src="${src}" alt="Foto ${i+1}">
+      <button class="photo-remove" onclick="window._removePhoto(${i})"><i class="fas fa-times"></i></button>
+    </div>`).join('');
+}
+window._removePhoto = function(i) { S.pendingPhotos.splice(i,1); renderPhotoPreviews(); };
 
-        // --------------------------------------------------------------
-        // 5. CARGA DE DATOS DESDE FIREBASE + DATOS DE PRUEBA
-        // --------------------------------------------------------------
-        function loadData() {
-            const projectsRef = ref(db, 'projects');
-            onValue(projectsRef, (snap) => {
-                const data = snap.val();
-                if (!data) {
-                    createDemoData();
-                } else {
-                    processData(data);
-                }
-            });
-        }
+// Save inspection
+document.getElementById('saveInspectionBtn').addEventListener('click', () => {
+  const inspector = document.getElementById('inspInspector').value.trim();
+  const scoreVal = parseInt(document.getElementById('inspScore').value);
+  if (!inspector) { toast('Ingresa el nombre del inspector', 'warning'); return; }
+  if (isNaN(scoreVal)||scoreVal<0||scoreVal>100) { toast('Puntaje inválido (0–100)', 'warning'); return; }
 
-        function createDemoData() {
-            const demo = {
-                projects: {
-                    'proj1': {
-                        info: {
-                            name: 'Autopista México-Toluca',
-                            client: 'SCT',
-                            region: 'Estado de México',
-                            routeColor: '#FF5722',
-                            route: { type: 'LineString', coordinates: [[-99.2, 19.3], [-99.25, 19.35], [-99.3, 19.4]] }
-                        },
-                        bridges: {
-                            'b1': {
-                                code: 'B-01',
-                                name: 'Puente El Caracol',
-                                coordinates: { lat: 19.3567, lng: -99.1876 },
-                                structuralType: 'Viga Cajón',
-                                lengthMeters: 245,
-                                spanCount: 5,
-                                widthMeters: 12.5,
-                                yearBuilt: 2005,
-                                currentCondition: 'Bueno',
-                                lastInspectionDate: '2026-05-10',
-                                projectId: 'proj1'
-                            },
-                            'b2': {
-                                code: 'B-02',
-                                name: 'Puente Los Pinos',
-                                coordinates: { lat: 19.3700, lng: -99.2100 },
-                                structuralType: 'Tipo Arco',
-                                lengthMeters: 180,
-                                spanCount: 3,
-                                widthMeters: 10,
-                                yearBuilt: 2010,
-                                currentCondition: 'Regular',
-                                lastInspectionDate: '2026-04-15',
-                                projectId: 'proj1'
-                            }
-                        },
-                        inspections: {
-                            'b1': {
-                                'ins1': {
-                                    date: '2026-05-10T10:30:00Z',
-                                    inspectorName: 'Ing. Juan Pérez',
-                                    manualScore: 78,
-                                    weather: 'Soleado',
-                                    observations: ['Fisuración en losa', 'Corrosión en armaduras'],
-                                    damages: [
-                                        { type: 'Fisura', severity: 'Moderada', location: 'Losa de acceso', sizeCm: 15,
-                                            imageBase64: '' }
-                                    ],
-                                    recommendations: 'Reparación con resina epóxica.'
-                                }
-                            },
-                            'b2': {
-                                'ins2': {
-                                    date: '2026-04-15T09:15:00Z',
-                                    inspectorName: 'Ing. María López',
-                                    manualScore: 62,
-                                    weather: 'Nublado',
-                                    observations: ['Socavación en pilares'],
-                                    damages: [
-                                        { type: 'Socavación', severity: 'Severa', location: 'Pilar central', sizeCm: 30,
-                                            imageBase64: '' }
-                                    ],
-                                    recommendations: 'Refuerzo de cimentación urgente.'
-                                }
-                            }
-                        }
-                    },
-                    'proj2': {
-                        info: {
-                            name: 'Autopista Siglo XXI',
-                            client: 'SCT',
-                            region: 'Guerrero',
-                            routeColor: '#22C55E',
-                            route: { type: 'LineString', coordinates: [[-99.5, 17.5], [-99.6, 17.6], [-99.7, 17.7]] }
-                        },
-                        bridges: {
-                            'b3': {
-                                code: 'B-03',
-                                name: 'Puente La Venta',
-                                coordinates: { lat: 17.6200, lng: -99.5800 },
-                                structuralType: 'Tipo Viga',
-                                lengthMeters: 320,
-                                spanCount: 8,
-                                widthMeters: 14,
-                                yearBuilt: 2015,
-                                currentCondition: 'Optimo',
-                                lastInspectionDate: '2026-06-01',
-                                projectId: 'proj2'
-                            }
-                        },
-                        inspections: {
-                            'b3': {
-                                'ins3': {
-                                    date: '2026-06-01T11:00:00Z',
-                                    inspectorName: 'Ing. Carlos Ruiz',
-                                    manualScore: 92,
-                                    weather: 'Soleado',
-                                    observations: ['Sin novedades'],
-                                    damages: [],
-                                    recommendations: 'Mantenimiento preventivo.'
-                                }
-                            }
-                        }
-                    }
-                }
-            };
+  const customObs = document.getElementById('inspObsCustom').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const allObs = [...S.selectedObs, ...customObs];
+  const rec = document.getElementById('inspRec').value.trim();
+  const weather = document.getElementById('inspWeather').value;
 
-            const updates = {};
-            Object.keys(demo.projects).forEach(pid => {
-                const p = demo.projects[pid];
-                updates[`projects/${pid}/info`] = p.info;
-                Object.keys(p.bridges).forEach(bid => {
-                    updates[`projects/${pid}/bridges/${bid}`] = p.bridges[bid];
-                });
-                Object.keys(p.inspections).forEach(bid => {
-                    Object.keys(p.inspections[bid]).forEach(iid => {
-                        updates[`projects/${pid}/inspections/${bid}/${iid}`] = p.inspections[bid][iid];
-                    });
-                });
-            });
-            update(ref(db), updates).then(() => {
-                loadData();
-            });
-        }
+  const bridge = S.allBridges.find(b=>b.id===S.currentAddInspBridgeId);
+  if (!bridge) return;
 
-        // --------------------------------------------------------------
-        // 6. PROCESAR DATOS Y ACTUALIZAR VISTAS
-        // --------------------------------------------------------------
-        function processData(data) {
-            state.projects = data.projects || {};
-            const allBridges = [];
-            const allInspections = {};
+  const newInsp = {
+    date: new Date().toISOString(),
+    inspectorName: inspector,
+    manualScore: scoreVal,
+    weather,
+    observations: allObs.length ? allObs : ['Sin observaciones específicas'],
+    damages: S.pendingPhotos.map((img,i)=>({ type:'Fotografía '+(i+1), severity:'N/A', location:'Ver imagen', sizeCm:0, imageBase64:img })),
+    recommendations: rec || 'Ninguna'
+  };
 
-            Object.keys(state.projects).forEach(pid => {
-                const proj = state.projects[pid];
-                const bridges = proj.bridges || {};
-                Object.keys(bridges).forEach(bid => {
-                    const b = bridges[bid];
-                    b.id = bid;
-                    b.projectId = pid;
-                    b.projectName = proj.info.name;
-                    b.region = proj.info.region;
-                    b.routeColor = proj.info.routeColor;
-                    allBridges.push(b);
-                    const insp = (proj.inspections && proj.inspections[bid]) || {};
-                    allInspections[bid] = Object.values(insp);
-                });
-            });
+  const inspRef = ref(db, `projects/${bridge.projectId}/inspections/${bridge.id}`);
+  const condUpdate = {};
+  condUpdate[`projects/${bridge.projectId}/bridges/${bridge.id}/currentCondition`] = conditionFromScore(scoreVal);
+  condUpdate[`projects/${bridge.projectId}/bridges/${bridge.id}/lastInspectionDate`] = new Date().toISOString().slice(0,10);
 
-            state.allBridges = allBridges;
-            state.inspections = allInspections;
+  push(inspRef, newInsp).then(() => {
+    return update(ref(db), condUpdate);
+  }).then(() => {
+    snd.success();
+    toast('Inspección guardada exitosamente', 'success');
+    document.getElementById('addInspModal').classList.remove('open');
+    // Refresh modal if still open
+    if (document.getElementById('bridgeModal').classList.contains('open')) {
+      const updBridge = S.allBridges.find(b=>b.id===S.currentAddInspBridgeId);
+      if (updBridge) renderModalTab(document.querySelector('.modal-tab-btn.active')?.dataset?.modalTab||'info', updBridge);
+    }
+  }).catch(err => { toast('Error: '+err.message, 'error'); snd.error(); });
+});
 
-            updateDashboard(allBridges, allInspections);
-            updateDirectory(allBridges, allInspections);
-            updateMap(allBridges, state.projects);
-            populateFilters(allBridges);
-        }
+document.getElementById('cancelAddInsp').addEventListener('click', () => {
+  document.getElementById('addInspModal').classList.remove('open');
+});
+document.getElementById('closeAddInsp').addEventListener('click', () => {
+  document.getElementById('addInspModal').classList.remove('open');
+});
 
-        // --------------------------------------------------------------
-        // 7. DASHBOARD
-        // --------------------------------------------------------------
-        function updateDashboard(bridges, inspections) {
-            const total = bridges.length;
-            const scores = [];
-            let critical = 0;
-            let thisMonth = 0;
-            const now = new Date();
-            const month = now.getMonth();
-            const year = now.getFullYear();
+/* ══════════════════════════════════════
+   MODAL CLOSE
+══════════════════════════════════════ */
+document.getElementById('closeModal').addEventListener('click', () => {
+  document.getElementById('bridgeModal').classList.remove('open');
+  if (S.chart) { S.chart.destroy(); S.chart = null; }
+});
+document.getElementById('bridgeModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) {
+    e.currentTarget.classList.remove('open');
+    if (S.chart) { S.chart.destroy(); S.chart = null; }
+  }
+});
+document.getElementById('addInspModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
 
-            bridges.forEach(b => {
-                const insp = inspections[b.id] || [];
-                if (insp.length > 0) {
-                    const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
-                    if (last.manualScore !== undefined) scores.push(last.manualScore);
-                    if (last.manualScore < 40) critical++;
-                    const d = new Date(last.date);
-                    if (d.getMonth() === month && d.getFullYear() === year) thisMonth++;
-                }
-            });
-            const avg = scores.length ? Math.round(scores.reduce((a, v) => a + v, 0) / scores.length) : 0;
+/* ══════════════════════════════════════
+   TABS NAVIGATION
+══════════════════════════════════════ */
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const tabBtn = document.querySelector(`.tab-btn[data-tab="${name}"]`);
+  if (tabBtn) tabBtn.classList.add('active');
+  const panel = document.getElementById('panel-'+name);
+  if (panel) panel.classList.add('active');
+  if (name==='map' && S.map) setTimeout(()=>S.map.resize(), 60);
+}
 
-            document.getElementById('kpiTotal').textContent = total;
-            document.getElementById('kpiAvg').textContent = avg;
-            document.getElementById('kpiCritical').textContent = critical;
-            document.getElementById('kpiInspections').textContent = thisMonth;
+document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    switchTab(btn.dataset.tab);
+    snd.click();
+  });
+});
 
-            const alerts = [];
-            bridges.forEach(b => {
-                const insp = inspections[b.id] || [];
-                if (insp.length > 0) {
-                    const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
-                    if (last.manualScore < 40) alerts.push(`🔴 ${b.name} (${b.code}) - Puntaje ${last.manualScore}`);
-                }
-            });
-            const alertDiv = document.getElementById('alertList');
-            if (alerts.length) alertDiv.innerHTML = alerts.map(a => `<div>${a}</div>`).join('');
-            else alertDiv.innerHTML = '✅ No hay alertas activas.';
-        }
+/* ══════════════════════════════════════
+   FILTER LISTENERS
+══════════════════════════════════════ */
+['filterProject','filterRegion','filterCondition','filterInspector'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', () => { updateDirectory(); });
+});
+document.getElementById('filterSearch')?.addEventListener('input', () => updateDirectory());
+document.getElementById('clearFilters')?.addEventListener('click', () => {
+  ['filterProject','filterRegion','filterCondition','filterInspector'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.selectedIndex = 0;
+  });
+  document.getElementById('filterSearch').value = '';
+  updateDirectory();
+  snd.click();
+  toast('Filtros limpiados', 'info');
+});
 
-        // --------------------------------------------------------------
-        // 8. DIRECTORIO Y FILTROS
-        // --------------------------------------------------------------
-        function populateFilters(bridges) {
-            const projects = [...new Set(bridges.map(b => b.projectName))];
-            const regions = [...new Set(bridges.map(b => b.region))];
-            const inspectors = [];
-            Object.values(state.inspections).forEach(inspList => {
-                inspList.forEach(i => {
-                    if (i.inspectorName) inspectors.push(i.inspectorName);
-                });
-            });
-            const uniqueInspectors = [...new Set(inspectors)];
+/* ══════════════════════════════════════
+   THEME TOGGLE
+══════════════════════════════════════ */
+document.getElementById('themeToggle').addEventListener('click', function() {
+  S.darkMode = !S.darkMode;
+  document.documentElement.dataset.theme = S.darkMode ? 'dark' : 'light';
+  this.querySelector('i').className = S.darkMode ? 'fas fa-sun' : 'fas fa-moon';
+  snd.click();
+});
 
-            const pSelect = document.getElementById('filterProject');
-            pSelect.innerHTML = '<option value="">Todos los proyectos</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+/* ══════════════════════════════════════
+   SOUND TOGGLE
+══════════════════════════════════════ */
+document.getElementById('soundToggle').addEventListener('click', function() {
+  S.soundOn = !S.soundOn;
+  this.querySelector('i').className = S.soundOn ? 'fas fa-volume-up' : 'fas fa-volume-xmark';
+  this.classList.toggle('active', !S.soundOn);
+  toast(S.soundOn ? 'Sonidos activados' : 'Sonidos silenciados', 'info');
+});
 
-            const rSelect = document.getElementById('filterRegion');
-            rSelect.innerHTML = '<option value="">Todas las regiones</option>' + regions.map(r => `<option value="${r}">${r}</option>`).join('');
+/* ══════════════════════════════════════
+   PRESENTATION MODE
+══════════════════════════════════════ */
+document.getElementById('presentationBtn').addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen?.();
+    document.getElementById('topbar').style.display = 'none';
+    document.getElementById('tabs').style.display = 'none';
+    snd.click();
+  } else {
+    document.exitFullscreen?.();
+  }
+});
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    document.getElementById('topbar').style.display = '';
+    document.getElementById('tabs').style.display = '';
+  }
+});
 
-            const iSelect = document.getElementById('filterInspector');
-            iSelect.innerHTML = '<option value="">Todos los inspectores</option>' + uniqueInspectors.map(n => `<option value="${n}">${n}</option>`).join('');
-        }
+/* ══════════════════════════════════════
+   DEEP LINK
+══════════════════════════════════════ */
+const urlParams = new URLSearchParams(window.location.search);
+const bridgeParam = urlParams.get('bridge');
+if (bridgeParam) {
+  setTimeout(() => openBridgeModal(bridgeParam), 1500);
+}
 
-        function updateDirectory(bridges, inspections) {
-            const body = document.getElementById('directoryBody');
-            const projectFilter = document.getElementById('filterProject').value;
-            const regionFilter = document.getElementById('filterRegion').value;
-            const conditionFilter = document.getElementById('filterCondition').value;
-            const inspectorFilter = document.getElementById('filterInspector').value;
-            const search = document.getElementById('filterSearch').value.toLowerCase();
+/* ══════════════════════════════════════
+   RESIZE MAP
+══════════════════════════════════════ */
+window.addEventListener('resize', () => { if (S.map) S.map.resize(); });
 
-            let filtered = bridges.filter(b => {
-                if (projectFilter && b.projectName !== projectFilter) return false;
-                if (regionFilter && b.region !== regionFilter) return false;
-                if (conditionFilter && b.currentCondition !== conditionFilter) return false;
-                if (search && !b.name.toLowerCase().includes(search) && !b.code.toLowerCase().includes(search)) return false;
-                if (inspectorFilter) {
-                    const insp = inspections[b.id] || [];
-                    if (insp.length === 0) return false;
-                    const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
-                    if (last.inspectorName !== inspectorFilter) return false;
-                }
-                return true;
-            });
-
-            if (filtered.length === 0) {
-                body.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">No hay puentes que coincidan.</td></tr>`;
-                return;
-            }
-
-            let html = '';
-            filtered.forEach(b => {
-                const insp = inspections[b.id] || [];
-                let lastScore = '-';
-                if (insp.length > 0) {
-                    const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
-                    lastScore = last.manualScore !== undefined ? last.manualScore : '-';
-                }
-                const conditionClass = b.currentCondition ? b.currentCondition.toLowerCase() : 'regular';
-                const isFavorite = state.favorites.includes(b.id);
-                html += `<tr>
-                    <td><strong>${b.code}</strong></td>
-                    <td>${b.name}</td>
-                    <td>${b.projectName || '-'}</td>
-                    <td>${b.region || '-'}</td>
-                    <td><span class="badge-condition ${conditionClass}">${b.currentCondition || 'N/A'}</span></td>
-                    <td>${lastScore}</td>
-                    <td>
-                        <button class="btn-sm" onclick="viewBridge('${b.id}')"><i class="fas fa-eye"></i></button>
-                        <button class="btn-sm outline" onclick="toggleFavorite('${b.id}')">
-                            <i class="fas fa-star" style="color:${isFavorite ? '#f59e0b' : 'var(--text-secondary)'}"></i>
-                        </button>
-                    </td>
-                </tr>`;
-            });
-            body.innerHTML = html;
-        }
-
-        // --------------------------------------------------------------
-        // 9. FUNCIONES GLOBALES (para los botones)
-        // --------------------------------------------------------------
-        window.viewBridge = function(bridgeId) {
-            openBridgeModal(bridgeId);
-        };
-
-        window.toggleFavorite = function(bridgeId) {
-            const idx = state.favorites.indexOf(bridgeId);
-            if (idx > -1) state.favorites.splice(idx, 1);
-            else state.favorites.push(bridgeId);
-            localStorage.setItem('favorites', JSON.stringify(state.favorites));
-            updateDirectory(state.allBridges, state.inspections);
-            sound.click();
-        };
-
-        window.addInspection = function(bridgeId) {
-            const bridge = state.allBridges.find(b => b.id === bridgeId);
-            if (!bridge) return;
-
-            // Mostrar un modal simple con formulario
-            const score = prompt('Ingrese puntaje (0-100):');
-            if (score === null) return;
-            const numScore = parseInt(score);
-            if (isNaN(numScore) || numScore < 0 || numScore > 100) { alert('Puntaje inválido'); return; }
-
-            // Observaciones predefinidas (lista)
-            const obsOptions = ['Fisuración en losa', 'Corrosión en armaduras', 'Socavación en pilares',
-                'Desgaste de junta', 'Drenaje obstruido', 'Deflexión excesiva', 'Sin novedades'
-            ];
-            let obsText = prompt('Observaciones (elige de la lista o escribe nuevas, separadas por coma):\n' +
-                obsOptions.join(', '));
-            if (obsText === null) return;
-            const obsArray = obsText.split(',').map(s => s.trim()).filter(s => s.length > 0);
-
-            // Subir foto (opcional)
-            let photoBase64 = '';
-            const wantPhoto = confirm('¿Desea tomar/agregar una foto?');
-            if (wantPhoto) {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.onchange = function(e) {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = function(ev) {
-                            // Comprimir a 800x600
-                            const img = new Image();
-                            img.onload = function() {
-                                const canvas = document.createElement('canvas');
-                                const maxW = 800, maxH = 600;
-                                let w = img.width, h = img.height;
-                                if (w > maxW) { h = h * maxW / w; w = maxW; }
-                                if (h > maxH) { w = w * maxH / h; h = maxH; }
-                                canvas.width = w; canvas.height = h;
-                                const ctx = canvas.getContext('2d');
-                                ctx.drawImage(img, 0, 0, w, h);
-                                photoBase64 = canvas.toDataURL('image/jpeg', 0.7);
-                                saveInspection(bridge, numScore, obsArray, photoBase64);
-                            };
-                            img.src = ev.target.result;
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                };
-                input.click();
-            } else {
-                saveInspection(bridge, numScore, obsArray, '');
-            }
-        };
-
-        function saveInspection(bridge, score, observations, photoBase64) {
-            const newInspection = {
-                date: new Date().toISOString(),
-                inspectorName: 'Inspector App',
-                manualScore: score,
-                weather: 'No especificado',
-                observations: observations,
-                damages: photoBase64 ? [{ type: 'Foto', severity: 'N/A', location: 'N/A', sizeCm: 0,
-                    imageBase64: photoBase64 }] : [],
-                recommendations: 'Pendiente'
-            };
-            const inspRef = ref(db, `projects/${bridge.projectId}/inspections/${bridge.id}`);
-            push(inspRef, newInspection).then(() => {
-                sound.success();
-                alert('Inspección guardada exitosamente.');
-                loadData();
-            }).catch(err => { alert('Error: ' + err.message);
-                sound.error(); });
-        }
-
-        // Función para editar inspección (pendiente de implementar)
-        window.editInspection = function(bridgeId, inspectionId) {
-            alert('Funcionalidad de edición en desarrollo. Próximamente.');
-        };
-
-        // Compartir
-        window.shareBridge = function(bridgeId) {
-            const bridge = state.allBridges.find(b => b.id === bridgeId);
-            if (!bridge) return;
-            const url = window.location.href + `?bridge=${bridgeId}`;
-            if (navigator.share) {
-                navigator.share({ title: bridge.name, text: `Inspección de ${bridge.name}`, url });
-            } else {
-                navigator.clipboard.writeText(url).then(() => alert('Enlace copiado al portapapeles.'));
-            }
-        };
-
-        // --------------------------------------------------------------
-        // 10. MODAL DE DETALLE DEL PUENTE
-        // --------------------------------------------------------------
-        function openBridgeModal(bridgeId) {
-            const bridge = state.allBridges.find(b => b.id === bridgeId);
-            if (!bridge) return;
-            state.currentBridgeId = bridgeId;
-            document.getElementById('bridgeModal').classList.add('open');
-            document.getElementById('modalBridgeName').textContent = `${bridge.code} - ${bridge.name}`;
-            renderModalTab('info', bridge);
-            document.querySelectorAll('#modalTabs .tab-btn').forEach(btn => {
-                btn.onclick = () => {
-                    document.querySelectorAll('#modalTabs .tab-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    renderModalTab(btn.dataset.modalTab, bridge);
-                };
-            });
-            sound.click();
-        }
-
-        function renderModalTab(tab, bridge) {
-            const container = document.getElementById('modalTabContent');
-            const insp = state.inspections[bridge.id] || [];
-            const sortedInsp = [...insp].sort((a, c) => new Date(c.date) - new Date(a.date));
-
-            if (tab === 'info') {
-                const last = sortedInsp.length > 0 ? sortedInsp[0] : null;
-                container.innerHTML = `
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
-                        <div><strong>Tipo:</strong> ${bridge.structuralType || 'N/A'}</div>
-                        <div><strong>Longitud:</strong> ${bridge.lengthMeters || '?'} m</div>
-                        <div><strong>Claros:</strong> ${bridge.spanCount || '?'}</div>
-                        <div><strong>Ancho:</strong> ${bridge.widthMeters || '?'} m</div>
-                        <div><strong>Año construcción:</strong> ${bridge.yearBuilt || '?'}</div>
-                        <div><strong>Condición:</strong> <span class="badge-condition ${bridge.currentCondition.toLowerCase()}">${bridge.currentCondition}</span></div>
-                        <div><strong>Última inspección:</strong> ${last ? new Date(last.date).toLocaleDateString() : 'N/A'}</div>
-                        <div><strong>Puntaje:</strong> ${last ? last.manualScore : 'N/A'}</div>
-                    </div>
-                    <div style="margin-top:20px;">
-                        <button class="btn-sm" onclick="addInspection('${bridge.id}')"><i class="fas fa-plus"></i> Nueva inspección</button>
-                        <button class="btn-sm outline" onclick="shareBridge('${bridge.id}')"><i class="fas fa-share"></i> Compartir</button>
-                    </div>
-                `;
-            } else if (tab === 'inspections') {
-                if (sortedInsp.length === 0) {
-                    container.innerHTML = '<p style="color:var(--text-secondary);">No hay inspecciones registradas.</p>';
-                } else {
-                    let html = '';
-                    sortedInsp.forEach((ins, idx) => {
-                        html += `
-                            <div style="border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:12px;">
-                                <div style="display:flex; justify-content:space-between;">
-                                    <strong>${new Date(ins.date).toLocaleDateString()}</strong>
-                                    <span>Puntaje: ${ins.manualScore}</span>
-                                    <button class="btn-sm" onclick="editInspection('${bridge.id}','${Object.keys(state.inspections[bridge.id]).find(k => state.inspections[bridge.id][k] === ins)}')"><i class="fas fa-edit"></i></button>
-                                </div>
-                                <div><strong>Inspector:</strong> ${ins.inspectorName || 'N/A'}</div>
-                                <div><strong>Clima:</strong> ${ins.weather || 'N/A'}</div>
-                                <div><strong>Observaciones:</strong> ${(ins.observations || []).join(', ') || 'Ninguna'}</div>
-                                ${ins.damages && ins.damages.length ? `<div><strong>Daños:</strong> ${ins.damages.map(d => `${d.type} (${d.severity})`).join(', ')}</div>` : ''}
-                                <div><strong>Recomendaciones:</strong> ${ins.recommendations || 'N/A'}</div>
-                            </div>
-                        `;
-                    });
-                    container.innerHTML = html;
-                }
-            } else if (tab === 'history') {
-                container.innerHTML = `<div style="height:250px;"><canvas id="historyChart"></canvas></div>`;
-                setTimeout(() => {
-                    const ctx = document.getElementById('historyChart').getContext('2d');
-                    if (state.chart) state.chart.destroy();
-                    const labels = sortedInsp.map(i => new Date(i.date).toLocaleDateString()).reverse();
-                    const data = sortedInsp.map(i => i.manualScore).reverse();
-                    state.chart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: 'Puntaje',
-                                data: data,
-                                borderColor: '#2563eb',
-                                backgroundColor: 'rgba(37,99,235,0.1)',
-                                fill: true,
-                                tension: 0.3,
-                                pointBackgroundColor: data.map(v => v < 40 ? '#ef4444' : '#2563eb')
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: { y: { min: 0, max: 100 } }
-                        }
-                    });
-                }, 100);
-            } else if (tab === 'gallery') {
-                let images = [];
-                sortedInsp.forEach(ins => {
-                    if (ins.damages) {
-                        ins.damages.forEach(d => {
-                            if (d.imageBase64 && d.imageBase64.length > 100) {
-                                images.push({ src: d.imageBase64, caption: d.type });
-                            }
-                        });
-                    }
-                });
-                if (images.length === 0) {
-                    container.innerHTML = '<p style="color:var(--text-secondary);">No hay imágenes disponibles.</p>';
-                } else {
-                    container.innerHTML = `<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px;">
-                        ${images.map(img => `<div><img src="${img.src}" style="width:100%; border-radius:8px; cursor:pointer;" onclick="window.open('${img.src}')"/><div style="font-size:0.8rem; margin-top:4px;">${img.caption}</div></div>`).join('')}
-                    </div>`;
-                }
-            }
-        }
-
-        document.getElementById('closeModal').onclick = () => {
-            document.getElementById('bridgeModal').classList.remove('open');
-            if (state.chart) { state.chart.destroy();
-                state.chart = null; }
-        };
-
-        // --------------------------------------------------------------
-        // 11. MAPA (MapLibre)
-        // --------------------------------------------------------------
-        function updateMap(bridges, projects) {
-            if (!state.map) {
-                state.map = new maplibregl.Map({
-                    container: 'map',
-                    style: {
-                        version: 8,
-                        sources: {
-                            'osm': {
-                                type: 'raster',
-                                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-                                tileSize: 256,
-                                attribution: '© OpenStreetMap'
-                            }
-                        },
-                        layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
-                    },
-                    center: [-99.2, 19.3],
-                    zoom: 10,
-                    pitch: 45,
-                    bearing: 0,
-                    antialias: true
-                });
-                state.map.on('load', () => {
-                    addBridgeMarkers(bridges, projects);
-                    addProjectRoutes(projects);
-                });
-                state.map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
-            } else {
-                addBridgeMarkers(bridges, projects);
-                addProjectRoutes(projects);
-            }
-        }
-
-        function addBridgeMarkers(bridges, projects) {
-            const map = state.map;
-            if (map.getSource('bridges')) {
-                map.removeLayer('bridges-points');
-                map.removeLayer('bridges-heatmap');
-                map.removeSource('bridges');
-            }
-
-            const features = bridges.map(b => ({
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [b.coordinates.lng, b.coordinates.lat] },
-                properties: {
-                    id: b.id,
-                    name: b.name,
-                    code: b.code,
-                    condition: b.currentCondition || 'Regular',
-                    projectId: b.projectId,
-                    score: getLastScore(b.id)
-                }
-            }));
-
-            const geoJson = { type: 'FeatureCollection', features };
-            map.addSource('bridges', { type: 'geojson', data: geoJson });
-
-            map.addLayer({
-                id: 'bridges-points',
-                type: 'circle',
-                source: 'bridges',
-                paint: {
-                    'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 8, 15, 20],
-                    'circle-color': [
-                        'match', ['get', 'condition'],
-                        'Optimo', '#22c55e',
-                        'Bueno', '#3b82f6',
-                        'Regular', '#f59e0b',
-                        'Malo', '#f97316',
-                        'Critico', '#ef4444',
-                        '#94a3b8'
-                    ],
-                    'circle-opacity': 0.9,
-                    'circle-stroke-color': '#ffffff',
-                    'circle-stroke-width': 2,
-                    'circle-pitch-alignment': 'map',
-                    'circle-pitch-scale': 'map'
-                }
-            }, 'osm');
-
-            map.addLayer({
-                id: 'bridges-heatmap',
-                type: 'heatmap',
-                source: 'bridges',
-                paint: {
-                    'heatmap-weight': ['interpolate', ['linear'], ['get', 'score'], 0, 0, 100, 1],
-                    'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 20, 15, 50],
-                    'heatmap-opacity': 0.6,
-                    'heatmap-color': [
-                        'interpolate', ['linear'],
-                        ['heatmap-density'],
-                        0, 'rgba(0,0,255,0)',
-                        0.2, 'rgba(0,0,255,0.4)',
-                        0.4, 'rgba(0,255,255,0.6)',
-                        0.6, 'rgba(0,255,0,0.8)',
-                        0.8, 'rgba(255,255,0,0.9)',
-                        1, 'rgba(255,0,0,1)'
-                    ]
-                }
-            }, 'bridges-points');
-            map.setLayoutProperty('bridges-heatmap', 'visibility', 'none');
-
-            map.on('mouseenter', 'bridges-points', () => { map.getCanvas().style.cursor = 'pointer';
-                sound.hover(); });
-            map.on('mouseleave', 'bridges-points', () => { map.getCanvas().style.cursor = ''; });
-            map.on('click', 'bridges-points', (e) => {
-                const id = e.features[0].properties.id;
-                openBridgeModal(id);
-                sound.click();
-            });
-        }
-
-        function addProjectRoutes(projects) {
-            const map = state.map;
-            if (map.getSource('routes')) {
-                map.removeLayer('routes-line');
-                map.removeSource('routes');
-            }
-            const features = [];
-            Object.keys(projects).forEach(pid => {
-                const proj = projects[pid];
-                const route = proj.info.route;
-                if (route && route.coordinates) {
-                    features.push({
-                        type: 'Feature',
-                        geometry: { type: 'LineString', coordinates: route.coordinates },
-                        properties: { color: proj.info.routeColor || '#2563eb', projectId: pid }
-                    });
-                }
-            });
-            if (features.length === 0) return;
-            const geoJson = { type: 'FeatureCollection', features };
-            map.addSource('routes', { type: 'geojson', data: geoJson });
-            map.addLayer({
-                id: 'routes-line',
-                type: 'line',
-                source: 'routes',
-                paint: {
-                    'line-color': ['get', 'color'],
-                    'line-width': 4,
-                    'line-opacity': 0.7,
-                    'line-gap-width': 2
-                }
-            }, 'bridges-points');
-
-            // Animación de ruta
-            let progress = 0;
-            const animateRoute = () => {
-                if (progress > 1) return;
-                progress += 0.01;
-                map.setPaintProperty('routes-line', 'line-dasharray', [progress * 100, 100]);
-                if (progress < 1) requestAnimationFrame(animateRoute);
-            };
-            setTimeout(animateRoute, 500);
-        }
-
-        function getLastScore(bridgeId) {
-            const insp = state.inspections[bridgeId] || [];
-            if (insp.length === 0) return 50;
-            const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
-            return last.manualScore || 50;
-        }
-
-        // --------------------------------------------------------------
-        // 12. CONTROLES DEL MAPA
-        // --------------------------------------------------------------
-        document.getElementById('toggleHeatmap').onclick = function() {
-            const map = state.map;
-            if (!map) return;
-            state.heatmapVisible = !state.heatmapVisible;
-            map.setLayoutProperty('bridges-heatmap', 'visibility', state.heatmapVisible ? 'visible' : 'none');
-            this.classList.toggle('toggle-on');
-            sound.click();
-        };
-
-        document.getElementById('toggleWeather').onclick = function() {
-            const map = state.map;
-            if (!map) return;
-            state.weatherVisible = !state.weatherVisible;
-            if (state.weatherVisible) {
-                if (!map.getSource('weather')) {
-                    // Usamos una capa de nubes gratuita de OpenWeatherMap (requiere API key)
-                    // Si no tienes key, puedes usar otra fuente o desactivar.
-                    alert('Para clima real, necesitas una API Key de OpenWeatherMap. Por ahora, solo es un placeholder.');
-                    this.classList.remove('toggle-on');
-                    state.weatherVisible = false;
-                    return;
-                    // Ejemplo con key:
-                    // map.addSource('weather', {
-                    //     type: 'raster',
-                    //     tiles: ['https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=TU_API_KEY'],
-                    //     tileSize: 256
-                    // });
-                    // map.addLayer({
-                    //     id: 'weather-layer',
-                    //     type: 'raster',
-                    //     source: 'weather',
-                    //     paint: { 'raster-opacity': 0.3 }
-                    // }, 'bridges-points');
-                }
-                // map.setLayoutProperty('weather-layer', 'visibility', 'visible');
-                this.classList.add('toggle-on');
-            } else {
-                if (map.getLayer('weather-layer')) {
-                    map.setLayoutProperty('weather-layer', 'visibility', 'none');
-                }
-                this.classList.remove('toggle-on');
-            }
-            sound.click();
-        };
-
-        document.getElementById('measureBtn').onclick = function() {
-            state.measureMode = !state.measureMode;
-            this.classList.toggle('toggle-on');
-            if (state.measureMode) {
-                alert('Haz clic en el mapa para medir distancias. Haz clic de nuevo en el botón para terminar.');
-                state.map.on('click', measureClick);
-            } else {
-                state.map.off('click', measureClick);
-                if (state.map.getSource('measure')) {
-                    state.map.removeLayer('measure-line');
-                    state.map.removeLayer('measure-points');
-                    state.map.removeSource('measure');
-                }
-                state.measurePoints = [];
-            }
-            sound.click();
-        };
-
-        function measureClick(e) {
-            const pt = e.lngLat;
-            state.measurePoints.push(pt);
-            if (state.measurePoints.length > 1) {
-                const coords = state.measurePoints.map(p => [p.lng, p.lat]);
-                const geojson = {
-                    type: 'FeatureCollection',
-                    features: [{
-                        type: 'Feature',
-                        geometry: { type: 'LineString', coordinates: coords },
-                        properties: {}
-                    }]
-                };
-                if (!state.map.getSource('measure')) {
-                    state.map.addSource('measure', { type: 'geojson', data: geojson });
-                    state.map.addLayer({
-                        id: 'measure-line',
-                        type: 'line',
-                        source: 'measure',
-                        paint: { 'line-color': '#ef4444', 'line-width': 3, 'line-dasharray': [4, 4] }
-                    });
-                } else {
-                    state.map.getSource('measure').setData(geojson);
-                }
-                const last = state.measurePoints.length - 1;
-                const dist = state.measurePoints[last - 1].distanceTo(state.measurePoints[last]);
-                const km = (dist / 1000).toFixed(2);
-                alert(`Distancia: ${km} km`);
-            }
-        }
-
-        document.getElementById('resetViewBtn').onclick = function() {
-            if (state.map) {
-                state.map.flyTo({ center: [-99.2, 19.3], zoom: 10, pitch: 45 });
-                sound.click();
-            }
-        };
-
-        // --------------------------------------------------------------
-        // 13. NAVEGACIÓN PESTAÑAS
-        // --------------------------------------------------------------
-        document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
-            btn.onclick = function() {
-                const tab = this.dataset.tab;
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-                document.getElementById(`panel-${tab}`).classList.add('active');
-                if (tab === 'map' && state.map) state.map.resize();
-                sound.click();
-            };
-        });
-
-        // --------------------------------------------------------------
-        // 14. TEMA OSCURO
-        // --------------------------------------------------------------
-        document.getElementById('themeToggle').onclick = function() {
-            state.darkMode = !state.darkMode;
-            document.documentElement.setAttribute('data-theme', state.darkMode ? 'dark' : 'light');
-            this.querySelector('i').className = state.darkMode ? 'fas fa-sun' : 'fas fa-moon';
-            sound.click();
-        };
-
-        // --------------------------------------------------------------
-        // 15. SONIDOS TOGGLE
-        // --------------------------------------------------------------
-        document.getElementById('soundToggle').onclick = function() {
-            sound.enabled = !sound.enabled;
-            this.querySelector('i').className = sound.enabled ? 'fas fa-volume-up' : 'fas fa-volume-mute';
-            sound.click();
-        };
-
-        // --------------------------------------------------------------
-        // 16. MODO PRESENTACIÓN
-        // --------------------------------------------------------------
-        document.getElementById('presentationBtn').onclick = function() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
-                document.getElementById('topbar').style.display = 'none';
-                document.getElementById('tabs').style.display = 'none';
-            } else {
-                document.exitFullscreen();
-                document.getElementById('topbar').style.display = 'flex';
-                document.getElementById('tabs').style.display = 'flex';
-            }
-            sound.click();
-        };
-        document.addEventListener('fullscreenchange', () => {
-            if (!document.fullscreenElement) {
-                document.getElementById('topbar').style.display = 'flex';
-                document.getElementById('tabs').style.display = 'flex';
-            }
-        });
-
-        // --------------------------------------------------------------
-        // 17. FILTROS EN DIRECTORIO
-        // --------------------------------------------------------------
-        document.querySelectorAll('#filterProject, #filterRegion, #filterCondition, #filterInspector, #filterSearch').forEach(el => {
-            el.addEventListener('change', () => updateDirectory(state.allBridges, state.inspections));
-            el.addEventListener('input', () => updateDirectory(state.allBridges, state.inspections));
-        });
-        document.getElementById('clearFilters').onclick = function() {
-            document.querySelectorAll('.filters-row select, .filters-row input').forEach(el => {
-                if (el.tagName === 'SELECT') el.selectedIndex = 0;
-                else if (el.tagName === 'INPUT') el.value = '';
-            });
-            updateDirectory(state.allBridges, state.inspections);
-            sound.click();
-        };
-
-        // --------------------------------------------------------------
-        // 18. DETECTAR PARÁMETROS DE URL (para compartir)
-        // --------------------------------------------------------------
-        const params = new URLSearchParams(window.location.search);
-        const bridgeParam = params.get('bridge');
-        if (bridgeParam) {
-            setTimeout(() => {
-                openBridgeModal(bridgeParam);
-            }, 1000);
-        }
-
-        // --------------------------------------------------------------
-        // 19. INICIALIZAR
-        // --------------------------------------------------------------
-        console.log('🚀 BMS Global iniciado.');
-        window.addEventListener('resize', () => { if (state.map) state.map.resize(); });
-        setTimeout(() => {
-            if (state.allBridges.length === 0) loadData();
-        }, 3000);
-    </script>
+console.log('🚀 BMS Global v2.0 listo.');
+</script>
 </body>
 </html>

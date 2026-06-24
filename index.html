@@ -1,702 +1,1461 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>BMS — Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<style>
-:root{
-  --bg:#0d0f14;--bg2:#13161d;--bg3:#1a1e27;--bg4:#20242f;
-  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
-  --text:#e8eaf0;--muted:#7a8099;
-  --accent:#4f8ef7;--ok:#4caf7d;--warn:#f5a623;--danger:#f04f4f;
-  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;--r:8px;
-}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;font-size:14px;}
-header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;gap:12px;height:54px;position:sticky;top:0;z-index:200;}
-.logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;}
-.logo-icon{width:30px;height:30px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;}
-.logo-icon svg{width:17px;height:17px;fill:#fff;}
-nav{display:flex;gap:2px;flex:1;}
-.nav-btn{cursor:pointer;border:none;background:transparent;color:var(--muted);padding:7px 13px;border-radius:var(--r);font-family:var(--font);font-size:13px;transition:all .15s;}
-.nav-btn:hover{background:var(--bg3);color:var(--text);}
-.nav-btn.active{background:var(--bg3);color:var(--text);font-weight:500;}
-.nav-link{text-decoration:none;}
-.hdr-right{display:flex;gap:8px;align-items:center;}
-.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex-shrink:0;}
-.sync-dot.off{background:var(--warn);}
-.sync-label{font-size:11px;color:var(--muted);}
-.btn{cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text);padding:7px 13px;border-radius:var(--r);font-family:var(--font);font-size:13px;display:flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap;}
-.btn:hover{background:var(--bg3);}
-.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;}
-.btn-primary:hover{background:#3a7de8;}
-.btn-danger{color:var(--danger);border-color:rgba(240,79,79,.35);}
-.btn-danger:hover{background:rgba(240,79,79,.1);}
-.btn-sm{padding:5px 10px;font-size:12px;}
-.btn svg{width:14px;height:14px;flex-shrink:0;}
-main{max-width:1200px;margin:0 auto;padding:1.75rem;}
-.page{display:none;}.page.active{display:block;}
-.page-title{font-size:21px;font-weight:600;margin-bottom:4px;}
-.page-sub{font-size:13px;color:var(--muted);margin-bottom:1.5rem;}
-.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem;}
-.metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;}
-.metric-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
-.metric-val{font-size:25px;font-weight:600;font-family:var(--mono);}
-.metric-note{font-size:11px;color:var(--muted);margin-top:3px;}
-.filters{display:flex;gap:8px;margin-bottom:1.1rem;flex-wrap:wrap;align-items:center;}
-.filters select,.search{background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:7px 11px;border-radius:var(--r);font-family:var(--font);font-size:13px;outline:none;}
-.search{width:210px;}.search::placeholder{color:var(--muted);}
-.table-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:1.5rem;}
-table{width:100%;border-collapse:collapse;}
-thead th{padding:9px 13px;text-align:left;font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--bg3);}
-tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
-tbody tr:last-child{border-bottom:none;}
-tbody tr:hover{background:var(--bg3);}
-tbody tr.selected{background:rgba(79,142,247,.1);}
-td{padding:9px 13px;vertical-align:middle;}
-.mono{font-family:var(--mono);font-size:12px;color:var(--muted);}
-.name{font-weight:500;font-size:13px;}
-.proj-text{font-size:12px;color:var(--muted);}
-.badge{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:99px;}
-.iep-bar{display:flex;align-items:center;gap:7px;}
-.iep-track{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;min-width:56px;}
-.iep-fill{height:4px;border-radius:2px;}
-.iep-num{font-family:var(--mono);font-size:12px;min-width:24px;text-align:right;}
-.empty-row td{text-align:center;padding:2.5rem;color:var(--muted);}
-.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:1.5rem;}
-.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.1rem 1.25rem;}
-.card-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.875rem;}
-.proj-stat{display:flex;align-items:center;gap:9px;margin-bottom:9px;}
-.proj-name{font-size:13px;width:155px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.proj-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
-.proj-fill{height:5px;border-radius:3px;}
-.proj-num{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:26px;text-align:right;}
-.leg-item{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-.leg-left{display:flex;align-items:center;gap:7px;font-size:13px;}
-.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
-.leg-count{font-family:var(--mono);font-size:13px;color:var(--muted);}
-.detail-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.4rem;margin-bottom:1.5rem;display:none;}
-.detail-panel.show{display:block;}
-.dp-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.1rem;}
-.dp-title{font-size:16px;font-weight:600;}
-.dp-id{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:3px;}
-.dp-close{cursor:pointer;color:var(--muted);font-size:20px;padding:2px 5px;border-radius:4px;}
-.dp-close:hover{color:var(--text);}
-.dp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.1rem;}
-.dp-field .dp-key{font-size:11px;color:var(--muted);margin-bottom:3px;}
-.dp-field .dp-val{font-size:13px;font-weight:500;}
-.dp-iep-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px;}
-.dp-iep-track{height:7px;background:var(--bg3);border-radius:4px;overflow:hidden;}
-.dp-iep-fill{height:7px;border-radius:4px;}
-.dp-obs{font-size:13px;color:var(--muted);padding:9px 13px;background:var(--bg3);border-radius:var(--r);border-left:3px solid var(--accent);margin:1rem 0;}
-.dp-actions{display:flex;gap:8px;flex-wrap:wrap;}
-/* ADMIN */
-.admin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
-.admin-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
-.admin-card-header{padding:.875rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-.admin-card-title{font-size:13px;font-weight:600;}
-.admin-list{padding:.4rem;}
-.admin-item{display:flex;align-items:center;justify-content:space-between;padding:7px 9px;border-radius:6px;transition:background .1s;}
-.admin-item:hover{background:var(--bg3);}
-.admin-item-label{display:flex;align-items:center;gap:7px;font-size:13px;}
-.admin-item-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
-.admin-item-actions{display:flex;gap:3px;opacity:0;transition:opacity .1s;}
-.admin-item:hover .admin-item-actions{opacity:1;}
-.icon-btn{cursor:pointer;border:none;background:transparent;color:var(--muted);padding:3px 5px;border-radius:4px;font-size:13px;}
-.icon-btn:hover{background:var(--bg3);color:var(--text);}
-.icon-btn.del:hover{color:var(--danger);}
-.admin-empty{padding:1.4rem;text-align:center;color:var(--muted);font-size:13px;}
-/* MODAL */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;}
-.modal-overlay.hidden{display:none;}
-.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:1.6rem;}
-.modal-title{font-size:16px;font-weight:600;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;}
-.modal-close{cursor:pointer;color:var(--muted);font-size:22px;}
-.modal-close:hover{color:var(--text);}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
-.form-group{display:flex;flex-direction:column;gap:4px;}
-.form-group.full{grid-column:1/-1;}
-.form-group label{font-size:11px;color:var(--muted);}
-.form-group input,.form-group select,.form-group textarea{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 11px;border-radius:var(--r);font-family:var(--font);font-size:13px;outline:none;}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);}
-.form-group textarea{resize:vertical;min-height:68px;}
-.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem;}
-.form-error{font-size:12px;color:var(--danger);margin-top:3px;display:none;}
-/* TOAST */
-.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.7rem 1.2rem;font-size:13px;z-index:999;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none;}
-.toast.show{opacity:1;transform:translateY(0);}
-.toast.ok{border-left:3px solid var(--ok);}
-.toast.err{border-left:3px solid var(--danger);}
-/* LOADING */
-.loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:3rem;color:var(--muted);font-size:13px;}
-.spinner{width:18px;height:18px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
-footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:12px;border-top:1px solid var(--border);}
-@media(max-width:900px){.metrics{grid-template-columns:repeat(2,1fr);}.bottom-grid,.admin-grid{grid-template-columns:1fr;}.dp-grid{grid-template-columns:repeat(2,1fr);}.form-grid{grid-template-columns:1fr;}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BMS Global - Puentes</title>
+
+    <!-- MapLibre GL CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" />
+    <!-- Chart.js -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/Chart.min.css" />
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <style>
+        /* ===== VARIABLES ===== */
+        :root {
+            --bg-primary: #f4f7fc;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a2332;
+            --text-secondary: #3a4a5e;
+            --border-color: #dce4ec;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --radius: 16px;
+            --accent-color: #2563eb;
+            --accent-hover: #1d4ed8;
+        }
+        [data-theme="dark"] {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        /* ===== BARRA SUPERIOR ===== */
+        #topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+            z-index: 10;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        #topbar .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+        #topbar .logo i { color: var(--accent-color); font-size: 1.6rem; }
+        .right-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .top-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .top-btn:hover {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+        #status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        #status-indicator.online { background: #22c55e; }
+        #status-indicator.offline { background: #f59e0b; }
+
+        /* ===== TABS ===== */
+        #tabs {
+            display: flex;
+            gap: 2px;
+            background: var(--bg-secondary);
+            padding: 0 20px;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+            overflow-x: auto;
+        }
+        .tab-btn {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+            font-size: 0.95rem;
+        }
+        .tab-btn i { margin-right: 8px; }
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: var(--bg-primary);
+        }
+        .tab-btn.active {
+            color: var(--accent-color);
+            border-bottom-color: var(--accent-color);
+        }
+
+        /* ===== PANELES ===== */
+        #main-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+        }
+        .panel {
+            display: none;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            padding: 20px;
+            animation: fadeIn 0.3s ease;
+        }
+        .panel.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== DASHBOARD ===== */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .kpi-card {
+            background: var(--bg-card);
+            padding: 18px 20px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border-left: 5px solid var(--accent-color);
+        }
+        .kpi-card .label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+        .kpi-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+        .kpi-card.critical { border-left-color: #ef4444; }
+        .kpi-card.good { border-left-color: #22c55e; }
+        .kpi-card.warning { border-left-color: #f59e0b; }
+
+        /* ===== DIRECTORIO ===== */
+        .filters-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+            align-items: center;
+            background: var(--bg-card);
+            padding: 16px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+        .filters-row select,
+        .filters-row input {
+            padding: 8px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            min-width: 130px;
+        }
+        .filters-row input[type="text"] {
+            flex: 1;
+            min-width: 200px;
+        }
+        .table-wrap {
+            overflow-x: auto;
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th {
+            background: var(--bg-primary);
+            text-align: left;
+            padding: 12px 16px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-color);
+        }
+        td {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+        tr:hover td { background: var(--bg-primary); }
+        .badge-condition {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .badge-condition.optimo { background: #dcfce7; color: #166534; }
+        .badge-condition.bueno { background: #dbeafe; color: #1e40af; }
+        .badge-condition.regular { background: #fef9c3; color: #854d0e; }
+        .badge-condition.malo { background: #fed7aa; color: #9a3412; }
+        .badge-condition.critico { background: #fecaca; color: #991b1b; }
+        .btn-sm {
+            padding: 4px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            background: var(--accent-color);
+            color: white;
+            transition: 0.2s;
+        }
+        .btn-sm:hover { background: var(--accent-hover); }
+        .btn-sm.outline {
+            background: transparent;
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+        }
+        .btn-sm.outline:hover { background: var(--accent-color); color: white; }
+
+        /* ===== MAPA ===== */
+        #map-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #e5e7eb;
+        }
+        .map-controls {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 5;
+        }
+        .map-controls button {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            box-shadow: var(--shadow);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .map-controls button:hover { background: var(--bg-primary); }
+        .map-controls button.toggle-on {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        /* ===== MODAL ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: var(--bg-card);
+            max-width: 800px;
+            width: 95%;
+            max-height: 90vh;
+            border-radius: var(--radius);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            padding: 24px 28px;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+        .modal-close {
+            position: sticky;
+            top: 0;
+            float: right;
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .modal-close:hover { color: var(--text-primary); }
+
+        /* ===== FORMULARIOS ===== */
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 0.9rem;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+        .form-group textarea { min-height: 80px; resize: vertical; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            #topbar .logo span { display: none; }
+            .tab-btn { padding: 10px 14px; font-size: 0.8rem; }
+            .tab-btn i { margin-right: 4px; }
+            .kpi-grid { grid-template-columns: 1fr 1fr; }
+            .filters-row select, .filters-row input { min-width: 100px; }
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+    </style>
 </head>
 <body>
-<header>
-  <div class="logo">
-    <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M2 17h20v2H2zm1-5h2v4H3zm4-3h2v7H7zm4-4h2v11h-2zm4 2h2v9h-2zm4-3h2v12h-2z"/></svg></div>
-    BMS
-  </div>
-  <nav>
-    <button class="nav-btn active" onclick="showPage('dashboard',this)">Dashboard</button>
-    <button class="nav-btn" onclick="showPage('admin',this)">Catálogos</button>
-    <a class="nav-link" href="mapa.html"><button class="nav-btn">🗺 Mapas</button></a>
-  </nav>
-  <div class="hdr-right">
-    <div class="sync-dot off" id="sync-dot"></div>
-    <span class="sync-label" id="sync-label">Conectando...</span>
-    <button class="btn btn-sm" onclick="openModalPuente()">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      Agregar puente
-    </button>
-    <button class="btn btn-sm" onclick="openModalProyecto()">
-  <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-  Nuevo proyecto
-</button>
-    <button class="btn btn-primary btn-sm" onclick="descargarPDF()" id="btnPDF">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7 7-7z"/></svg>
-      PDF
-    </button>
-  </div>
-</header>
 
-<main>
-<div id="page-dashboard" class="page active">
-  <div class="page-title">Panel general de estructuras</div>
-  <div class="page-sub" id="fecha-sub">Cargando datos...</div>
-  <div class="metrics" id="metrics"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
-  <div class="filters">
-    <input class="search" type="text" id="buscar" placeholder="Buscar puente..." oninput="render()"/>
-    <select id="fProyecto" onchange="render()"><option value="">Todos los proyectos</option></select>
-    <select id="fEstado" onchange="render()"><option value="">Todos los estados</option></select>
-    <select id="fIntervencion" onchange="render()"><option value="">Todas las intervenciones</option></select>
-    <button class="btn btn-sm" onclick="resetFiltros()">✕ Limpiar</button>
-  </div>
-  <div class="table-card">
-    <table>
-      <thead><tr><th>ID</th><th>Nombre</th><th>Proyecto</th><th>Tipo</th><th>IEP</th><th>Estado</th><th>Última insp.</th><th>Intervención</th><th></th></tr></thead>
-      <tbody id="tbody"><tr><td colspan="9" class="empty-row"><div class="loading"><div class="spinner"></div>Cargando...</div></td></tr></tbody>
-    </table>
-  </div>
-  <div class="bottom-grid">
-    <div class="card"><div class="card-title">IEP promedio por proyecto</div><div id="proj-stats"></div></div>
-    <div class="card"><div class="card-title">Distribución por estado</div><div id="legend"></div></div>
-  </div>
-  <div class="detail-panel" id="detail-panel"></div>
-</div>
+    <!-- ===== BARRA SUPERIOR ===== -->
+    <header id="topbar">
+        <div class="logo">
+            <i class="fas fa-bridge"></i>
+            <span>BMS Global</span>
+        </div>
+        <div class="right-actions">
+            <span id="status-indicator" class="online" title="Estado de conexión"></span>
+            <button class="top-btn" id="themeToggle" title="Modo oscuro/claro"><i class="fas fa-moon"></i></button>
+            <button class="top-btn" id="soundToggle" title="Activar sonidos"><i class="fas fa-volume-up"></i></button>
+            <button class="top-btn" id="presentationBtn" title="Modo presentación"><i class="fas fa-expand"></i></button>
+        </div>
+    </header>
 
-<div id="page-admin" class="page">
-  <div class="page-title">Catálogos del sistema</div>
-  <div class="page-sub">Administra proyectos, estados e intervenciones</div>
-  <div class="admin-grid" id="admin-grid"></div>
-</div>
-</main>
+    <!-- ===== TABS ===== -->
+    <nav id="tabs">
+        <button class="tab-btn active" data-tab="dashboard"><i class="fas fa-chart-pie"></i> Dashboard</button>
+        <button class="tab-btn" data-tab="map"><i class="fas fa-map"></i> Mapa</button>
+        <button class="tab-btn" data-tab="directory"><i class="fas fa-list"></i> Directorio</button>
+    </nav>
 
-<!-- MODAL PUENTE -->
-<div class="modal-overlay hidden" id="modal-puente">
-  <div class="modal">
-    <div class="modal-title"><span id="modal-puente-title">Agregar puente</span><span class="modal-close" onclick="closeModal('puente')">✕</span></div>
-    <div class="form-grid">
-      <div class="form-group"><label>ID único *</label><input id="f-id" placeholder="PTE-013"/><div class="form-error" id="err-id">ID ya existe</div></div>
-      <div class="form-group"><label>Nombre *</label><input id="f-nombre" placeholder="Puente Río Grande"/></div>
-      <div class="form-group"><label>Proyecto *</label><select id="f-proyecto"></select></div>
-      <div class="form-group"><label>Tipo estructural</label><select id="f-tipo"></select></div>
-      <div class="form-group"><label>IEP (0–100) *</label><input id="f-iep" type="number" min="0" max="100"/></div>
-      <div class="form-group"><label>Estado *</label><select id="f-estado"></select></div>
-      <div class="form-group"><label>Última inspección</label><input id="f-fecha" type="date"/></div>
-      <div class="form-group"><label>Intervención</label><select id="f-intervencion"></select></div>
-      <div class="form-group"><label>Longitud (m)</label><input id="f-long" type="number"/></div>
-      <div class="form-group"><label>Carriles</label><input id="f-carriles" type="number"/></div>
-      <div class="form-group"><label>Año construcción</label><input id="f-año" type="number"/></div>
-      <div class="form-group"><label>Latitud</label><input id="f-lat" type="number" step="any" placeholder="19.4326"/></div>
-      <div class="form-group"><label>Longitud coord.</label><input id="f-lng" type="number" step="any" placeholder="-99.1332"/></div>
-      <div class="form-group full"><label>Observaciones</label><textarea id="f-obs"></textarea></div>
+    <!-- ===== CONTENEDOR ===== -->
+    <div id="main-container">
+
+        <!-- PANEL DASHBOARD -->
+        <div id="panel-dashboard" class="panel active">
+            <h2 style="margin-bottom:20px;"><i class="fas fa-chart-line"></i> Resumen Ejecutivo</h2>
+            <div class="kpi-grid" id="kpiGrid">
+                <div class="kpi-card"><div class="label">Puentes totales</div><div class="value" id="kpiTotal">0</div></div>
+                <div class="kpi-card good"><div class="label">Puntaje promedio</div><div class="value" id="kpiAvg">0</div></div>
+                <div class="kpi-card critical"><div class="label">Puentes críticos</div><div class="value" id="kpiCritical">0</div></div>
+                <div class="kpi-card warning"><div class="label">Inspecciones este mes</div><div class="value" id="kpiInspections">0</div></div>
+            </div>
+            <div style="background:var(--bg-card); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow);">
+                <h3>Últimas alertas</h3>
+                <div id="alertList" style="margin-top:12px; color:var(--text-secondary);">No hay alertas activas.</div>
+            </div>
+        </div>
+
+        <!-- PANEL MAPA -->
+        <div id="panel-map" class="panel">
+            <div id="map-container">
+                <div id="map"></div>
+                <div class="map-controls">
+                    <button id="toggleHeatmap" class="toggle-off"><i class="fas fa-fire"></i> Calor</button>
+                    <button id="toggleWeather" class="toggle-off"><i class="fas fa-cloud-sun"></i> Clima</button>
+                    <button id="measureBtn"><i class="fas fa-ruler"></i> Medir</button>
+                    <button id="resetViewBtn"><i class="fas fa-home"></i> Reiniciar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL DIRECTORIO -->
+        <div id="panel-directory" class="panel">
+            <h2 style="margin-bottom:16px;"><i class="fas fa-table"></i> Directorio de Puentes</h2>
+            <div class="filters-row">
+                <select id="filterProject"><option value="">Todos los proyectos</option></select>
+                <select id="filterRegion"><option value="">Todas las regiones</option></select>
+                <select id="filterCondition"><option value="">Todas las condiciones</option></select>
+                <select id="filterInspector"><option value="">Todos los inspectores</option></select>
+                <input type="text" id="filterSearch" placeholder="🔍 Buscar...">
+                <button class="btn-sm" id="clearFilters">Limpiar</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr>
+                        <th>Código</th><th>Nombre</th><th>Proyecto</th><th>Región</th>
+                        <th>Estado</th><th>Últ. Puntaje</th><th>Acciones</th>
+                    </tr></thead>
+                    <tbody id="directoryBody">
+                        <tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-    <div class="form-actions">
-      <button class="btn" onclick="closeModal('puente')">Cancelar</button>
-      <button class="btn btn-primary" id="btn-guardar-puente" onclick="guardarPuente()">Guardar</button>
+
+    <!-- ===== MODAL ===== -->
+    <div class="modal-overlay" id="bridgeModal">
+        <div class="modal-box">
+            <button class="modal-close" id="closeModal">&times;</button>
+            <div id="bridgeDetailContent">
+                <h2 id="modalBridgeName">Puente</h2>
+                <div id="modalTabs" style="display:flex; gap:8px; margin:16px 0; border-bottom:1px solid var(--border-color);">
+                    <button class="tab-btn active" data-modal-tab="info">Ficha</button>
+                    <button class="tab-btn" data-modal-tab="inspections">Inspecciones</button>
+                    <button class="tab-btn" data-modal-tab="history">Histórico</button>
+                    <button class="tab-btn" data-modal-tab="gallery">Galería</button>
+                </div>
+                <div id="modalTabContent"></div>
+            </div>
+        </div>
     </div>
-  </div>
-</div>
 
-  <!-- MODAL PROYECTO -->
-<div class="modal-overlay hidden" id="modal-proyecto">
-  <div class="modal" style="max-width:370px">
-    <div class="modal-title"><span id="mpr-title">Nuevo proyecto</span><span class="modal-close" onclick="closeModal('proyecto')">✕</span></div>
-    <div class="form-group" style="margin-bottom:9px"><label>Nombre *</label><input id="mpr-nombre" placeholder="Autopista del Sol"/></div>
-    <div class="form-group" style="margin-bottom:9px"><label>Color en mapa</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="color" id="mpr-color" value="#4f8ef7" style="width:42px;height:32px;padding:2px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);cursor:pointer"/>
-        <span style="font-size:12px;color:var(--muted)">Color de los marcadores</span>
-      </div>
-    </div>
-    <div class="form-group" style="margin-bottom:9px"><label>Centro del mapa (lat, lng)</label><input id="mpr-centro" placeholder="19.4326, -99.1332"/></div>
-    <div class="form-group" style="margin-bottom:9px"><label>Zoom inicial (1–18)</label><input id="mpr-zoom" type="number" min="1" max="18" value="12"/></div>
-    <div class="form-actions"><button class="btn" onclick="closeModal('proyecto')">Cancelar</button><button class="btn btn-primary" onclick="guardarProyecto()">Guardar</button></div>
-  </div>
-</div>
+    <!-- ===== SCRIPTS ===== -->
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/Chart.min.js"></script>
 
-<!-- MODAL CATÁLOGO -->
-<div class="modal-overlay hidden" id="modal-catalogo">
-  <div class="modal" style="max-width:370px">
-    <div class="modal-title"><span id="modal-cat-title">Agregar elemento</span><span class="modal-close" onclick="closeModal('catalogo')">✕</span></div>
-    <div class="form-group" style="margin-bottom:10px"><label id="cat-lbl">Nombre *</label><input id="f-cat-nombre"/></div>
-    <div class="form-group" id="cat-color-grp" style="margin-bottom:10px"><label>Color</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="color" id="f-cat-color" style="width:40px;height:32px;padding:2px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);cursor:pointer"/>
-        <span style="font-size:12px;color:var(--muted)">Color del elemento</span>
-      </div>
-    </div>
-    <div class="form-group" id="cat-desc-grp" style="margin-bottom:10px"><label>Descripción</label><input id="f-cat-desc"/></div>
-    <div class="form-actions">
-      <button class="btn" onclick="closeModal('catalogo')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarCatalogo()">Guardar</button>
-    </div>
-  </div>
-</div>
+    <!-- Firebase Modules -->
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
+                "firebase/database": "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"
+            }
+        }
+    </script>
 
-<!-- CONFIRM -->
-<div class="modal-overlay hidden" id="modal-confirm">
-  <div class="modal" style="max-width:350px">
-    <div class="modal-title"><span id="confirm-title">¿Eliminar?</span></div>
-    <p id="confirm-msg" style="font-size:13px;color:var(--muted);margin-bottom:1.5rem"></p>
-    <div class="form-actions">
-      <button class="btn" onclick="closeModal('confirm')">Cancelar</button>
-      <button class="btn btn-danger" id="confirm-ok">Eliminar</button>
-    </div>
-  </div>
-</div>
+    <script type="module">
+        // --------------------------------------------------------------
+        // 1. FIREBASE CONFIG (Tus credenciales)
+        // --------------------------------------------------------------
+        import { initializeApp } from 'firebase/app';
+        import { getDatabase, ref, onValue, set, update, push, onDisconnect, serverTimestamp } from 'firebase/database';
+        import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
-<div class="toast" id="toast"></div>
-<footer>BMS v3.0 · Firebase Firestore · Datos en tiempo real</footer>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA77Cb1TaMCDpEcIED5kd98RlFUC9OInnM",
+            authDomain: "bms-9eb1f.firebaseapp.com",
+            databaseURL: "https://bms-9eb1f-default-rtdb.firebaseio.com",
+            projectId: "bms-9eb1f",
+            storageBucket: "bms-9eb1f.firebasestorage.app",
+            messagingSenderId: "98687468935",
+            appId: "1:98687468935:web:2ae09901d8224d03c2bf22"
+        };
 
-<!-- FIREBASE -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
 
-const firebaseConfig = {
-  apiKey: "AIzaSyC0IuDhRe470w5WL8Fb-YOMMJPc5B8-bt8",
-  authDomain: "siap-inspecciones.firebaseapp.com",
-  projectId: "siap-inspecciones",
-  storageBucket: "siap-inspecciones.firebasestorage.app",
-  messagingSenderId: "285150830693",
-  appId: "1:285150830693:web:1053b0b81d42fcf64b668c"
-};
+        // --------------------------------------------------------------
+        // 2. ESTADO GLOBAL
+        // --------------------------------------------------------------
+        const state = {
+            projects: {},
+            bridges: [],
+            inspections: {},
+            favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
+            map: null,
+            chart: null,
+            soundEnabled: true,
+            darkMode: false,
+            heatmapVisible: false,
+            weatherVisible: false,
+            measureMode: false,
+            measurePoints: [],
+            currentBridgeId: null,
+            allBridges: [], // para filtros
+        };
 
-const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+        // --------------------------------------------------------------
+        / 3. SONIDOS (Web Audio)
+        // --------------------------------------------------------------
+        class SoundFX {
+            constructor() { this.ctx = null; this.enabled = true; }
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+            play(freq, dur = 0.15, type = 'sine', vol = 0.3) {
+                if (!this.enabled) return;
+                try {
+                    this.init();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.value = freq;
+                    gain.gain.value = vol;
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + dur);
+                } catch (e) {}
+            }
+            hover() { this.play(600, 0.08, 'sine', 0.2); }
+            click() { this.play(800, 0.1, 'sine', 0.25); }
+            success() { this.play(523, 0.1); setTimeout(() => this.play(659, 0.1), 120); setTimeout(() => this.play(784, 0.15), 240); }
+            error() { this.play(200, 0.3, 'sawtooth', 0.2); }
+            zoom() { this.play(300, 0.3, 'sine', 0.15); this.play(600, 0.3, 'sine', 0.1); }
+        }
+        const sound = new SoundFX();
 
-let editingPrId = null;
+        // --------------------------------------------------------------
+        // 4. AUTENTICACIÓN ANÓNIMA
+        // --------------------------------------------------------------
+        signInAnonymously(auth).catch(err => console.warn('Auth error:', err));
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                document.getElementById('status-indicator').className = 'online';
+                // Mantener conexión activa
+                const connectedRef = ref(db, '.info/connected');
+                onValue(connectedRef, snap => {
+                    document.getElementById('status-indicator').className = snap.val() ? 'online' : 'offline';
+                });
+                loadData();
+            } else {
+                document.getElementById('status-indicator').className = 'offline';
+            }
+        });
 
-  //Proyecto
-function openModalProyecto(editId = null) {
-  editingPrId = editId;
-  const p = editId ? PROYECTOS.find(x => x.id === editId) : null;
-  document.getElementById('mpr-title').textContent = editId ? 'Editar proyecto' : 'Nuevo proyecto';
-  document.getElementById('mpr-nombre').value = p ? p.nombre : '';
-  document.getElementById('mpr-color').value = p ? p.color : '#4f8ef7';
-  document.getElementById('mpr-centro').value = p ? `${p.centro[0]}, ${p.centro[1]}` : '';
-  document.getElementById('mpr-zoom').value = p ? p.zoom : 12;
-  openModal('proyecto');
-}
+        // --------------------------------------------------------------
+         // 5. CARGA DE DATOS DESDE FIREBASE + DATOS DE PRUEBA
+        // --------------------------------------------------------------
+        function loadData() {
+            // Si no hay datos, creamos unos de prueba
+            const projectsRef = ref(db, 'projects');
+            onValue(projectsRef, (snap) => {
+                const data = snap.val();
+                if (!data) {
+                    createDemoData();
+                } else {
+                    processData(data);
+                }
+            });
+        }
 
-async function guardarProyecto() {
-  const nombre = document.getElementById('mpr-nombre').value.trim();
-  if (!nombre) { toast('Nombre obligatorio', 'err'); return; }
-  const color = document.getElementById('mpr-color').value;
-  const centroRaw = document.getElementById('mpr-centro').value.trim();
-  let centro = [19.43, -99.13];
-  if (centroRaw) {
-    const p = centroRaw.split(',').map(s => parseFloat(s.trim()));
-    if (p.length === 2 && !isNaN(p[0])) centro = p;
-  }
-  const zoom = parseInt(document.getElementById('mpr-zoom').value) || 12;
-  const id = editingPrId || (nombre.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now());
-  try {
-    await setDoc(doc(db, 'bms_proyectos', id), { id, nombre, color, centro, zoom });
-    toast('Proyecto guardado');
-    closeModal('proyecto');
-    if (!editingPrId) {
-      // Opcional: seleccionar el nuevo proyecto como filtro actual
-      document.getElementById('fProyecto').value = nombre;
-      render();
-    }
-  } catch (e) { toast('Error', 'err'); console.error(e); }
-}
+        function createDemoData() {
+            const demo = {
+                projects: {
+                    'proj1': {
+                        info: {
+                            name: 'Autopista México-Toluca',
+                            client: 'SCT',
+                            region: 'Estado de México',
+                            routeColor: '#FF5722',
+                            route: { type: 'LineString', coordinates: [[-99.2, 19.3], [-99.25, 19.35], [-99.3, 19.4]] }
+                        },
+                        bridges: {
+                            'b1': {
+                                code: 'B-01',
+                                name: 'Puente El Caracol',
+                                coordinates: { lat: 19.3567, lng: -99.1876 },
+                                structuralType: 'Viga Cajón',
+                                lengthMeters: 245,
+                                spanCount: 5,
+                                widthMeters: 12.5,
+                                yearBuilt: 2005,
+                                currentCondition: 'Bueno',
+                                lastInspectionDate: '2026-05-10',
+                                projectId: 'proj1'
+                            },
+                            'b2': {
+                                code: 'B-02',
+                                name: 'Puente Los Pinos',
+                                coordinates: { lat: 19.3700, lng: -99.2100 },
+                                structuralType: 'Tipo Arco',
+                                lengthMeters: 180,
+                                spanCount: 3,
+                                widthMeters: 10,
+                                yearBuilt: 2010,
+                                currentCondition: 'Regular',
+                                lastInspectionDate: '2026-04-15',
+                                projectId: 'proj1'
+                            }
+                        },
+                        inspections: {
+                            'b1': {
+                                'ins1': {
+                                    date: '2026-05-10T10:30:00Z',
+                                    inspectorName: 'Ing. Juan Pérez',
+                                    manualScore: 78,
+                                    weather: 'Soleado',
+                                    observations: ['Fisuración en losa', 'Corrosión en armaduras'],
+                                    damages: [
+                                        { type: 'Fisura', severity: 'Moderada', location: 'Losa de acceso', sizeCm: 15,
+                                            imageBase64: '' }
+                                    ],
+                                    recommendations: 'Reparación con resina epóxica.'
+                                }
+                            },
+                            'b2': {
+                                'ins2': {
+                                    date: '2026-04-15T09:15:00Z',
+                                    inspectorName: 'Ing. María López',
+                                    manualScore: 62,
+                                    weather: 'Nublado',
+                                    observations: ['Socavación en pilares'],
+                                    damages: [
+                                        { type: 'Socavación', severity: 'Severa', location: 'Pilar central', sizeCm: 30,
+                                            imageBase64: '' }
+                                    ],
+                                    recommendations: 'Refuerzo de cimentación urgente.'
+                                }
+                            }
+                        }
+                    },
+                    'proj2': {
+                        info: {
+                            name: 'Autopista Siglo XXI',
+                            client: 'SCT',
+                            region: 'Guerrero',
+                            routeColor: '#22C55E',
+                            route: { type: 'LineString', coordinates: [[-99.5, 17.5], [-99.6, 17.6], [-99.7, 17.7]] }
+                        },
+                        bridges: {
+                            'b3': {
+                                code: 'B-03',
+                                name: 'Puente La Venta',
+                                coordinates: { lat: 17.6200, lng: -99.5800 },
+                                structuralType: 'Tipo Viga',
+                                lengthMeters: 320,
+                                spanCount: 8,
+                                widthMeters: 14,
+                                yearBuilt: 2015,
+                                currentCondition: 'Optimo',
+                                lastInspectionDate: '2026-06-01',
+                                projectId: 'proj2'
+                            }
+                        },
+                        inspections: {
+                            'b3': {
+                                'ins3': {
+                                    date: '2026-06-01T11:00:00Z',
+                                    inspectorName: 'Ing. Carlos Ruiz',
+                                    manualScore: 92,
+                                    weather: 'Soleado',
+                                    observations: ['Sin novedades'],
+                                    damages: [],
+                                    recommendations: 'Mantenimiento preventivo.'
+                                }
+                            }
+                        }
+                    }
+                }
+            };
 
-  
+            // Guardar en Firebase
+            const updates = {};
+            Object.keys(demo.projects).forEach(pid => {
+                const p = demo.projects[pid];
+                updates[`projects/${pid}/info`] = p.info;
+                Object.keys(p.bridges).forEach(bid => {
+                    updates[`projects/${pid}/bridges/${bid}`] = p.bridges[bid];
+                });
+                Object.keys(p.inspections).forEach(bid => {
+                    Object.keys(p.inspections[bid]).forEach(iid => {
+                        updates[`projects/${pid}/inspections/${bid}/${iid}`] = p.inspections[bid][iid];
+                    });
+                });
+            });
+            update(ref(db), updates).then(() => {
+                loadData();
+            });
+        }
 
-  
-// ── Colecciones ──
-const colPuentes     = collection(db,'bms_puentes');
-const colProyectos   = collection(db,'bms_proyectos');
-const colCatalogos   = collection(db,'bms_catalogos');
+        // --------------------------------------------------------------
+        // 6. PROCESAR DATOS Y ACTUALIZAR VISTAS
+        // --------------------------------------------------------------
+        function processData(data) {
+            state.projects = data.projects || {};
+            const allBridges = [];
+            const allInspections = {};
 
-// ── Estado local ──
-let PUENTES     = [];
-let PROYECTOS   = [];
-let CATALOGOS   = { estados:[], intervenciones:[], tipos:[] };
-let selectedId  = null;
-let editingId   = null;
-let catCtx      = null;
+            Object.keys(state.projects).forEach(pid => {
+                const proj = state.projects[pid];
+                const bridges = proj.bridges || {};
+                Object.keys(bridges).forEach(bid => {
+                    const b = bridges[bid];
+                    b.id = bid;
+                    b.projectId = pid;
+                    b.projectName = proj.info.name;
+                    b.region = proj.info.region;
+                    b.routeColor = proj.info.routeColor;
+                    allBridges.push(b);
+                    // Inspecciones
+                    const insp = (proj.inspections && proj.inspections[bid]) || {};
+                    allInspections[bid] = Object.values(insp);
+                });
+            });
 
-// ── Utils ──
-const iepColor = v => v>=75?'#4caf7d':v>=50?'#f5a623':'#f04f4f';
-function getCatColor(lista,nombre){const c=lista.find(x=>x.nombre===nombre);return c?c.color:'#7a8099';}
-function badge(color,nombre){const bg=hexA(color,.15),br=hexA(color,.3);return`<span class="badge" style="background:${bg};color:${color};border:1px solid ${br}">${nombre}</span>`;}
-function hexA(hex,a){hex=hex.replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return`rgba(${r},${g},${b},${a})`;}
-function genId(){const nums=PUENTES.map(p=>parseInt(p.id.replace(/\D+/g,''))||0);return'PTE-'+String((nums.length?Math.max(...nums):0)+1).padStart(3,'0');}
-function toast(msg,type='ok'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+(type==='ok'?'ok':'err');setTimeout(()=>t.className='toast',2600);}
-function openModal(n){document.getElementById('modal-'+n).classList.remove('hidden');}
-function closeModal(n){document.getElementById('modal-'+n).classList.add('hidden');}
-function showPage(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');if(id==='admin')renderAdmin();}
-window.showPage=showPage;
+            state.allBridges = allBridges;
+            state.inspections = allInspections;
 
-// ── Conexión indicador ──
-function setSync(ok){document.getElementById('sync-dot').className='sync-dot'+(ok?'':' off');document.getElementById('sync-label').textContent=ok?'En línea':'Sin conexión';}
+            // Actualizar vistas
+            updateDashboard(allBridges, allInspections);
+            updateDirectory(allBridges, allInspections);
+            updateMap(allBridges, state.projects);
+            populateFilters(allBridges);
+            // Cargar favoritos
+            applyFavorites();
+        }
 
-// ── Listeners en tiempo real ──
-onSnapshot(colPuentes, snap=>{
-  PUENTES=snap.docs.map(d=>({...d.data(),_docId:d.id}));
-  setSync(true);
-  populateSelects();
-  render();
-  document.getElementById('fecha-sub').textContent=`Actualizado en tiempo real · ${PUENTES.length} estructuras registradas`;
-}, ()=>setSync(false));
+        //
+-------------------------------------------------------------
+        // 7. DASHBOARD
+        // --------------------------------------------------------------
+        function updateDashboard(bridges, inspections) {
+            const total = bridges.length;
+            const scores = [];
+            let critical = 0;
+            let thisMonth = 0;
+            const now = new Date();
+            const month = now.getMonth();
+            const year = now.getFullYear();
 
-onSnapshot(colProyectos, snap=>{
-  PROYECTOS=snap.docs.map(d=>({...d.data(),_docId:d.id}));
-  populateSelects();
-  render();
-  renderAdmin();
-});
+            bridges.forEach(b => {
+                const insp = inspections[b.id] || [];
+                if (insp.length > 0) {
+                    const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
+                    if (last.manualScore !== undefined) scores.push(last.manualScore);
+                    if (last.manualScore < 40) critical++;
+                    const d = new Date(last.date);
+                    if (d.getMonth() === month && d.getFullYear() === year) thisMonth++;
+                }
+            });
+            const avg = scores.length ? Math.round(scores.reduce((a, v) => a + v, 0) / scores.length) : 0;
 
-onSnapshot(colCatalogos, snap=>{
-  snap.docs.forEach(d=>{
-    const data=d.data();
-    if(d.id==='estados')CATALOGOS.estados=data.items||[];
-    if(d.id==='intervenciones')CATALOGOS.intervenciones=data.items||[];
-    if(d.id==='tipos')CATALOGOS.tipos=data.items||[];
-  });
-  populateSelects();
-  render();
-  renderAdmin();
-});
+            document.getElementById('kpiTotal').textContent = total;
+            document.getElementById('kpiAvg').textContent = avg;
+            document.getElementById('kpiCritical').textContent = critical;
+            document.getElementById('kpiInspections').textContent = thisMonth;
 
-// Inicializar catálogos si están vacíos
-async function initCatalogos(){
-  const snap=await getDocs(colCatalogos);
-  if(!snap.empty)return;
-  const defaults={
-    estados:{items:[{id:'e1',nombre:'Bueno',color:'#4caf7d',desc:'IEP ≥ 75'},{id:'e2',nombre:'Regular',color:'#f5a623',desc:'IEP 50–74'},{id:'e3',nombre:'Crítico',color:'#f04f4f',desc:'IEP < 50'},{id:'e4',nombre:'En revisión',color:'#4f8ef7',desc:''}]},
-    intervenciones:{items:[{id:'i1',nombre:'Ninguna',color:'#7a8099',desc:''},{id:'i2',nombre:'Preventivo',color:'#4f8ef7',desc:''},{id:'i3',nombre:'Correctivo',color:'#f5a623',desc:''},{id:'i4',nombre:'Urgente',color:'#f04f4f',desc:''},{id:'i5',nombre:'En revisión',color:'#4f8ef7',desc:''}]},
-    tipos:{items:[{id:'t1',nombre:'Viga cajón',color:'#7a8099',desc:''},{id:'t2',nombre:'Atirantado',color:'#7a8099',desc:''},{id:'t3',nombre:'Losa',color:'#7a8099',desc:''},{id:'t4',nombre:'Arco',color:'#7a8099',desc:''},{id:'t5',nombre:'Viga I',color:'#7a8099',desc:''},{id:'t6',nombre:'Prelosa',color:'#7a8099',desc:''}]}
-  };
-  for(const[k,v] of Object.entries(defaults)) await setDoc(doc(db,'bms_catalogos',k),v);
-}
-initCatalogos();
+            // Alertas
+            const alerts = [];
+            bridges.forEach(b => {
+                const insp = inspections[b.id] || [];
+                if (insp.length > 0) {
+                    const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
+                    if (last.manualScore < 40) alerts.push(`🔴 ${b.name} (${b.code}) - Puntaje ${last.manualScore}`);
+                }
+            });
+            const alertDiv = document.getElementById('alertList');
+            if (alerts.length) alertDiv.innerHTML = alerts.map(a => `<div>${a}</div>`).join('');
+            else alertDiv.innerHTML = '✅ No hay alertas activas.';
+        }
 
-// ── Filtros ──
-function getFiltered(){
-  const q=document.getElementById('buscar').value.toLowerCase();
-  const p=document.getElementById('fProyecto').value;
-  const e=document.getElementById('fEstado').value;
-  const i=document.getElementById('fIntervencion').value;
-  return PUENTES.filter(d=>
-    (!q||d.nombre?.toLowerCase().includes(q)||d.id?.toLowerCase().includes(q)||d.proyecto?.toLowerCase().includes(q))&&
-    (!p||d.proyecto===p)&&(!e||d.estado===e)&&(!i||d.intervencion===i)
-  );
-}
+        // --------------------------------------------------------------
+        // 8. DIRECTORIO Y FILTROS
+        // --------------------------------------------------------------
+        function populateFilters(bridges) {
+            const projects = [...new Set(bridges.map(b => b.projectName))];
+            const regions = [...new Set(bridges.map(b => b.region))];
+            const inspectors = [];
+            Object.values(state.inspections).forEach(inspList => {
+                inspList.forEach(i => {
+                    if (i.inspectorName) inspectors.push(i.inspectorName);
+                });
+            });
+            const uniqueInspectors = [...new Set(inspectors)];
 
-function populateSelects() {
-  const cur = {
-    p: document.getElementById('fProyecto').value,
-    e: document.getElementById('fEstado').value,
-    i: document.getElementById('fIntervencion').value
-  };
-  // Ahora usa PROYECTOS en lugar de deducir de los puentes
-  const proyectosNombres = PROYECTOS.map(p => p.nombre);
-  document.getElementById('fProyecto').innerHTML = '<option value="">Todos los proyectos</option>' +
-    proyectosNombres.map(p => `<option value="${p}">${p}</option>`).join('');
-  document.getElementById('fEstado').innerHTML = '<option value="">Todos los estados</option>' +
-    CATALOGOS.estados.map(e => `<option>${e.nombre}</option>`).join('');
-  document.getElementById('fIntervencion').innerHTML = '<option value="">Todas las intervenciones</option>' +
-    CATALOGOS.intervenciones.map(i => `<option>${i.nombre}</option>`).join('');
-  // Restaurar valores seleccionados
-  document.getElementById('fProyecto').value = cur.p;
-  document.getElementById('fEstado').value = cur.e;
-  document.getElementById('fIntervencion').value = cur.i;
-}
+            const pSelect = document.getElementById('filterProject');
+            pSelect.innerHTML = '<option value="">Todos los proyectos</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
 
-// ── Render dashboard ──
-function renderMetrics(f){
-  const total=f.length,crit=f.filter(d=>d.estado==='Crítico').length;
-  const avgIep=total?Math.round(f.reduce((s,d)=>s+(d.iep||0),0)/total):0;
-  const urg=f.filter(d=>d.intervencion==='Urgente').length;
-  document.getElementById('metrics').innerHTML=`
-    <div class="metric"><div class="metric-label">Total puentes</div><div class="metric-val">${total}</div><div class="metric-note">${[...new Set(f.map(d=>d.proyecto))].filter(Boolean).length} proyectos</div></div>
-    <div class="metric"><div class="metric-label">IEP promedio</div><div class="metric-val" style="color:${iepColor(avgIep)}">${avgIep}</div><div class="metric-note">Índice de estado</div></div>
-    <div class="metric"><div class="metric-label">Estado crítico</div><div class="metric-val" style="color:#f04f4f">${crit}</div><div class="metric-note">${total?Math.round(crit/total*100):0}% del total</div></div>
-    <div class="metric"><div class="metric-label">Intervención urgente</div><div class="metric-val" style="color:#f5a623">${urg}</div><div class="metric-note">Acción inmediata</div></div>`;
-}
+            const rSelect = document.getElementById('filterRegion');
+            rSelect.innerHTML = '<option value="">Todas las regiones</option>' + regions.map(r => `<option value="${r}">${r}</option>`).join('');
 
-function renderTable(f){
-  const tb=document.getElementById('tbody');
-  if(!f.length){tb.innerHTML='<tr class="empty-row"><td colspan="9">Sin resultados</td></tr>';return;}
-  tb.innerHTML=f.map(d=>{
-    const ec=getCatColor(CATALOGOS.estados,d.estado);
-    const ic=getCatColor(CATALOGOS.intervenciones,d.intervencion);
-    return`<tr class="${selectedId===d.id?'selected':''}" onclick="selectRow('${d.id}')">
-      <td class="mono">${d.id}</td>
-      <td><div class="name">${d.nombre}</div></td>
-      <td class="proj-text">${d.proyecto||'—'}</td>
-      <td class="proj-text">${d.tipo||'—'}</td>
-      <td><div class="iep-bar"><div class="iep-track"><div class="iep-fill" style="width:${d.iep||0}%;background:${iepColor(d.iep||0)}"></div></div><div class="iep-num" style="color:${iepColor(d.iep||0)}">${d.iep||0}</div></div></td>
-      <td>${badge(ec,d.estado||'—')}</td>
-      <td class="mono" style="font-size:12px">${d.fecha||'—'}</td>
-      <td>${badge(ic,d.intervencion||'—')}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-sm" onclick="event.stopPropagation();editPuente('${d.id}')">✏️</button>
-        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();confirmDelete('puente','${d.id}')">🗑</button>
-      </td>
-    </tr>`;
-  }).join('');
-}
+            const iSelect = document.getElementById('filterInspector');
+            iSelect.innerHTML = '<option value="">Todos los inspectores</option>' + uniqueInspectors.map(n => `<option value="${n}">${n}</option>`).join('');
+        }
 
-function renderSidebars(f){
-  const proyectos=[...new Set(PUENTES.map(d=>d.proyecto).filter(Boolean))];
-  document.getElementById('proj-stats').innerHTML=proyectos.map(p=>{
-    const items=f.filter(d=>d.proyecto===p);
-    if(!items.length)return'';
-    const avg=Math.round(items.reduce((s,d)=>s+(d.iep||0),0)/items.length);
-    return`<div class="proj-stat"><div class="proj-name">${p}</div><div class="proj-track"><div class="proj-fill" style="width:${avg}%;background:${iepColor(avg)}"></div></div><div class="proj-num">${avg}</div></div>`;
-  }).join('');
-  document.getElementById('legend').innerHTML=CATALOGOS.estados.map(e=>{
-    const count=f.filter(d=>d.estado===e.nombre).length;
-    return`<div class="leg-item"><div class="leg-left"><div class="leg-dot" style="background:${e.color}"></div>${e.nombre}</div><div class="leg-count">${count}</div></div>`;
-  }).join('');
-}
+        function updateDirectory(bridges, inspections) {
+            const body = document.getElementById('directoryBody');
+            // Aplicar filtros
+            const projectFilter = document.getElementById('filterProject').value;
+            const regionFilter = document.getElementById('filterRegion').value;
+            const conditionFilter = document.getElementById('filterCondition').value;
+            const inspectorFilter = document.getElementById('filterInspector').value;
+            const search = document.getElementById('filterSearch').value.toLowerCase();
 
-function renderDetail(){
-  const panel=document.getElementById('detail-panel');
-  if(!selectedId){panel.className='detail-panel';return;}
-  const d=PUENTES.find(x=>x.id===selectedId);
-  if(!d){panel.className='detail-panel';return;}
-  panel.className='detail-panel show';
-  const ec=getCatColor(CATALOGOS.estados,d.estado);
-  const ic=getCatColor(CATALOGOS.intervenciones,d.intervencion);
-  panel.innerHTML=`
-    <div class="dp-header"><div><div class="dp-title">${d.nombre} ${badge(ec,d.estado||'')}</div><div class="dp-id">${d.id} · ${d.proyecto||''}</div></div><span class="dp-close" onclick="selectedId=null;render()">✕</span></div>
-    <div class="dp-grid">
-      <div class="dp-field"><div class="dp-key">Tipo</div><div class="dp-val">${d.tipo||'—'}</div></div>
-      <div class="dp-field"><div class="dp-key">Longitud</div><div class="dp-val">${d.long?d.long+' m':'—'}</div></div>
-      <div class="dp-field"><div class="dp-key">Carriles</div><div class="dp-val">${d.carriles||'—'}</div></div>
-      <div class="dp-field"><div class="dp-key">Año</div><div class="dp-val">${d.año||'—'}</div></div>
-      <div class="dp-field"><div class="dp-key">Última insp.</div><div class="dp-val">${d.fecha||'—'}</div></div>
-      <div class="dp-field"><div class="dp-key">Intervención</div><div class="dp-val">${badge(ic,d.intervencion||'—')}</div></div>
-    </div>
-    <div><div class="dp-iep-label"><span>IEP</span><span style="color:${iepColor(d.iep||0)};font-family:var(--mono)">${d.iep||0}/100</span></div>
-    <div class="dp-iep-track"><div class="dp-iep-fill" style="width:${d.iep||0}%;background:${iepColor(d.iep||0)}"></div></div></div>
-    ${d.obs?`<div class="dp-obs">${d.obs}</div>`:''}
-    <div class="dp-actions" style="margin-top:1rem">
-      <button class="btn btn-sm" onclick="editPuente('${d.id}')">✏️ Editar</button>
-      <button class="btn btn-sm btn-danger" onclick="confirmDelete('puente','${d.id}')">🗑 Eliminar</button>
-      <a href="mapa.html" class="btn btn-sm">🗺 Ver en mapa</a>
-    </div>`;
-}
+            let filtered = bridges.filter(b => {
+                if (projectFilter && b.projectName !== projectFilter) return false;
+                if (regionFilter && b.region !== regionFilter) return false;
+                if (conditionFilter && b.currentCondition !== conditionFilter) return false;
+                if (search && !b.name.toLowerCase().includes(search) && !b.code.toLowerCase().includes(search)) return false;
+                // Inspector: revisar última inspección
+                if (inspectorFilter) {
+                    const insp = inspections[b.id] || [];
+                    if (insp.length === 0) return false;
+                    const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
+                    if (last.inspectorName !== inspectorFilter) return false;
+                }
+                return true;
+            });
 
-function selectRow(id){selectedId=selectedId===id?null:id;render();}
-window.selectRow=selectRow;
-function resetFiltros(){document.getElementById('buscar').value='';document.getElementById('fProyecto').value='';document.getElementById('fEstado').value='';document.getElementById('fIntervencion').value='';render();}
-window.resetFiltros=resetFiltros;
+            if (filtered.length === 0) {
+                body.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">No hay puentes que coincidan con los filtros.</td></tr>`;
+                return;
+            }
 
-function render(){
-  const f=getFiltered();
-  renderMetrics(f);
-  renderTable(f);
-  renderSidebars(f);
-  renderDetail();
-}
+            let html = '';
+            filtered.forEach(b => {
+                const insp = inspections[b.id] || [];
+                let lastScore = '-';
+                let lastDate = '-';
+                if (insp.length > 0) {
+                    const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
+                    lastScore = last.manualScore !== undefined ? last.manualScore : '-';
+                    lastDate = last.date ? new Date(last.date).toLocaleDateString() : '-';
+                }
+                const conditionClass = b.currentCondition ? b.currentCondition.toLowerCase() : 'regular';
+                const isFavorite = state.favorites.includes(b.id);
+                html += `<tr>
+                    <td><strong>${b.code}</strong></td>
+                    <td>${b.name}</td>
+                    <td>${b.projectName || '-'}</td>
+                    <td>${b.region || '-'}</td>
+                    <td><span class="badge-condition ${conditionClass}">${b.currentCondition || 'N/A'}</span></td>
+                    <td>${lastScore}</td>
+                    <td>
+                        <button class="btn-sm" onclick="window.viewBridge('${b.id}')"><i class="fas fa-eye"></i></button>
+                        <button class="btn-sm outline favorite-btn" data-id="${b.id}" onclick="window.toggleFavorite('${b.id}')">
+                            <i class="fas fa-star" style="color:${isFavorite ? '#f59e0b' : 'var(--text-secondary)'}"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            });
+            body.innerHTML = html;
+        }
 
-// ── Modal puente ──
-function openModalPuente(){
-  editingId=null;
-  document.getElementById('modal-puente-title').textContent='Agregar puente';
-  document.getElementById('btn-guardar-puente').textContent='Guardar puente';
-  document.getElementById('f-id').value=genId();
-  document.getElementById('f-id').disabled=false;
-  ['f-nombre','f-obs','f-lat','f-lng'].forEach(i=>document.getElementById(i).value='');
-  ['f-long','f-carriles','f-año','f-iep'].forEach(i=>document.getElementById(i).value='');
-  document.getElementById('f-fecha').value=new Date().toISOString().slice(0,10);
-  document.getElementById('err-id').style.display='none';
-  populateFormSels();
-  openModal('puente');
-}
-window.openModalPuente=openModalPuente;
+        // Funciones globales para los botones
+        window.viewBridge = function(bridgeId) {
+            openBridgeModal(bridgeId);
+        };
+        window.toggleFavorite = function(bridgeId) {
+            const idx = state.favorites.indexOf(bridgeId);
+            if (idx > -1) state.favorites.splice(idx, 1);
+            else state.favorites.push(bridgeId);
+            localStorage.setItem('favorites', JSON.stringify(state.favorites));
+            applyFavorites();
+            // Actualizar tabla
+            updateDirectory(state.allBridges, state.inspections);
+        };
 
-function editPuente(id){
-  const d=PUENTES.find(p=>p.id===id);if(!d)return;
-  editingId=id;
-  document.getElementById('modal-puente-title').textContent='Editar puente';
-  document.getElementById('btn-guardar-puente').textContent='Guardar cambios';
-  document.getElementById('f-id').value=d.id;document.getElementById('f-id').disabled=true;
-  document.getElementById('f-nombre').value=d.nombre||'';
-  document.getElementById('f-iep').value=d.iep||'';
-  document.getElementById('f-fecha').value=d.fecha||'';
-  document.getElementById('f-long').value=d.long||'';
-  document.getElementById('f-carriles').value=d.carriles||'';
-  document.getElementById('f-año').value=d.año||'';
-  document.getElementById('f-obs').value=d.obs||'';
-  document.getElementById('f-lat').value=d.lat||'';
-  document.getElementById('f-lng').value=d.lng||'';
-  document.getElementById('err-id').style.display='none';
-  populateFormSels(d);
-  openModal('puente');
-}
-window.editPuente=editPuente;
+        function applyFavorites() {
+            // Se actualiza al renderizar
+        }
 
-function populateFormSels(d = null) {
-  // Ahora usa la lista real de proyectos desde Firestore
-  const proyectosList = PROYECTOS.map(p => p.nombre);
-  document.getElementById('f-proyecto').innerHTML = proyectosList.map(p => `<option value="${p}">${p}</option>`).join('');
-  document.getElementById('f-tipo').innerHTML = CATALOGOS.tipos.map(t => `<option>${t.nombre}</option>`).join('');
-  document.getElementById('f-estado').innerHTML = CATALOGOS.estados.map(e => `<option>${e.nombre}</option>`).join('');
-  document.getElementById('f-intervencion').innerHTML = CATALOGOS.intervenciones.map(i => `<option>${i.nombre}</option>`).join('');
-  if (d) {
-    document.getElementById('f-proyecto').value = d.proyecto || '';
-    document.getElementById('f-tipo').value = d.tipo || '';
-    document.getElementById('f-estado').value = d.estado || '';
-    document.getElementById('f-intervencion').value = d.intervencion || '';
-  }
-}
+        //
+ // 9. MAPA (MapLibre)
+        // --------------------------------------------------------------
+        function updateMap(bridges, projects) {
+            if (!state.map) {
+                // Inicializar mapa con estilo gratuito de OpenStreetMap
+                state.map = new maplibregl.Map({
+                    container: 'map',
+                    style: {
+                        version: 8,
+                        sources: {
+                            'osm': {
+                                type: 'raster',
+                                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                                tileSize: 256,
+                                attribution: '© OpenStreetMap'
+                            }
+                        },
+                        layers: [{
+                            id: 'osm',
+                            type: 'raster',
+                            source: 'osm'
+                        }]
+                    },
+                    center: [-99.2, 19.3],
+                    zoom: 10,
+                    pitch: 45,
+                    bearing: 0,
+                    antialias: true
+                });
+                state.map.on('load', () => {
+                    addBridgeMarkers(bridges, projects);
+                    addProjectRoutes(projects);
+                });
+                // Controles de mapa
+                state.map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+            } else {
+                // Actualizar marcadores
+                addBridgeMarkers(bridges, projects);
+                addProjectRoutes(projects);
+            }
+        }
 
-async function guardarPuente(){
-  const id=document.getElementById('f-id').value.trim();
-  const nombre=document.getElementById('f-nombre').value.trim();
-  const proyecto=document.getElementById('f-proyecto').value;
-  const iep=parseInt(document.getElementById('f-iep').value);
-  const estado=document.getElementById('f-estado').value;
-  if(!id||!nombre||!proyecto||isNaN(iep)||!estado){toast('Completa los campos obligatorios','err');return;}
-  if(!editingId&&PUENTES.find(p=>p.id===id)){document.getElementById('err-id').style.display='block';return;}
-  const puente={id,nombre,proyecto,tipo:document.getElementById('f-tipo').value,iep,estado,
-    fecha:document.getElementById('f-fecha').value,intervencion:document.getElementById('f-intervencion').value,
-    long:parseInt(document.getElementById('f-long').value)||0,carriles:parseInt(document.getElementById('f-carriles').value)||0,
-    año:parseInt(document.getElementById('f-año').value)||0,obs:document.getElementById('f-obs').value.trim(),
-    lat:parseFloat(document.getElementById('f-lat').value)||null,lng:parseFloat(document.getElementById('f-lng').value)||null,
-    updatedAt:Date.now()};
-  try{
-    await setDoc(doc(db,'bms_puentes',id),puente);
-    toast(editingId?'Puente actualizado':'Puente agregado');
-    closeModal('puente');
-  }catch(e){toast('Error al guardar','err');console.error(e);}
-}
-window.guardarPuente=guardarPuente;
+        function addBridgeMarkers(bridges, projects) {
+            const map = state.map;
+            // Eliminar capas y fuentes previas
+            if (map.getSource('bridges')) {
+                map.removeLayer('bridges-points');
+                map.removeLayer('bridges-heatmap');
+                map.removeSource('bridges');
+            }
 
-// ── Catálogos ──
-const CAT_CFG={estados:{label:'Estados estructurales',showColor:true,showDesc:true},intervenciones:{label:'Intervenciones',showColor:true,showDesc:false},tipos:{label:'Tipos estructurales',showColor:false,showDesc:false}};
+            const features = bridges.map(b => ({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [b.coordinates.lng, b.coordinates.lat] },
+                properties: {
+                    id: b.id,
+                    name: b.name,
+                    code: b.code,
+                    condition: b.currentCondition || 'Regular',
+                    projectId: b.projectId,
+                    score: getLastScore(b.id)
+                }
+            }));
 
-function renderAdmin(){
-  const grid=document.getElementById('admin-grid');
-  if(!grid)return;
-  grid.innerHTML=Object.entries(CAT_CFG).map(([tipo,cfg])=>`
-    <div class="admin-card">
-      <div class="admin-card-header"><div class="admin-card-title">${cfg.label}</div><button class="btn btn-sm" onclick="openCatModal('${tipo}',null)">+ Agregar</button></div>
-      <div class="admin-list">${renderCatList(tipo)}</div>
-    </div>`).join('');
-}
+            const geoJson = { type: 'FeatureCollection', features };
 
-function renderCatList(tipo){
-  const items=CATALOGOS[tipo]||[];
-  if(!items.length)return'<div class="admin-empty">Sin elementos</div>';
-  const cfg=CAT_CFG[tipo];
-  return items.map(item=>`
-    <div class="admin-item">
-      <div class="admin-item-label">${cfg.showColor?`<div class="admin-item-dot" style="background:${item.color}"></div>`:''}<span>${item.nombre}</span>${item.desc?`<span style="font-size:11px;color:var(--muted)">${item.desc}</span>`:''}</div>
-      <div class="admin-item-actions">
-        <button class="icon-btn" onclick="openCatModal('${tipo}','${item.id}')">✏️</button>
-        <button class="icon-btn del" onclick="confirmDelete('cat','${tipo}|${item.id}')">🗑</button>
-      </div>
-    </div>`).join('');
-}
-window.renderAdmin=renderAdmin;
+            map.addSource('bridges', { type: 'geojson', data: geoJson });
 
-function openCatModal(tipo,editId){
-  catCtx={tipo,editId};
-  const cfg=CAT_CFG[tipo];
-  document.getElementById('modal-cat-title').textContent=editId?'Editar elemento':'Agregar elemento';
-  document.getElementById('cat-color-grp').style.display=cfg.showColor?'flex':'none';
-  document.getElementById('cat-desc-grp').style.display=cfg.showDesc?'flex':'none';
-  if(editId){const item=CATALOGOS[tipo].find(i=>i.id===editId);if(item){document.getElementById('f-cat-nombre').value=item.nombre;document.getElementById('f-cat-color').value=item.color||'#7a8099';document.getElementById('f-cat-desc').value=item.desc||'';}}
-  else{document.getElementById('f-cat-nombre').value='';document.getElementById('f-cat-color').value='#7a8099';document.getElementById('f-cat-desc').value='';}
-  openModal('catalogo');
-}
-window.openCatModal=openCatModal;
+            // Capa de círculos 3D (con altura simulada)
+            map.addLayer({
+                id: 'bridges-points',
+                type: 'circle',
+                source: 'bridges',
+                paint: {
+                    'circle-radius': [
+                        'interpolate', ['linear'], ['zoom'],
+                        8, 8,
+                        15, 20
+                    ],
+                    'circle-color': [
+                        'match', ['get', 'condition'],
+                        'Optimo', '#22c55e',
+                        'Bueno', '#3b82f6',
+                        'Regular', '#f59e0b',
+                        'Malo', '#f97316',
+                        'Critico', '#ef4444',
+                        '#94a3b8'
+                    ],
+                    'circle-opacity': 0.9,
+                    'circle-stroke-color': '#ffffff',
+                    'circle-stroke-width': 2,
+                    'circle-pitch-alignment': 'map',
+                    'circle-pitch-scale': 'map'
+                }
+            }, 'osm');
 
-async function guardarCatalogo(){
-  const{tipo,editId}=catCtx;
-  const nombre=document.getElementById('f-cat-nombre').value.trim();
-  const color=document.getElementById('f-cat-color').value||'#7a8099';
-  const desc=document.getElementById('f-cat-desc').value.trim();
-  if(!nombre){toast('Nombre obligatorio','err');return;}
-  const items=[...(CATALOGOS[tipo]||[])];
-  if(editId){
-    const idx=items.findIndex(i=>i.id===editId);
-    if(idx>=0){const old=items[idx].nombre;items[idx]={...items[idx],nombre,color,desc};
-      if(old!==nombre){const field={estados:'estado',intervenciones:'intervencion',tipos:'tipo'}[tipo];if(field){for(const p of PUENTES){if(p[field]===old){await setDoc(doc(db,'bms_puentes',p.id),{...p,[field]:nombre});}}}}}
-  }else{items.push({id:tipo[0]+Date.now(),nombre,color,desc});}
-  try{await setDoc(doc(db,'bms_catalogos',tipo),{items});toast('Guardado');closeModal('catalogo');}
-  catch(e){toast('Error','err');}
-}
-window.guardarCatalogo=guardarCatalogo;
+            // Heatmap layer (inicialmente oculta)
+            map.addLayer({
+                id: 'bridges-heatmap',
+                type: 'heatmap',
+                source: 'bridges',
+                paint: {
+                    'heatmap-weight': [
+                        'interpolate', ['linear'], ['get', 'score'],
+                        0, 0,
+                        100, 1
+                    ],
+                    'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 20, 15, 50],
+                    'heatmap-opacity': 0.6,
+                    'heatmap-color': [
+                        'interpolate', ['linear'],
+                        ['heatmap-density'],
+                        0, 'rgba(0,0,255,0)',
+                        0.2, 'rgba(0,0,255,0.4)',
+                        0.4, 'rgba(0,255,255,0.6)',
+                        0.6, 'rgba(0,255,0,0.8)',
+                        0.8, 'rgba(255,255,0,0.9)',
+                        1, 'rgba(255,0,0,1)'
+                    ]
+                }
+            }, 'bridges-points');
+            map.setLayoutProperty('bridges-heatmap', 'visibility', 'none');
 
-// ── Eliminar ──
-function confirmDelete(tipo,id){
-  const b=tipo==='puente'?PUENTES.find(p=>p.id===id):null;
-  document.getElementById('confirm-title').textContent=tipo==='puente'?'¿Eliminar puente?':'¿Eliminar elemento?';
-  document.getElementById('confirm-msg').textContent=tipo==='puente'?`Se eliminará "${b?.nombre||id}" permanentemente.`:'Se eliminará el elemento del catálogo.';
-  document.getElementById('confirm-ok').onclick=async()=>{
-    try{
-      if(tipo==='puente'){await deleteDoc(doc(db,'bms_puentes',id));if(selectedId===id)selectedId=null;toast('Puente eliminado');}
-      else{const[catTipo,catId]=id.split('|');const items=CATALOGOS[catTipo].filter(i=>i.id!==catId);await setDoc(doc(db,'bms_catalogos',catTipo),{items});toast('Elemento eliminado');}
-      closeModal('confirm');
-    }catch(e){toast('Error al eliminar','err');}
-  };
-  openModal('confirm');
-}
-window.confirmDelete=confirmDelete;
-window.closeModal=closeModal;
+            // Interacción hover
+            map.on('mouseenter', 'bridges-points', () => { map.getCanvas().style.cursor = 'pointer'; sound.hover(); });
+            map.on('mouseleave', 'bridges-points', () => { map.getCanvas().style.cursor = ''; });
+            map.on('click', 'bridges-points', (e) => {
+                const id = e.features[0].properties.id;
+                openBridgeModal(id);
+                sound.click();
+            });
+        }
 
-// ── PDF ──
-function descargarPDF(){
-  const btn=document.getElementById('btnPDF');btn.textContent='Generando...';btn.disabled=true;
-  const{jsPDF}=window.jspdf;const doc2=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  const now=new Date();const fechaStr=now.toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'});
-  const W=doc2.internal.pageSize.getWidth(),H=doc2.internal.pageSize.getHeight();
-  const f=getFiltered();
-  doc2.setFillColor(13,15,20);doc2.rect(0,0,W,H,'F');
-  doc2.setFillColor(79,142,247);doc2.rect(0,0,6,H,'F');
-  doc2.setTextColor(232,234,240);doc2.setFont('helvetica','bold');doc2.setFontSize(24);doc2.text('REPORTE GENERAL DE ESTRUCTURAS',18,34);
-  doc2.setFont('helvetica','normal');doc2.setFontSize(12);doc2.setTextColor(122,128,153);doc2.text('Sistema de Gestión de Puentes — BMS',18,44);doc2.text(`Fecha: ${fechaStr}`,18,52);
-  const total=f.length,avg=total?Math.round(f.reduce((s,d)=>s+(d.iep||0),0)/total):0,crit=f.filter(d=>d.estado==='Crítico').length,urg=f.filter(d=>d.intervencion==='Urgente').length;
-  [{l:'Total',v:total},{l:'IEP prom.',v:avg},{l:'Críticos',v:crit},{l:'Urgentes',v:urg}].forEach((k,i)=>{const x=18+i*66;doc2.setFillColor(26,30,39);doc2.roundedRect(x,62,62,22,2,2,'F');doc2.setTextColor(122,128,153);doc2.setFontSize(9);doc2.setFont('helvetica','normal');doc2.text(k.l,x+5,71);doc2.setTextColor(232,234,240);doc2.setFontSize(18);doc2.setFont('helvetica','bold');doc2.text(String(k.v),x+5,82);});
-  doc2.addPage();doc2.setFillColor(13,15,20);doc2.rect(0,0,W,H,'F');doc2.setFillColor(79,142,247);doc2.rect(0,0,6,H,'F');
-  doc2.setTextColor(232,234,240);doc2.setFont('helvetica','bold');doc2.setFontSize(15);doc2.text('Inventario completo',18,16);
-  doc2.autoTable({startY:22,margin:{left:18,right:10},head:[['ID','Nombre','Proyecto','Tipo','IEP','Estado','Últ. insp.','Intervención']],body:f.map(d=>[d.id,d.nombre,d.proyecto||'',d.tipo||'',d.iep||0,d.estado||'',d.fecha||'',d.intervencion||'']),styles:{font:'helvetica',fontSize:8.5,textColor:[232,234,240],fillColor:[19,22,29],lineColor:[40,44,55],lineWidth:.3,cellPadding:3},headStyles:{fillColor:[26,30,39],textColor:[122,128,153],fontStyle:'bold',fontSize:8},alternateRowStyles:{fillColor:[16,19,26]},didParseCell(data){if(data.section!=='body')return;if(data.column.index===4){const v=parseInt(data.cell.raw);const[r,g,b]=v>=75?[76,175,125]:v>=50?[245,166,35]:[240,79,79];data.cell.styles.textColor=[r,g,b];data.cell.styles.fontStyle='bold';}}});
-  const tp=doc2.getNumberOfPages();for(let i=1;i<=tp;i++){doc2.setPage(i);doc2.setFont('helvetica','normal');doc2.setFontSize(8);doc2.setTextColor(122,128,153);doc2.text(`BMS · ${fechaStr}`,18,H-6);doc2.text(`Pág. ${i}/${tp}`,W-20,H-6);}
-  doc2.save(`BMS_Reporte_${now.toISOString().slice(0,10)}.pdf`);
-  btn.textContent='PDF';btn.disabled=false;
-}
-window.descargarPDF=descargarPDF;
-</script>
+        function addProjectRoutes(projects) {
+            const map = state.map;
+            if (map.getSource('routes')) {
+                map.removeLayer('routes-line');
+                map.removeSource('routes');
+            }
+            const features = [];
+            Object.keys(projects).forEach(pid => {
+                const proj = projects[pid];
+                const route = proj.info.route;
+                if (route && route.coordinates) {
+                    features.push({
+                        type: 'Feature',
+                        geometry: { type: 'LineString', coordinates: route.coordinates },
+                        properties: {
+                            color: proj.info.routeColor || '#2563eb',
+                            projectId: pid
+                        }
+                    });
+                }
+            });
+            const geoJson = { type: 'FeatureCollection', features };
+            if (features.length === 0) return;
+
+            map.addSource('routes', { type: 'geojson', data: geoJson });
+            map.addLayer({
+                id: 'routes-line',
+                type: 'line',
+                source: 'routes',
+                paint: {
+                    'line-color': ['get', 'color'],
+                    'line-width': 4,
+                    'line-opacity': 0.7,
+                    'line-gap-width': 2
+                }
+            }, 'bridges-points');
+
+            // Animación de ruta (se dibuja sola)
+            let progress = 0;
+            const animateRoute = () => {
+                if (progress > 1) return;
+                progress += 0.01;
+                map.setPaintProperty('routes-line', 'line-dasharray', [progress * 100, 100]);
+                if (progress < 1) requestAnimationFrame(animateRoute);
+            };
+            setTimeout(animateRoute, 500);
+        }
+
+        function getLastScore(bridgeId) {
+            const insp = state.inspections[bridgeId] || [];
+            if (insp.length === 0) return 50;
+            const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
+            return last.manualScore || 50;
+        }
+
+        //
+------------------------------------------------------------
+        // 10. MODAL DE DETALLE DEL PUENTE
+        // --------------------------------------------------------------
+        function openBridgeModal(bridgeId) {
+            const bridge = state.allBridges.find(b => b.id === bridgeId);
+            if (!bridge) return;
+            state.currentBridgeId = bridgeId;
+            document.getElementById('bridgeModal').classList.add('open');
+            document.getElementById('modalBridgeName').textContent = `${bridge.code} - ${bridge.name}`;
+            renderModalTab('info', bridge);
+            // Manejar tabs del modal
+            document.querySelectorAll('#modalTabs .tab-btn').forEach(btn => {
+                btn.onclick = () => {
+                    document.querySelectorAll('#modalTabs .tab-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderModalTab(btn.dataset.modalTab, bridge);
+                };
+            });
+            sound.click();
+        }
+
+        function renderModalTab(tab, bridge) {
+            const container = document.getElementById('modalTabContent');
+            const insp = state.inspections[bridge.id] || [];
+            const sortedInsp = [...insp].sort((a, c) => new Date(c.date) - new Date(a.date));
+
+            if (tab === 'info') {
+                const last = sortedInsp.length > 0 ? sortedInsp[0] : null;
+                container.innerHTML = `
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
+                        <div><strong>Tipo:</strong> ${bridge.structuralType || 'N/A'}</div>
+                        <div><strong>Longitud:</strong> ${bridge.lengthMeters || '?'} m</div>
+                        <div><strong>Claros:</strong> ${bridge.spanCount || '?'}</div>
+                        <div><strong>Ancho:</strong> ${bridge.widthMeters || '?'} m</div>
+                        <div><strong>Año construcción:</strong> ${bridge.yearBuilt || '?'}</div>
+                        <div><strong>Condición:</strong> <span class="badge-condition ${bridge.currentCondition.toLowerCase()}">${bridge.currentCondition}</span></div>
+                        <div><strong>Última inspección:</strong> ${last ? new Date(last.date).toLocaleDateString() : 'N/A'}</div>
+                        <div><strong>Puntaje:</strong> ${last ? last.manualScore : 'N/A'}</div>
+                    </div>
+                    <div style="margin-top:20px;">
+                        <button class="btn-sm" onclick="window.addInspection('${bridge.id}')"><i class="fas fa-plus"></i> Nueva inspección</button>
+                        <button class="btn-sm outline" onclick="window.shareBridge('${bridge.id}')"><i class="fas fa-share"></i> Compartir</button>
+                    </div>
+                `;
+            } else if (tab === 'inspections') {
+                if (sortedInsp.length === 0) {
+                    container.innerHTML = '<p style="color:var(--text-secondary);">No hay inspecciones registradas.</p>';
+                } else {
+                    let html = '';
+                    sortedInsp.forEach((ins, idx) => {
+                        html += `
+                            <div style="border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:12px;">
+                                <div style="display:flex; justify-content:space-between;">
+                                    <strong>${new Date(ins.date).toLocaleDateString()}</strong>
+                                    <span>Puntaje: ${ins.manualScore}</span>
+                                </div>
+                                <div><strong>Inspector:</strong> ${ins.inspectorName || 'N/A'}</div>
+                                <div><strong>Clima:</strong> ${ins.weather || 'N/A'}</div>
+                                <div><strong>Observaciones:</strong> ${(ins.observations || []).join(', ') || 'Ninguna'}</div>
+                                ${ins.damages && ins.damages.length ? `<div><strong>Daños:</strong> ${ins.damages.map(d => `${d.type} (${d.severity})`).join(', ')}</div>` : ''}
+                                <div><strong>Recomendaciones:</strong> ${ins.recommendations || 'N/A'}</div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                }
+            } else if (tab === 'history') {
+                // Gráfica de evolución
+                container.innerHTML = `<div style="height:250px;"><canvas id="historyChart"></canvas></div>`;
+                setTimeout(() => {
+                    const ctx = document.getElementById('historyChart').getContext('2d');
+                    if (state.chart) state.chart.destroy();
+                    const labels = sortedInsp.map(i => new Date(i.date).toLocaleDateString()).reverse();
+                    const data = sortedInsp.map(i => i.manualScore).reverse();
+                    state.chart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Puntaje',
+                                data: data,
+                                borderColor: '#2563eb',
+                                backgroundColor: 'rgba(37,99,235,0.1)',
+                                fill: true,
+                                tension: 0.3,
+                                pointBackgroundColor: data.map(v => v < 40 ? '#ef4444' : '#2563eb')
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { min: 0, max: 100 } }
+                        }
+                    });
+                }, 100);
+            } else if (tab === 'gallery') {
+                // Fotos de inspecciones (Base64)
+                let images = [];
+                sortedInsp.forEach(ins => {
+                    if (ins.damages) {
+                        ins.damages.forEach(d => {
+                            if (d.imageBase64 && d.imageBase64.length > 100) {
+                                images.push({ src: d.imageBase64, caption: d.type });
+                            }
+                        });
+                    }
+                });
+                if (images.length === 0) {
+                    container.innerHTML = '<p style="color:var(--text-secondary);">No hay imágenes disponibles.</p>';
+                } else {
+                    container.innerHTML = `<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px;">
+                        ${images.map(img => `<div><img src="${img.src}" style="width:100%; border-radius:8px; cursor:pointer;" onclick="window.open('${img.src}')"/><div style="font-size:0.8rem; margin-top:4px;">${img.caption}</div></div>`).join('')}
+                    </div>`;
+                }
+            }
+        }
+
+        // Funciones globales del modal
+        window.addInspection = function(bridgeId) {
+            // Abrir formulario de inspección (simplificado)
+            const bridge = state.allBridges.find(b => b.id === bridgeId);
+            if (!bridge) return;
+            const score = prompt('Ingrese puntaje (0-100):');
+            if (score === null) return;
+            const numScore = parseInt(score);
+            if (isNaN(numScore) || numScore < 0 || numScore > 100) { alert('Puntaje inválido'); return; }
+            const obs = prompt('Observaciones (separadas por coma):');
+            const obsArray = obs ? obs.split(',').map(s => s.trim()) : [];
+            const newInspection = {
+                date: new Date().toISOString(),
+                inspectorName: 'Inspector App',
+                manualScore: numScore,
+                weather: 'No especificado',
+                observations: obsArray,
+                damages: [],
+                recommendations: 'Pendiente'
+            };
+            const inspRef = ref(db, `projects/${bridge.projectId}/inspections/${bridgeId}`);
+            push(inspRef, newInspection).then(() => {
+                sound.success();
+                alert('Inspección guardada.');
+                // Recargar datos
+                loadData();
+            }).catch(err => { alert('Error: '+err.message); sound.error(); });
+        };
+
+        window.shareBridge = function(bridgeId) {
+            const bridge = state.allBridges.find(b => b.id === bridgeId);
+            if (!bridge) return;
+            const url = window.location.href + `?bridge=${bridgeId}`;
+            if (navigator.share) {
+                navigator.share({ title: bridge.name, text: `Inspección de ${bridge.name}`, url });
+            } else {
+                navigator.clipboard.writeText(url).then(() => alert('Enlace copiado al portapapeles.'));
+            }
+        };
+
+        // Cerrar modal
+        document.getElementById('closeModal').onclick = () => {
+            document.getElementById('bridgeModal').classList.remove('open');
+            if (state.chart) { state.chart.destroy(); state.chart = null; }
+        };
+
+        //
+// 11. CONTROLES DEL MAPA
+        // --------------------------------------------------------------
+        document.getElementById('toggleHeatmap').onclick = function() {
+            const map = state.map;
+            if (!map) return;
+            state.heatmapVisible = !state.heatmapVisible;
+            map.setLayoutProperty('bridges-heatmap', 'visibility', state.heatmapVisible ? 'visible' : 'none');
+            this.classList.toggle('toggle-on');
+            sound.click();
+        };
+
+        document.getElementById('toggleWeather').onclick = function() {
+            // Simular capa de clima (añadir nubes)
+            const map = state.map;
+            if (!map) return;
+            state.weatherVisible = !state.weatherVisible;
+            if (state.weatherVisible) {
+                // Agregar capa de nubes (tiles de OpenWeatherMap o similar, aquí simulamos con una capa de raster)
+                if (!map.getSource('weather')) {
+                    map.addSource('weather', {
+                        type: 'raster',
+                        tiles: ['https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=TU_API_KEY'],
+                        tileSize: 256
+                    });
+                    map.addLayer({
+                        id: 'weather-layer',
+                        type: 'raster',
+                        source: 'weather',
+                        paint: { 'raster-opacity': 0.3 }
+                    }, 'bridges-points');
+                }
+                map.setLayoutProperty('weather-layer', 'visibility', 'visible');
+                this.classList.add('toggle-on');
+            } else {
+                if (map.getLayer('weather-layer')) {
+                    map.setLayoutProperty('weather-layer', 'visibility', 'none');
+                }
+                this.classList.remove('toggle-on');
+            }
+            sound.click();
+        };
+
+        document.getElementById('measureBtn').onclick = function() {
+            state.measureMode = !state.measureMode;
+            this.classList.toggle('toggle-on');
+            if (state.measureMode) {
+                alert('Haz clic en el mapa para medir distancias. Haz clic de nuevo en el botón para terminar.');
+                state.map.on('click', measureClick);
+            } else {
+                state.map.off('click', measureClick);
+                // Limpiar mediciones
+                if (state.map.getSource('measure')) {
+                    state.map.removeLayer('measure-line');
+                    state.map.removeLayer('measure-points');
+                    state.map.removeSource('measure');
+                }
+                state.measurePoints = [];
+            }
+            sound.click();
+        };
+
+        function measureClick(e) {
+            const pt = e.lngLat;
+            state.measurePoints.push(pt);
+            if (state.measurePoints.length > 1) {
+                // Dibujar línea
+                const coords = state.measurePoints.map(p => [p.lng, p.lat]);
+                const geojson = {
+                    type: 'FeatureCollection',
+                    features: [{
+                        type: 'Feature',
+                        geometry: { type: 'LineString', coordinates: coords },
+                        properties: {}
+                    }]
+                };
+                if (!state.map.getSource('measure')) {
+                    state.map.addSource('measure', { type: 'geojson', data: geojson });
+                    state.map.addLayer({
+                        id: 'measure-line',
+                        type: 'line',
+                        source: 'measure',
+                        paint: { 'line-color': '#ef4444', 'line-width': 3, 'line-dasharray': [4, 4] }
+                    });
+                } else {
+                    state.map.getSource('measure').setData(geojson);
+                }
+                // Calcular distancia
+                const last = state.measurePoints.length - 1;
+                const dist = state.measurePoints[last - 1].distanceTo(state.measurePoints[last]);
+                const km = (dist / 1000).toFixed(2);
+                alert(`Distancia: ${km} km`);
+            }
+        }
+
+        document.getElementById('resetViewBtn').onclick = function() {
+            if (state.map) {
+                state.map.flyTo({ center: [-99.2, 19.3], zoom: 10, pitch: 45 });
+                sound.click();
+            }
+        };
+
+        // --------------------------------------------------------------
+        // 12. NAVEGACIÓN PESTAÑAS
+        // --------------------------------------------------------------
+        document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+            btn.onclick = function() {
+                const tab = this.dataset.tab;
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                document.getElementById(`panel-${tab}`).classList.add('active');
+                if (tab === 'map' && state.map) {
+                    state.map.resize();
+                }
+                sound.click();
+            };
+        });
+
+        // --------------------------------------------------------------
+        // 13. TEMA OSCURO
+        // --------------------------------------------------------------
+        document.getElementById('themeToggle').onclick = function() {
+            state.darkMode = !state.darkMode;
+            document.documentElement.setAttribute('data-theme', state.darkMode ? 'dark' : 'light');
+            this.querySelector('i').className = state.darkMode ? 'fas fa-sun' : 'fas fa-moon';
+            sound.click();
+        };
+
+        // --------------------------------------------------------------
+        // 14. SONIDOS TOGGLE
+        // --------------------------------------------------------------
+        document.getElementById('soundToggle').onclick = function() {
+            sound.enabled = !sound.enabled;
+            this.querySelector('i').className = sound.enabled ? 'fas fa-volume-up' : 'fas fa-volume-mute';
+            sound.click();
+        };
+
+        //
+   // 15. MODO PRESENTACIÓN
+        // --------------------------------------------------------------
+        document.getElementById('presentationBtn').onclick = function() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+                // Ocultar topbar y tabs
+                document.getElementById('topbar').style.display = 'none';
+                document.getElementById('tabs').style.display = 'none';
+            } else {
+                document.exitFullscreen();
+                document.getElementById('topbar').style.display = 'flex';
+                document.getElementById('tabs').style.display = 'flex';
+            }
+            sound.click();
+        };
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                document.getElementById('topbar').style.display = 'flex';
+                document.getElementById('tabs').style.display = 'flex';
+            }
+        });
+
+        // --------------------------------------------------------------
+        // 16. FILTROS EN DIRECTORIO
+        // --------------------------------------------------------------
+        document.querySelectorAll('#filterProject, #filterRegion, #filterCondition, #filterInspector, #filterSearch').forEach(el => {
+            el.addEventListener('change', () => updateDirectory(state.allBridges, state.inspections));
+            el.addEventListener('input', () => updateDirectory(state.allBridges, state.inspections));
+        });
+        document.getElementById('clearFilters').onclick = function() {
+            document.querySelectorAll('.filters-row select, .filters-row input').forEach(el => {
+                if (el.tagName === 'SELECT') el.selectedIndex = 0;
+                else if (el.tagName === 'INPUT') el.value = '';
+            });
+            updateDirectory(state.allBridges, state.inspections);
+            sound.click();
+        };
+
+        // --------------------------------------------------------------
+        // 17. DETECTAR PARÁMETROS DE URL (para compartir)
+        // --------------------------------------------------------------
+        const params = new URLSearchParams(window.location.search);
+        const bridgeParam = params.get('bridge');
+        if (bridgeParam) {
+            setTimeout(() => {
+                openBridgeModal(bridgeParam);
+            }, 1000);
+        }
+
+        // --------------------------------------------------------------
+        // 18. INICIALIZAR
+        // --------------------------------------------------------------
+        console.log('🚀 BMS Global iniciado. ¡Bienvenido!');
+        // Forzar resize del mapa al cambiar de pestaña
+        window.addEventListener('resize', () => { if (state.map) state.map.resize(); });
+
+        // Cargar datos por primera vez (ya se hace en onAuthStateChanged)
+        // Pero si ya está autenticado, loadData se llama ahí.
+        // Si no, esperamos.
+        // Como respaldo, llamamos loadData después de 2s si no se cargó.
+        setTimeout(() => {
+            if (state.allBridges.length === 0) {
+                loadData();
+            }
+        }, 3000);
+    </script>
 </body>
 </html>

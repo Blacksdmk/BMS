@@ -2034,7 +2034,7 @@ function refreshMapLayers() {
     }
   }));
 
-  map.addSource('bridges', { type:'geojson', data:{ type:'FeatureCollection', features } });
+  map.addSource('bridges', { type:'geojson', generateId:true, data:{ type:'FeatureCollection', features } });
 
   map.addLayer({
     id: 'bridges-heatmap', type:'heatmap', source:'bridges',
@@ -2301,7 +2301,7 @@ function renderModalTab(tab, bridge) {
       body.innerHTML = `<div class="empty-state"><i class="fas fa-clipboard"></i><h4>Sin inspecciones</h4><p>Registra la primera inspección con el botón inferior.</p></div>`;
       return;
     }
-    body.innerHTML = insp.map((ins, i) => {
+    body.innerHTML = insp.filter(x=>!x._deleted).map((ins, i) => {
       const s = ins.manualScore;
       const c = conditionFromScore(s ?? 50);
       return `<div class="inspection-card">
@@ -2319,6 +2319,11 @@ function renderModalTab(tab, bridge) {
         </div>
         ${ins.observations?.length ? `<div class="insp-obs">${ins.observations.map(o=>`<span class="obs-tag">${o}</span>`).join('')}</div>` : ''}
         ${ins.recommendations ? `<div style="margin-top:10px;font-size:0.82rem;color:var(--text-muted);"><i class="fas fa-lightbulb" style="color:var(--c-regular);margin-right:4px;"></i>${ins.recommendations}</div>` : ''}
+        ${ins.signature ? `<div style="margin-top:10px;"><div style="font-size:0.72rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Firma</div><img src="${ins.signature}" alt="firma" style="max-width:220px;background:#fff;border-radius:6px;border:1px solid var(--border);"></div>` : ''}
+        <div style="margin-top:10px;display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="window._editInsp('${bridge.id}','${ins._id}')"><i class="fas fa-pen"></i> Editar</button>
+          <button class="btn btn-ghost btn-sm" onclick="window._delInsp('${bridge.id}','${ins._id}')"><i class="fas fa-trash"></i> Eliminar</button>
+        </div>
       </div>`;
     }).join('');
   } else if (tab === 'history') {
@@ -2473,7 +2478,8 @@ function renderPhotoPreviews() {
 window._removePhoto = function(i) { S.pendingPhotos.splice(i,1); renderPhotoPreviews(); };
 
 // Save inspection
-document.getElementById('saveInspectionBtn').addEventListener('click', () => {
+document.getElementById('saveInspectionBtn').addEventListener('click', (ev) => {
+  const btn = ev.currentTarget;
   const inspector = document.getElementById('inspInspector').value.trim();
   const scoreVal = parseInt(document.getElementById('inspScore').value);
   if (!inspector) { toast('Ingresa el nombre del inspector', 'warning'); return; }
@@ -2496,6 +2502,10 @@ document.getElementById('saveInspectionBtn').addEventListener('click', () => {
     damages: S.pendingPhotos.map((img,i)=>({ type:'Fotografía '+(i+1), severity:'N/A', location:'Ver imagen', sizeCm:0, imageBase64:img })),
     recommendations: rec || 'Ninguna'
   };
+  if (S._pendingSignature) newInsp.signature = S._pendingSignature;
+
+  const origLabel = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando…';
 
   const inspRef = ref(db, `projects/${bridge.projectId}/inspections/${bridge.id}`);
   const condUpdate = {};
@@ -2508,12 +2518,17 @@ document.getElementById('saveInspectionBtn').addEventListener('click', () => {
     snd.success();
     toast('Inspección guardada exitosamente', 'success');
     document.getElementById('addInspModal').classList.remove('open');
+    S._pendingSignature = null;
+    const cv = document.getElementById('sigPad');
+    if (cv) cv.getContext('2d').clearRect(0,0,cv.width,cv.height);
     // Refresh modal if still open
     if (document.getElementById('bridgeModal').classList.contains('open')) {
       const updBridge = S.allBridges.find(b=>b.id===S.currentAddInspBridgeId);
       if (updBridge) renderModalTab(document.querySelector('.modal-tab-btn.active')?.dataset?.modalTab||'info', updBridge);
     }
-  }).catch(err => { toast('Error: '+err.message, 'error'); snd.error(); });
+    try{ populateFilters(); updateDashboard(); }catch(e){}
+  }).catch(err => { toast('Error: '+err.message, 'error'); snd.error(); })
+    .finally(()=>{ btn.disabled=false; btn.innerHTML=origLabel; });
 });
 
 document.getElementById('cancelAddInsp').addEventListener('click', () => {
@@ -2656,6 +2671,9 @@ document.getElementById('addBridgeBtn')?.addEventListener('click', async () => {
 
   const name = prompt('Nombre del puente:'); if (!name) return;
   const code = prompt('Código del puente:', 'PB-' + Date.now().toString().slice(-5)); if (!code) return;
+  // Validar duplicado de código dentro del proyecto
+  const existing = Object.values(S.projects[pid]?.bridges||{}).find(b=>(b.code||'').toLowerCase()===code.toLowerCase());
+  if (existing){ toast(`Ya existe un puente con código "${code}" en este proyecto`, 'error'); return; }
   const lat  = parseFloat(prompt('Latitud (ej. 19.05):'));
   const lng  = parseFloat(prompt('Longitud (ej. -99.20):'));
   if (isNaN(lat) || isNaN(lng)) { toast('Coordenadas inválidas', 'error'); return; }
@@ -2801,16 +2819,24 @@ function injectMapStyleControls(){
 // hover neon via setFeatureState
 function setupHoverNeon(){
   if (!S.map || S._hoverSet) return;
+  if (!S.map.getLayer('bridges-circles')) { setTimeout(setupHoverNeon, 400); return; }
   S._hoverSet = true;
   let hoveredId = null;
-  S.map.on('mousemove','bridges-layer',(e)=>{
+  // Repintar stroke + glow al hacer hover
+  S.map.setPaintProperty('bridges-circles','circle-stroke-color',[
+    'case',['boolean',['feature-state','hover'],false],'#00f0ff','rgba(255,255,255,0.6)'
+  ]);
+  S.map.setPaintProperty('bridges-circles','circle-stroke-width',[
+    'case',['boolean',['feature-state','hover'],false],6,2
+  ]);
+  S.map.on('mousemove','bridges-circles',(e)=>{
     if(!e.features?.length) return;
     if(hoveredId!==null) S.map.setFeatureState({source:'bridges',id:hoveredId},{hover:false});
     hoveredId = e.features[0].id;
     S.map.setFeatureState({source:'bridges',id:hoveredId},{hover:true});
     S.map.getCanvas().style.cursor='pointer';
   });
-  S.map.on('mouseleave','bridges-layer',()=>{
+  S.map.on('mouseleave','bridges-circles',()=>{
     if(hoveredId!==null) S.map.setFeatureState({source:'bridges',id:hoveredId},{hover:false});
     hoveredId=null; S.map.getCanvas().style.cursor='';
   });
@@ -2839,18 +2865,23 @@ initMap = function(){ _origInitMap(); setTimeout(()=>{ injectMapStyleControls();
 
 /* ---------- DASHBOARD EXTRAS: vida útil, timeline, mini heatmap ---------- */
 function lifeExpectancy(bridge){
-  // heurística: score promedio y tendencia de las últimas inspecciones
-  const insp = Object.values(S.inspections[bridge.id]||{}).filter(i=>!i._deleted).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  // Regresión lineal por mínimos cuadrados sobre las inspecciones (manualScore vs años)
+  const insp = Object.values(S.inspections[bridge.id]||{}).filter(i=>!i._deleted && i.manualScore!=null)
+    .sort((a,b)=>new Date(a.date)-new Date(b.date));
   if(!insp.length) return null;
-  const last = insp[insp.length-1].score ?? 100;
-  let trend = 0;
-  if (insp.length>=2){
-    const first = insp[0].score ?? last;
-    const years = Math.max(0.5,(new Date(insp[insp.length-1].date)-new Date(insp[0].date))/(365*86400000));
-    trend = (first-last)/years; // pts/año perdidos
+  const t0 = new Date(insp[0].date).getTime();
+  const pts = insp.map(i=>({ x:(new Date(i.date).getTime()-t0)/(365*86400000), y:i.manualScore }));
+  const last = pts[pts.length-1].y;
+  let slope = 0;
+  if (pts.length>=2){
+    const n=pts.length, sx=pts.reduce((a,p)=>a+p.x,0), sy=pts.reduce((a,p)=>a+p.y,0);
+    const sxy=pts.reduce((a,p)=>a+p.x*p.y,0), sxx=pts.reduce((a,p)=>a+p.x*p.x,0);
+    const den = n*sxx - sx*sx;
+    slope = den!==0 ? (n*sxy - sx*sy)/den : 0; // pts por año (negativo = degradación)
   }
-  const yrs = trend>0 ? Math.max(0, (last-30)/trend) : 50;
-  return { remainingYears: Math.round(yrs), currentScore:last, trend:trend.toFixed(1) };
+  // años hasta llegar a score 30 (umbral crítico)
+  const yrs = slope<0 ? Math.max(0,(last-30)/(-slope)) : 50;
+  return { remainingYears: Math.round(yrs), currentScore:last, trend:(-slope).toFixed(1) };
 }
 function nextInspectionDate(bridge){
   const score = getLastScore(bridge.id);
@@ -2884,7 +2915,7 @@ function renderDashboardExtras(){
   Object.values(S.inspections).forEach(byB=>Object.values(byB).forEach(ins=>{
     if(ins._deleted) return;
     const k=(ins.date||'').slice(0,7); const m=months.find(x=>x.key===k);
-    if(m){ m.count++; m.sum+=(ins.score||0); }
+    if(m){ m.count++; m.sum+=(ins.manualScore||0); }
   }));
   const heatHtml = `<div class="kpi-card"><div class="kpi-label"><i class="fas fa-fire"></i> Heatmap inspecciones (12 meses)</div>
     <div class="mini-heatmap" style="margin-top:10px;">${
@@ -2906,7 +2937,7 @@ function renderDashboardExtras(){
   document.getElementById('tlSlider')?.addEventListener('input',(e)=>{
     const i = allIns[e.target.value]; if(!i) return;
     const b = S.allBridges.find(b=>b.id===i.bridgeId);
-    document.getElementById('tlInfo').innerHTML = `${new Date(i.date).toLocaleDateString()} — <strong>${b?.name||'?'}</strong> · score ${i.score??'–'}`;
+    document.getElementById('tlInfo').innerHTML = `${new Date(i.date).toLocaleDateString()} — <strong>${b?.name||'?'}</strong> · score ${i.manualScore??'–'}`;
   });
   document.getElementById('pdfExecBtn')?.addEventListener('click', exportExecutivePDF);
 }
@@ -2946,7 +2977,7 @@ async function exportBridgeSheetPDF(bridge){
   let y = 62; doc.setFontSize(12); doc.text('Historial de inspecciones', 14, y); y+=6; doc.setFontSize(9);
   const insp = Object.values(S.inspections[bridge.id]||{}).filter(i=>!i._deleted).sort((a,b)=>new Date(b.date)-new Date(a.date));
   insp.forEach(i=>{
-    doc.text(`${new Date(i.date).toLocaleDateString()} — score ${i.score??'–'} — ${i.inspector||'–'}`, 14, y); y+=5;
+    doc.text(`${new Date(i.date).toLocaleDateString()} — score ${i.manualScore??'–'} — ${i.inspectorName||'–'}`, 14, y); y+=5;
     if (i.recommendations){ const lines = doc.splitTextToSize(`  Rec: ${i.recommendations}`, 180); doc.text(lines,14,y); y+=lines.length*5; }
     if (y>280){ doc.addPage(); y=20; }
   });
@@ -2976,27 +3007,27 @@ async function softDeleteBridge(bridge){
   }catch(e){ toast('Error: '+e.message,'error'); }
 }
 async function editInspection(bridge, inspId, ins){
-  const score = parseInt(prompt('Score (0-100):', ins.score??70),10);
-  if(isNaN(score)){ toast('Score inválido','error'); return; }
+  const score = parseInt(prompt('Score (0-100):', ins.manualScore??70),10);
+  if(isNaN(score)||score<0||score>100){ toast('Score inválido','error'); return; }
   const rec = prompt('Recomendaciones:', ins.recommendations||'');
   try{
     const history = ins._editHistory || [];
-    history.push({ at:new Date().toISOString(), prev:{score:ins.score, recommendations:ins.recommendations} });
-    await update(ref(db, `projects/${bridge.projectId}/bridges/${bridge.id}/inspections/${inspId}`), {
-      score, recommendations: rec||'', updatedAt:new Date().toISOString(), _editHistory: history
+    history.push({ at:new Date().toISOString(), prev:{manualScore:ins.manualScore, recommendations:ins.recommendations} });
+    await update(ref(db, `projects/${bridge.projectId}/inspections/${bridge.id}/${inspId}`), {
+      manualScore: score, recommendations: rec||'', updatedAt:new Date().toISOString(), _editHistory: history
     });
     toast('Inspección actualizada','success'); snd.success();
   }catch(e){ toast('Error: '+e.message,'error'); }
 }
 async function softDeleteInspection(bridge, inspId){
   if(!confirm('¿Eliminar esta inspección? (borrado lógico)')) return;
-  try{ await update(ref(db,`projects/${bridge.projectId}/bridges/${bridge.id}/inspections/${inspId}`),{ _deleted:true, deletedAt:new Date().toISOString() });
+  try{ await update(ref(db,`projects/${bridge.projectId}/inspections/${bridge.id}/${inspId}`),{ _deleted:true, deletedAt:new Date().toISOString() });
     toast('Inspección eliminada','success'); }catch(e){ toast('Error: '+e.message,'error'); }
 }
 
 window._editBridge = (id)=>{ const b=S.allBridges.find(x=>x.id===id); if(b) editBridge(b); };
 window._delBridge  = (id)=>{ const b=S.allBridges.find(x=>x.id===id); if(b) softDeleteBridge(b); };
-window._editInsp   = (bid,iid)=>{ const b=S.allBridges.find(x=>x.id===bid); const ins=S.inspections[bid]?.[iid]; if(b&&ins) editInspection(b,iid,ins); };
+window._editInsp   = (bid,iid)=>{ const b=S.allBridges.find(x=>x.id===bid); const ins=(S.inspections[bid]||[]).find(x=>x._id===iid); if(b&&ins) editInspection(b,iid,ins); };
 window._delInsp    = (bid,iid)=>{ const b=S.allBridges.find(x=>x.id===bid); if(b) softDeleteInspection(b,iid); };
 window._pdfBridge  = (id)=>{ const b=S.allBridges.find(x=>x.id===id); if(b) exportBridgeSheetPDF(b); };
 window._qrBridge   = (id)=>{ showBridgeQR(id); };
@@ -3089,7 +3120,13 @@ function showBridgeQR(bridgeId){
     <button class="btn btn-secondary btn-sm" style="margin-top:12px" id="qrClose">Cerrar</button>
   </div>`;
   document.body.appendChild(overlay);
-  new QRCode(overlay.querySelector('#qrTarget'), { text:url, width:220, height:220 });
+  try {
+    if (typeof QRCode === 'undefined') throw new Error('Librería QRCode no cargada');
+    new QRCode(overlay.querySelector('#qrTarget'), { text:url, width:220, height:220 });
+  } catch(err){
+    overlay.querySelector('#qrTarget').innerHTML = `<div style="color:#e84545;font-size:12px;padding:20px;">⚠️ ${err.message}<br><small>Verifica tu conexión a internet (CDN qrcodejs).</small></div>`;
+    toast('No se pudo generar el QR: '+err.message,'error');
+  }
   overlay.querySelector('#qrClose').onclick = ()=>overlay.remove();
   overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
 }
@@ -3177,7 +3214,118 @@ function buildExtrasPanel(){
 }
 buildExtrasPanel();
 
-console.log('✨ BMS Global v3.0 — extensiones cargadas.');
+/* ════════════════════════════════════════════════════════════════
+   v3.1 — Barras 3D verticales + Ruta curva por OSRM
+═══════════════════════════════════════════════════════════════════ */
+
+/* ---------- Barras verticales 3D (HTML Markers que se inclinan con el pitch) ---------- */
+const _bar3dCSS = document.createElement('style');
+_bar3dCSS.textContent = `
+.bridge-3d-bar{position:relative;width:14px;cursor:pointer;transform-origin:50% 100%;pointer-events:auto;}
+.bridge-3d-bar .bar{width:100%;height:100%;border-radius:3px 3px 1px 1px;box-shadow:0 0 8px rgba(0,0,0,.6),inset 0 0 6px rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.4);}
+.bridge-3d-bar .base{position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);width:18px;height:5px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.55),rgba(0,0,0,0));}
+.bridge-3d-bar .cap{position:absolute;top:-3px;left:-1px;right:-1px;height:5px;border-radius:50%;background:inherit;filter:brightness(1.25);}
+.bridge-3d-bar:hover .bar{box-shadow:0 0 16px #00f0ff, inset 0 0 6px rgba(255,255,255,.4);border-color:#00f0ff;}
+`;
+document.head.appendChild(_bar3dCSS);
+
+S._bar3dMarkers = [];
+S._bars3dEnabled = true;
+function clearBar3d(){ S._bar3dMarkers.forEach(m=>m.remove()); S._bar3dMarkers = []; }
+function build3DBars(){
+  if (!S.map || !S._bars3dEnabled) return;
+  clearBar3d();
+  S.allBridges.forEach(b=>{
+    if (!b.coordinates) return;
+    const s = getLastScore(b.id);
+    const color = conditionColor(b.currentCondition || 'Regular');
+    const height = 14 + Math.round(((s ?? 50)/100) * 44); // 14–58 px
+    const el = document.createElement('div');
+    el.className = 'bridge-3d-bar';
+    el.style.height = height+'px';
+    el.title = `${b.name}${s!=null?' · '+s:''}`;
+    el.innerHTML = `<div class="base"></div><div class="bar" style="background:linear-gradient(180deg, ${color}ee, ${color}88);height:100%;"><div class="cap" style="background:${color};"></div></div>`;
+    el.addEventListener('click', ()=>openBridgeModal(b.id));
+    const mk = new maplibregl.Marker({ element: el, anchor:'bottom', pitchAlignment:'map', rotationAlignment:'map' })
+      .setLngLat([b.coordinates.lng, b.coordinates.lat]).addTo(S.map);
+    S._bar3dMarkers.push(mk);
+  });
+  // Ocultar círculos planos cuando hay barras 3D
+  if (S.map.getLayer('bridges-circles')) S.map.setLayoutProperty('bridges-circles','visibility','none');
+}
+function toggle3DBars(on){
+  S._bars3dEnabled = on;
+  if (on){ build3DBars(); }
+  else {
+    clearBar3d();
+    if (S.map?.getLayer('bridges-circles')) S.map.setLayoutProperty('bridges-circles','visibility','visible');
+  }
+}
+// Hook a refreshMapLayers (corre tras (re)crear capas)
+const _origRefreshLayers = refreshMapLayers;
+refreshMapLayers = function(){
+  _origRefreshLayers();
+  setTimeout(()=>{ if (S._bars3dEnabled) build3DBars(); enhanceRoutesOSRM(); }, 250);
+};
+// Botón de toggle en la barra de estilos del mapa
+(function injectBars3DToggle(){
+  const tryAdd = ()=>{
+    const wrap = document.getElementById('mapStyleBtns');
+    if(!wrap || document.getElementById('bars3dToggle')) return setTimeout(tryAdd, 600);
+    const btn = document.createElement('button');
+    btn.id='bars3dToggle'; btn.className='map-ctrl-btn'; btn.title='Barras 3D';
+    btn.innerHTML = '<i class="fas fa-cubes"></i>';
+    btn.style.background = 'var(--c-primary,#3b82f6)';
+    btn.addEventListener('click', ()=>{
+      toggle3DBars(!S._bars3dEnabled);
+      btn.style.background = S._bars3dEnabled ? 'var(--c-primary,#3b82f6)' : '';
+      toast('Barras 3D ' + (S._bars3dEnabled?'activadas':'desactivadas'),'info');
+    });
+    wrap.appendChild(btn);
+  };
+  setTimeout(tryAdd, 1500);
+})();
+
+/* ---------- RUTAS CURVAS por OSRM (sin API key) ---------- */
+S._routeCache = {};
+async function fetchOSRMRoute(coords){
+  // coords: [[lng,lat],[lng,lat],...]
+  if (coords.length<2) return coords;
+  const key = JSON.stringify(coords);
+  if (S._routeCache[key]) return S._routeCache[key];
+  try {
+    const path = coords.map(c=>`${c[0].toFixed(5)},${c[1].toFixed(5)}`).join(';');
+    const url = `https://router.project-osrm.org/route/v1/driving/${path}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('OSRM '+res.status);
+    const data = await res.json();
+    const line = data.routes?.[0]?.geometry?.coordinates;
+    if (!line?.length) throw new Error('Sin ruta');
+    S._routeCache[key] = line;
+    return line;
+  } catch(e){
+    console.warn('OSRM falló, usando línea recta:', e.message);
+    return coords;
+  }
+}
+async function enhanceRoutesOSRM(){
+  if (!S.map) return;
+  for (const [pid, proj] of Object.entries(S.projects)){
+    const base = proj.info?.routeCoords;
+    if (!base?.length || base.length<2) continue;
+    const srcId = 'route-'+pid;
+    if (!S.map.getSource(srcId)) continue;
+    if (S.map.getSource(srcId)._osrmDone) continue;
+    const curved = await fetchOSRMRoute(base);
+    const src = S.map.getSource(srcId);
+    if (src){
+      src.setData({ type:'Feature', geometry:{ type:'LineString', coordinates:curved }, properties:{} });
+      src._osrmDone = true;
+    }
+  }
+}
+
+console.log('✨ BMS Global v3.1 — barras 3D + OSRM listo.');
 </script>
 </body>
 </html>

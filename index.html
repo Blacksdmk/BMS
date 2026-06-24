@@ -1391,6 +1391,9 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 <!-- SCRIPTS -->
 <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/Chart.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
 <script type="importmap">
 {
@@ -2691,6 +2694,490 @@ setTimeout(() => {
   if (loader && loader.style.display !== 'none') hideLoader();
 }, 7000);
 
+
+/* ════════════════════════════════════════════════════════════════
+   ✨ EXTENSIONES v3 — features adicionales solicitadas
+   Mapa (sat/híbrido, hover neón, geofencing auto)
+   Inspecciones + Directorio CRUD (editar, borrado lógico, próxima
+     inspección, plantillas rápidas, firma digital, editar puentes)
+   Dashboard + Exportación PDF (vida útil, timeline, mini heatmap)
+   Colaboración ligera + detalles visuales (QR, favicon dinámico,
+     destello al guardar, modo oscuro auto, easter egg, ES/EN)
+   Stubs visibles para features que requieren backend/hardware
+═══════════════════════════════════════════════════════════════════ */
+
+/* ---------- i18n ES/EN ---------- */
+const I18N = {
+  es: { lang:'ES', extras:'Extras', edit:'Editar', delete:'Eliminar', restore:'Restaurar', export:'Exportar', qr:'QR', satellite:'Satélite', street:'Calles', hybrid:'Híbrido', save:'Guardar', cancel:'Cancelar', signature:'Firma digital', next:'Próxima inspección', lifeExpectancy:'Vida útil estimada', timeline:'Línea de tiempo', report:'Reporte ejecutivo PDF', sheet:'Ficha técnica PDF' },
+  en: { lang:'EN', extras:'Extras', edit:'Edit', delete:'Delete', restore:'Restore', export:'Export', qr:'QR', satellite:'Satellite', street:'Streets', hybrid:'Hybrid', save:'Save', cancel:'Cancel', signature:'Digital signature', next:'Next inspection', lifeExpectancy:'Estimated remaining life', timeline:'Timeline', report:'Executive PDF report', sheet:'Bridge data sheet PDF' }
+};
+S.lang = localStorage.getItem('bms_lang') || 'es';
+const t = (k) => (I18N[S.lang] && I18N[S.lang][k]) || k;
+
+/* ---------- Estilos extra inyectados ---------- */
+const extraCSS = document.createElement('style');
+extraCSS.textContent = `
+.ext-toolbar{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;}
+.ext-toolbar .btn{font-size:11px;padding:6px 10px;}
+.flash-save{animation:flashSave .6s ease;}
+@keyframes flashSave{0%{box-shadow:0 0 0 0 rgba(40,200,140,.8);}100%{box-shadow:0 0 0 24px rgba(40,200,140,0);}}
+.qr-box{background:#fff;padding:10px;border-radius:8px;display:inline-block;}
+.signature-pad{border:2px dashed var(--border);border-radius:8px;background:#fff;cursor:crosshair;display:block;width:100%;height:140px;}
+.timeline-slider{width:100%;}
+.life-bar{height:10px;background:var(--surface-2);border-radius:6px;overflow:hidden;}
+.life-bar > div{height:100%;background:linear-gradient(90deg,#e84545,#f5a623,#28c88c);}
+.mini-heatmap{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;}
+.mini-heatmap div{aspect-ratio:1;border-radius:2px;}
+.fab-extras{position:fixed;bottom:18px;right:18px;width:52px;height:52px;border-radius:50%;background:var(--c-primary,#3b82f6);color:#fff;border:none;font-size:20px;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.4);z-index:90;}
+.extras-panel{position:fixed;bottom:84px;right:18px;width:280px;max-height:70vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;display:none;z-index:90;box-shadow:0 10px 30px rgba(0,0,0,.4);}
+.extras-panel.open{display:block;}
+.extras-panel h4{margin:6px 0 4px;font-size:12px;text-transform:uppercase;color:var(--text-faint);}
+.extras-panel button{display:block;width:100%;text-align:left;margin:3px 0;padding:7px 9px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;font-size:12px;}
+.extras-panel button:hover{background:var(--surface-3,var(--surface-2));}
+.stub-tag{font-size:9px;background:#f5a623;color:#000;padding:1px 5px;border-radius:3px;margin-left:4px;}
+`;
+document.head.appendChild(extraCSS);
+
+/* ---------- Util: destello al guardar ---------- */
+function flashElement(el){ if(!el) return; el.classList.add('flash-save'); setTimeout(()=>el.classList.remove('flash-save'),700); }
+
+/* ---------- Favicon dinámico según estado crítico ---------- */
+function updateDynamicFavicon(){
+  const critical = S.allBridges.filter(b=>{const s=getLastScore(b.id); return s!==null && s<40;}).length;
+  const color = critical>0 ? '#e84545' : (S.allBridges.some(b=>{const s=getLastScore(b.id);return s!==null&&s<60;}) ? '#f5a623' : '#28c88c');
+  const c = document.createElement('canvas'); c.width=64;c.height=64;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle=color; ctx.beginPath(); ctx.arc(32,32,28,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='bold 34px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(critical>0?String(critical):'✓',32,36);
+  let link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+  link.type='image/png'; link.rel='shortcut icon'; link.href=c.toDataURL('image/png');
+  document.head.appendChild(link);
+}
+
+/* ---------- Modo oscuro automático por hora ---------- */
+(function autoDarkMode(){
+  if (localStorage.getItem('bms_theme_manual')==='1') return;
+  const h = new Date().getHours();
+  const wantDark = (h<7 || h>=19);
+  if (S.darkMode !== wantDark) {
+    S.darkMode = wantDark;
+    document.documentElement.dataset.theme = wantDark ? 'dark' : 'light';
+    const ico = document.querySelector('#themeToggle i');
+    if (ico) ico.className = wantDark ? 'fas fa-sun' : 'fas fa-moon';
+  }
+})();
+document.getElementById('themeToggle')?.addEventListener('click', () => { localStorage.setItem('bms_theme_manual','1'); });
+
+/* ---------- Hook: refrescar favicon cuando hay datos ---------- */
+const _origProcess = processData;
+processData = function(data){ _origProcess(data); try{ updateDynamicFavicon(); renderDashboardExtras(); }catch(e){console.warn(e);} };
+
+/* ---------- MAPA: estilos satélite / híbrido + hover neón + geofencing ---------- */
+const MAP_STYLES = {
+  street: 'https://demotiles.maplibre.org/style.json',
+  satellite: { version:8, sources:{ sat:{ type:'raster', tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize:256, attribution:'© Esri' } }, layers:[{ id:'sat', type:'raster', source:'sat' }] },
+  hybrid: { version:8, sources:{ sat:{ type:'raster', tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize:256 }, lbl:{ type:'raster', tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'], tileSize:256 } }, layers:[{id:'sat',type:'raster',source:'sat'},{id:'lbl',type:'raster',source:'lbl'}] }
+};
+function setMapStyle(kind){
+  if(!S.map) return;
+  S.map.setStyle(MAP_STYLES[kind]);
+  S.map.once('styledata', ()=>{ S._mapDirty = true; refreshMapLayers(); });
+}
+function injectMapStyleControls(){
+  const ctrls = document.querySelector('#map-controls') || document.querySelector('.map-controls') || document.getElementById('map-wrap');
+  if (!ctrls || document.getElementById('mapStyleBtns')) return;
+  const wrap = document.createElement('div');
+  wrap.id='mapStyleBtns';
+  wrap.style.cssText='position:absolute;top:10px;left:10px;display:flex;gap:4px;z-index:10;';
+  wrap.innerHTML = `
+    <button class="map-ctrl-btn" data-style="street"><i class="fas fa-road"></i></button>
+    <button class="map-ctrl-btn" data-style="satellite"><i class="fas fa-satellite"></i></button>
+    <button class="map-ctrl-btn" data-style="hybrid"><i class="fas fa-layer-group"></i></button>
+  `;
+  document.getElementById('map-wrap').appendChild(wrap);
+  wrap.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setMapStyle(b.dataset.style)));
+}
+// hover neon via setFeatureState
+function setupHoverNeon(){
+  if (!S.map || S._hoverSet) return;
+  S._hoverSet = true;
+  let hoveredId = null;
+  S.map.on('mousemove','bridges-layer',(e)=>{
+    if(!e.features?.length) return;
+    if(hoveredId!==null) S.map.setFeatureState({source:'bridges',id:hoveredId},{hover:false});
+    hoveredId = e.features[0].id;
+    S.map.setFeatureState({source:'bridges',id:hoveredId},{hover:true});
+    S.map.getCanvas().style.cursor='pointer';
+  });
+  S.map.on('mouseleave','bridges-layer',()=>{
+    if(hoveredId!==null) S.map.setFeatureState({source:'bridges',id:hoveredId},{hover:false});
+    hoveredId=null; S.map.getCanvas().style.cursor='';
+  });
+}
+// geofencing automático: al cargar, si el usuario está cerca de un puente (<5 km), acerca
+function autoGeofence(){
+  if (!navigator.geolocation || S._geofenceDone) return;
+  S._geofenceDone = true;
+  navigator.geolocation.getCurrentPosition(pos=>{
+    if (!S.map || !S.allBridges.length) return;
+    const {latitude:lat, longitude:lng} = pos.coords;
+    let best=null, bestD=Infinity;
+    S.allBridges.forEach(b=>{
+      const c=b.coordinates; if(!c) return;
+      const d = Math.hypot((c.lat-lat)*111, (c.lng-lng)*111*Math.cos(lat*Math.PI/180));
+      if(d<bestD){bestD=d; best=b;}
+    });
+    if (best && bestD<50) {
+      toast(`📍 Puente más cercano: ${best.name} (${bestD.toFixed(1)} km)`,'info');
+      if (bestD<5) S.map.flyTo({center:[best.coordinates.lng,best.coordinates.lat],zoom:14});
+    }
+  }, ()=>{}, {timeout:5000});
+}
+const _origInitMap = initMap;
+initMap = function(){ _origInitMap(); setTimeout(()=>{ injectMapStyleControls(); setupHoverNeon(); autoGeofence(); }, 600); };
+
+/* ---------- DASHBOARD EXTRAS: vida útil, timeline, mini heatmap ---------- */
+function lifeExpectancy(bridge){
+  // heurística: score promedio y tendencia de las últimas inspecciones
+  const insp = Object.values(S.inspections[bridge.id]||{}).filter(i=>!i._deleted).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(!insp.length) return null;
+  const last = insp[insp.length-1].score ?? 100;
+  let trend = 0;
+  if (insp.length>=2){
+    const first = insp[0].score ?? last;
+    const years = Math.max(0.5,(new Date(insp[insp.length-1].date)-new Date(insp[0].date))/(365*86400000));
+    trend = (first-last)/years; // pts/año perdidos
+  }
+  const yrs = trend>0 ? Math.max(0, (last-30)/trend) : 50;
+  return { remainingYears: Math.round(yrs), currentScore:last, trend:trend.toFixed(1) };
+}
+function nextInspectionDate(bridge){
+  const score = getLastScore(bridge.id);
+  const last = getLastInspection(bridge.id);
+  const base = last ? new Date(last.date) : new Date();
+  let months = 12;
+  if (score!==null){ if(score<40) months=2; else if(score<60) months=6; else if(score<80) months=12; else months=24; }
+  return new Date(base.getTime()+months*30*86400000);
+}
+function renderDashboardExtras(){
+  let panel = document.getElementById('dashExtras');
+  if (!panel){
+    const dash = document.getElementById('panel-dashboard'); if(!dash) return;
+    panel = document.createElement('div'); panel.id='dashExtras';
+    panel.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:18px;';
+    dash.appendChild(panel);
+  }
+  // Vida útil top 5 críticos
+  const ranked = S.allBridges.map(b=>({b, info:lifeExpectancy(b)})).filter(x=>x.info).sort((a,b)=>a.info.remainingYears-b.info.remainingYears).slice(0,5);
+  const lifeHtml = `<div class="kpi-card"><div class="kpi-label"><i class="fas fa-hourglass-half"></i> ${t('lifeExpectancy')} (IA básica)</div>${
+    ranked.map(({b,info})=>{
+      const pct = Math.min(100, info.remainingYears*2);
+      return `<div style="margin:8px 0;cursor:pointer" onclick="window._viewBridge('${b.id}')">
+        <div style="display:flex;justify-content:space-between;font-size:12px;"><span>${b.name}</span><strong>${info.remainingYears} años</strong></div>
+        <div class="life-bar"><div style="width:${pct}%"></div></div></div>`;
+    }).join('') || '<div style="color:var(--text-faint);font-size:12px;padding:8px 0">Sin datos suficientes</div>'
+  }</div>`;
+  // Mini heatmap por mes (últimas 12)
+  const months = []; const now=new Date();
+  for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); months.push({key:d.toISOString().slice(0,7),count:0,sum:0}); }
+  Object.values(S.inspections).forEach(byB=>Object.values(byB).forEach(ins=>{
+    if(ins._deleted) return;
+    const k=(ins.date||'').slice(0,7); const m=months.find(x=>x.key===k);
+    if(m){ m.count++; m.sum+=(ins.score||0); }
+  }));
+  const heatHtml = `<div class="kpi-card"><div class="kpi-label"><i class="fas fa-fire"></i> Heatmap inspecciones (12 meses)</div>
+    <div class="mini-heatmap" style="margin-top:10px;">${
+      months.map(m=>{ const avg=m.count?m.sum/m.count:0; const c=m.count===0?'#2a2a30':(avg<40?'#e84545':avg<60?'#f5a623':avg<80?'#3aa0ff':'#28c88c');
+        return `<div title="${m.key}: ${m.count} insp" style="background:${c};opacity:${m.count?1:0.3};"></div>`;
+      }).join('')
+    }</div></div>`;
+  // Timeline slider
+  const allIns = []; Object.entries(S.inspections).forEach(([bid,byB])=>Object.values(byB).forEach(i=>{ if(!i._deleted) allIns.push({...i, bridgeId:bid}); }));
+  allIns.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const tlHtml = `<div class="kpi-card"><div class="kpi-label"><i class="fas fa-timeline"></i> ${t('timeline')}</div>
+    <input type="range" class="timeline-slider" id="tlSlider" min="0" max="${Math.max(0,allIns.length-1)}" value="${Math.max(0,allIns.length-1)}">
+    <div id="tlInfo" style="font-size:12px;color:var(--text-faint);margin-top:6px;">${allIns.length?`${allIns.length} inspecciones`:'Sin datos'}</div></div>`;
+  // PDF exports
+  const pdfHtml = `<div class="kpi-card"><div class="kpi-label"><i class="fas fa-file-pdf"></i> Exportación PDF</div>
+    <button class="btn btn-secondary btn-sm" id="pdfExecBtn" style="width:100%;margin-top:8px"><i class="fas fa-file-pdf"></i> ${t('report')}</button>
+    <div style="font-size:11px;color:var(--text-faint);margin-top:8px;">La ficha técnica por puente está en el modal de cada puente.</div></div>`;
+  panel.innerHTML = lifeHtml + heatHtml + tlHtml + pdfHtml;
+  document.getElementById('tlSlider')?.addEventListener('input',(e)=>{
+    const i = allIns[e.target.value]; if(!i) return;
+    const b = S.allBridges.find(b=>b.id===i.bridgeId);
+    document.getElementById('tlInfo').innerHTML = `${new Date(i.date).toLocaleDateString()} — <strong>${b?.name||'?'}</strong> · score ${i.score??'–'}`;
+  });
+  document.getElementById('pdfExecBtn')?.addEventListener('click', exportExecutivePDF);
+}
+
+/* ---------- PDF EXPORTS ---------- */
+async function exportExecutivePDF(){
+  if (!window.jspdf) { toast('jsPDF no cargado','error'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(18); doc.text('Reporte Ejecutivo — BMS Global', 14, 18);
+  doc.setFontSize(10); doc.text(new Date().toLocaleString(), 14, 25);
+  doc.setFontSize(12); doc.text(`Total puentes: ${S.allBridges.length}`, 14, 36);
+  const crit = S.allBridges.filter(b=>{const s=getLastScore(b.id);return s!==null&&s<40;}).length;
+  doc.text(`Críticos: ${crit}`, 14, 43);
+  let y = 55;
+  doc.setFontSize(11); doc.text('Top 10 puentes por score:', 14, y); y+=6;
+  doc.setFontSize(9);
+  S.allBridges.slice().sort((a,b)=>(getLastScore(b.id)??-1)-(getLastScore(a.id)??-1)).slice(0,10).forEach(b=>{
+    const s = getLastScore(b.id); doc.text(`• ${b.name} — ${b.code||''} — score ${s??'s/d'}`, 14, y); y+=6;
+    if (y>280){ doc.addPage(); y=20; }
+  });
+  doc.save('reporte_ejecutivo_bms.pdf');
+  toast('PDF generado','success');
+}
+async function exportBridgeSheetPDF(bridge){
+  if (!window.jspdf) { toast('jsPDF no cargado','error'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(18); doc.text(bridge.name||'Puente', 14, 18);
+  doc.setFontSize(10); doc.text(`Código: ${bridge.code||'–'}`, 14, 26);
+  doc.text(`Coordenadas: ${bridge.coordinates?.lat?.toFixed(5)}, ${bridge.coordinates?.lng?.toFixed(5)}`, 14, 32);
+  doc.text(`Condición actual: ${bridge.currentCondition||'–'}`, 14, 38);
+  const life = lifeExpectancy(bridge);
+  if (life) doc.text(`Vida útil estimada: ${life.remainingYears} años`, 14, 44);
+  const next = nextInspectionDate(bridge);
+  doc.text(`Próxima inspección sugerida: ${next.toLocaleDateString()}`, 14, 50);
+  let y = 62; doc.setFontSize(12); doc.text('Historial de inspecciones', 14, y); y+=6; doc.setFontSize(9);
+  const insp = Object.values(S.inspections[bridge.id]||{}).filter(i=>!i._deleted).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  insp.forEach(i=>{
+    doc.text(`${new Date(i.date).toLocaleDateString()} — score ${i.score??'–'} — ${i.inspector||'–'}`, 14, y); y+=5;
+    if (i.recommendations){ const lines = doc.splitTextToSize(`  Rec: ${i.recommendations}`, 180); doc.text(lines,14,y); y+=lines.length*5; }
+    if (y>280){ doc.addPage(); y=20; }
+  });
+  doc.save(`ficha_${(bridge.code||bridge.name||'puente').replace(/[^\w-]/g,'_')}.pdf`);
+  toast('Ficha técnica generada','success');
+}
+
+/* ---------- INSPECCIONES + DIRECTORIO CRUD ---------- */
+async function editBridge(bridge){
+  const name = prompt('Nombre del puente:', bridge.name); if(!name) return;
+  const code = prompt('Código:', bridge.code||''); if(code===null) return;
+  const lat  = parseFloat(prompt('Latitud:', bridge.coordinates?.lat??0));
+  const lng  = parseFloat(prompt('Longitud:', bridge.coordinates?.lng??0));
+  if (isNaN(lat)||isNaN(lng)){ toast('Coordenadas inválidas','error'); return; }
+  try {
+    await update(ref(db, `projects/${bridge.projectId}/bridges/${bridge.id}`), {
+      name, code, coordinates:{lat,lng}, updatedAt:new Date().toISOString()
+    });
+    toast('Puente actualizado','success'); snd.success();
+  } catch(e){ toast('Error: '+e.message,'error'); }
+}
+async function softDeleteBridge(bridge){
+  if(!confirm(`¿Marcar como eliminado el puente "${bridge.name}"?\n(Borrado lógico — se puede restaurar)`)) return;
+  try{
+    await update(ref(db, `projects/${bridge.projectId}/bridges/${bridge.id}`),{ _deleted:true, deletedAt:new Date().toISOString() });
+    toast('Puente eliminado (lógico)','success');
+  }catch(e){ toast('Error: '+e.message,'error'); }
+}
+async function editInspection(bridge, inspId, ins){
+  const score = parseInt(prompt('Score (0-100):', ins.score??70),10);
+  if(isNaN(score)){ toast('Score inválido','error'); return; }
+  const rec = prompt('Recomendaciones:', ins.recommendations||'');
+  try{
+    const history = ins._editHistory || [];
+    history.push({ at:new Date().toISOString(), prev:{score:ins.score, recommendations:ins.recommendations} });
+    await update(ref(db, `projects/${bridge.projectId}/bridges/${bridge.id}/inspections/${inspId}`), {
+      score, recommendations: rec||'', updatedAt:new Date().toISOString(), _editHistory: history
+    });
+    toast('Inspección actualizada','success'); snd.success();
+  }catch(e){ toast('Error: '+e.message,'error'); }
+}
+async function softDeleteInspection(bridge, inspId){
+  if(!confirm('¿Eliminar esta inspección? (borrado lógico)')) return;
+  try{ await update(ref(db,`projects/${bridge.projectId}/bridges/${bridge.id}/inspections/${inspId}`),{ _deleted:true, deletedAt:new Date().toISOString() });
+    toast('Inspección eliminada','success'); }catch(e){ toast('Error: '+e.message,'error'); }
+}
+
+window._editBridge = (id)=>{ const b=S.allBridges.find(x=>x.id===id); if(b) editBridge(b); };
+window._delBridge  = (id)=>{ const b=S.allBridges.find(x=>x.id===id); if(b) softDeleteBridge(b); };
+window._editInsp   = (bid,iid)=>{ const b=S.allBridges.find(x=>x.id===bid); const ins=S.inspections[bid]?.[iid]; if(b&&ins) editInspection(b,iid,ins); };
+window._delInsp    = (bid,iid)=>{ const b=S.allBridges.find(x=>x.id===bid); if(b) softDeleteInspection(b,iid); };
+window._pdfBridge  = (id)=>{ const b=S.allBridges.find(x=>x.id===id); if(b) exportBridgeSheetPDF(b); };
+window._qrBridge   = (id)=>{ showBridgeQR(id); };
+
+/* Plantillas rápidas de inspección */
+const INSP_TEMPLATES = {
+  rutinaria: { score:80, weather:'Despejado', recommendations:'Inspección rutinaria sin observaciones críticas.', obs:['Sin daños visibles'] },
+  posSismo:  { score:55, weather:'Despejado', recommendations:'Revisión postsísmica. Verificar apoyos y juntas.', obs:['Posibles grietas','Revisar apoyos'] },
+  emergencia:{ score:30, weather:'Lluvia',   recommendations:'Inspección de emergencia. Restringir tráfico hasta evaluación.', obs:['Daño estructural','Acceso restringido'] }
+};
+function applyInspTemplate(key){
+  const tpl = INSP_TEMPLATES[key]; if(!tpl) return;
+  document.getElementById('inspScore').value = tpl.score;
+  document.getElementById('inspScore').dispatchEvent(new Event('input'));
+  document.getElementById('inspWeather').value = tpl.weather;
+  document.getElementById('inspRec').value = tpl.recommendations;
+  S.selectedObs = [...tpl.obs];
+  toast(`Plantilla "${key}" aplicada`,'info');
+}
+/* Inyectar barra de plantillas + firma digital en modal de nueva inspección */
+(function injectInspExtras(){
+  const modalBody = document.querySelector('#addInspModal .modal-body') || document.querySelector('#addInspModal');
+  if(!modalBody || document.getElementById('inspTemplatesBar')) return;
+  const bar = document.createElement('div');
+  bar.id='inspTemplatesBar'; bar.className='ext-toolbar';
+  bar.innerHTML = `<span style="font-size:11px;color:var(--text-faint);align-self:center">Plantillas:</span>
+    <button class="btn btn-ghost btn-sm" data-tpl="rutinaria">Rutinaria</button>
+    <button class="btn btn-ghost btn-sm" data-tpl="posSismo">Post-sismo</button>
+    <button class="btn btn-ghost btn-sm" data-tpl="emergencia">Emergencia</button>`;
+  modalBody.insertBefore(bar, modalBody.firstChild);
+  bar.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>applyInspTemplate(b.dataset.tpl)));
+  // signature pad
+  const sigWrap = document.createElement('div');
+  sigWrap.innerHTML = `<div class="form-group"><label>${t('signature')}</label>
+    <canvas class="signature-pad" id="sigPad" width="600" height="140"></canvas>
+    <button type="button" class="btn btn-ghost btn-sm" id="sigClear" style="margin-top:4px"><i class="fas fa-eraser"></i> Limpiar firma</button></div>`;
+  modalBody.appendChild(sigWrap);
+  const cv = document.getElementById('sigPad'); const cx = cv.getContext('2d');
+  let drawing=false, last=null;
+  cv.addEventListener('pointerdown',e=>{drawing=true; last=getPt(e);});
+  cv.addEventListener('pointerup',()=>{drawing=false; last=null;});
+  cv.addEventListener('pointerleave',()=>{drawing=false; last=null;});
+  cv.addEventListener('pointermove',e=>{ if(!drawing) return; const p=getPt(e); cx.strokeStyle='#000'; cx.lineWidth=2; cx.lineCap='round'; cx.beginPath(); cx.moveTo(last.x,last.y); cx.lineTo(p.x,p.y); cx.stroke(); last=p; });
+  function getPt(e){ const r=cv.getBoundingClientRect(); return { x:(e.clientX-r.left)*(cv.width/r.width), y:(e.clientY-r.top)*(cv.height/r.height) }; }
+  document.getElementById('sigClear').addEventListener('click',()=>cx.clearRect(0,0,cv.width,cv.height));
+})();
+
+/* Hook save inspection: cálculo automático próxima inspección + firma + destello */
+const _saveBtn = document.getElementById('saveInspectionBtn');
+if (_saveBtn){
+  _saveBtn.addEventListener('click', ()=>{
+    const cv = document.getElementById('sigPad');
+    if (cv){ const isBlank = !cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data.some(v=>v!==0);
+      if(!isBlank) S._pendingSignature = cv.toDataURL('image/png'); }
+    flashElement(document.querySelector('#addInspModal .modal-content'));
+  }, true);
+}
+
+/* Re-render del directorio con botones extra (editar/eliminar/QR/PDF) */
+const _origRenderDirPage = renderDirectoryPage;
+renderDirectoryPage = function(){
+  _origRenderDirPage();
+  // añadir botones extra a cada fila
+  document.querySelectorAll('#directoryBody tr').forEach(tr=>{
+    const actCell = tr.querySelector('td:last-child');
+    if (!actCell || actCell.dataset.extDone) return;
+    const id = tr.dataset.bridgeId || (actCell.innerHTML.match(/_viewBridge\('([^']+)'\)/)||[])[1];
+    if (!id) return;
+    actCell.dataset.extDone='1';
+    actCell.insertAdjacentHTML('beforeend', `
+      <button class="act-btn" onclick="window._editBridge('${id}')" title="Editar"><i class="fas fa-pen"></i></button>
+      <button class="act-btn" onclick="window._qrBridge('${id}')" title="QR"><i class="fas fa-qrcode"></i></button>
+      <button class="act-btn" onclick="window._pdfBridge('${id}')" title="PDF"><i class="fas fa-file-pdf"></i></button>
+      <button class="act-btn" onclick="window._delBridge('${id}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+    `);
+  });
+};
+
+/* ---------- QR por puente ---------- */
+function showBridgeQR(bridgeId){
+  const b = S.allBridges.find(x=>x.id===bridgeId); if(!b) return;
+  const url = `${location.origin}${location.pathname}?bridge=${encodeURIComponent(bridgeId)}`;
+  const overlay = document.createElement('div');
+  overlay.className='modal-overlay active';
+  overlay.style.cssText='display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `<div class="modal-content" style="max-width:340px;text-align:center;padding:20px;">
+    <h3>${b.name}</h3><div style="font-size:12px;color:var(--text-faint);margin-bottom:10px">${b.code||''}</div>
+    <div class="qr-box" id="qrTarget"></div>
+    <div style="font-size:11px;margin-top:10px;word-break:break-all;color:var(--text-faint)">${url}</div>
+    <button class="btn btn-secondary btn-sm" style="margin-top:12px" id="qrClose">Cerrar</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  new QRCode(overlay.querySelector('#qrTarget'), { text:url, width:220, height:220 });
+  overlay.querySelector('#qrClose').onclick = ()=>overlay.remove();
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+}
+
+/* ---------- Inyectar botones extra dentro del modal de detalle del puente ---------- */
+const _origOpenBridge = openBridgeModal;
+openBridgeModal = function(id){
+  _origOpenBridge(id);
+  setTimeout(()=>{
+    const footer = document.querySelector('#bridgeModal .modal-footer') || document.querySelector('#bridgeModal');
+    if(!footer || document.getElementById('modalExtBtns')) return;
+    const wrap = document.createElement('div'); wrap.id='modalExtBtns'; wrap.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-right:auto;';
+    wrap.innerHTML = `
+      <button class="btn btn-secondary btn-sm" onclick="window._editBridge('${id}')"><i class="fas fa-pen"></i> Editar</button>
+      <button class="btn btn-secondary btn-sm" onclick="window._qrBridge('${id}')"><i class="fas fa-qrcode"></i> QR</button>
+      <button class="btn btn-secondary btn-sm" onclick="window._pdfBridge('${id}')"><i class="fas fa-file-pdf"></i> PDF</button>
+      <button class="btn btn-secondary btn-sm" onclick="window._delBridge('${id}')"><i class="fas fa-trash"></i> Eliminar</button>`;
+    footer.insertBefore(wrap, footer.firstChild);
+  }, 100);
+};
+
+/* ---------- Easter egg tecla F ---------- */
+document.addEventListener('keydown', e=>{
+  if (e.key==='f' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA') {
+    document.body.animate([{filter:'hue-rotate(0)'},{filter:'hue-rotate(360deg)'}],{duration:1500});
+    toast('🎉 ¡Easter egg! BMS Global v2.0 — hecho con amor 🌉','success',4000);
+  }
+});
+
+/* ---------- Selector ES/EN + Panel de Extras (FAB con stubs) ---------- */
+function buildExtrasPanel(){
+  const fab = document.createElement('button'); fab.className='fab-extras'; fab.title=t('extras'); fab.innerHTML='<i class="fas fa-sparkles"></i>✨';
+  const panel = document.createElement('div'); panel.className='extras-panel'; panel.id='extrasPanel';
+  panel.innerHTML = `
+    <h4>Idioma</h4>
+    <button id="langToggleBtn"><i class="fas fa-language"></i> ES / EN — actual: <strong>${S.lang.toUpperCase()}</strong></button>
+    <h4>Acciones rápidas</h4>
+    <button id="extPdfExec"><i class="fas fa-file-pdf"></i> ${t('report')}</button>
+    <button id="extReloadFavicon"><i class="fas fa-bell"></i> Refrescar favicon dinámico</button>
+    <h4>Demos (requieren configuración)</h4>
+    <button data-stub="weather"><i class="fas fa-cloud-sun"></i> Capa de clima en tiempo real<span class="stub-tag">DEMO</span></button>
+    <button data-stub="email"><i class="fas fa-envelope"></i> Alertas por correo<span class="stub-tag">DEMO</span></button>
+    <button data-stub="voice"><i class="fas fa-microphone"></i> Ingreso por voz<span class="stub-tag">DEMO</span></button>
+    <button data-stub="biometric"><i class="fas fa-fingerprint"></i> Autenticación biométrica<span class="stub-tag">DEMO</span></button>
+    <button data-stub="ar"><i class="fas fa-vr-cardboard"></i> Gemelo digital AR<span class="stub-tag">DEMO</span></button>
+    <button data-stub="mascot"><i class="fas fa-robot"></i> Mascota 3D<span class="stub-tag">DEMO</span></button>
+    <button data-stub="gyro"><i class="fas fa-mobile-screen"></i> Parallax giroscopio<span class="stub-tag">DEMO</span></button>
+    <button data-stub="datasaver"><i class="fas fa-feather"></i> Modo ahorro de datos<span class="stub-tag">DEMO</span></button>
+    <button data-stub="patterns"><i class="fas fa-diagram-project"></i> Detección de patrones de daño<span class="stub-tag">DEMO</span></button>
+    <button data-stub="workorder"><i class="fas fa-clipboard-list"></i> Órdenes de trabajo<span class="stub-tag">DEMO</span></button>
+    <button data-stub="presence"><i class="fas fa-users"></i> Presencia en vivo<span class="stub-tag">DEMO</span></button>
+    <button data-stub="haptic"><i class="fas fa-bell-concierge"></i> Vibración háptica<span class="stub-tag">DEMO</span></button>
+    <button data-stub="dynbg"><i class="fas fa-image"></i> Fondo dinámico<span class="stub-tag">DEMO</span></button>
+  `;
+  document.body.appendChild(fab); document.body.appendChild(panel);
+  fab.addEventListener('click', ()=>panel.classList.toggle('open'));
+  panel.querySelector('#langToggleBtn').addEventListener('click',()=>{
+    S.lang = S.lang==='es'?'en':'es'; localStorage.setItem('bms_lang',S.lang);
+    toast(`Language: ${S.lang.toUpperCase()}`,'info');
+    panel.remove(); document.querySelector('.fab-extras')?.remove(); buildExtrasPanel(); renderDashboardExtras();
+  });
+  panel.querySelector('#extPdfExec').addEventListener('click',exportExecutivePDF);
+  panel.querySelector('#extReloadFavicon').addEventListener('click',updateDynamicFavicon);
+  panel.querySelectorAll('[data-stub]').forEach(b=>b.addEventListener('click',()=>{
+    const k = b.dataset.stub;
+    const msgs = {
+      weather:'Requiere API key de OpenWeatherMap. Demo: capa pendiente de configurar.',
+      email:'Requiere EmailJS o Cloud Functions. Demo: integración pendiente.',
+      voice:'Web Speech API: navegador no soportado o permisos requeridos.',
+      biometric:'WebAuthn requiere HTTPS y autenticador registrado.',
+      ar:'AR/model-viewer requiere modelo GLB y cámara. Demo no disponible aquí.',
+      mascot:'Mascota 3D requiere modelo GLB. Stub mostrado.',
+      gyro:'Giroscopio requiere permiso del usuario y dispositivo compatible.',
+      datasaver:'Activado: imágenes y heatmap reducidos (demo).',
+      patterns:'Análisis de patrones requiere backend de IA. Stub.',
+      workorder:'Órdenes de trabajo requieren backend dedicado. Stub.',
+      presence:'Presencia en vivo requiere Firebase RTDB con reglas de presencia. Stub.',
+      haptic:'Vibrando…',
+      dynbg:'Fondo dinámico activado (demo).'
+    };
+    if (k==='haptic' && navigator.vibrate) navigator.vibrate([60,30,60]);
+    if (k==='dynbg') document.body.style.background = `linear-gradient(135deg, hsl(${Math.random()*360},40%,15%), hsl(${Math.random()*360},40%,10%))`;
+    toast(msgs[k]||k,'info',4500);
+  }));
+}
+buildExtrasPanel();
+
+console.log('✨ BMS Global v3.0 — extensiones cargadas.');
 </script>
 </body>
 </html>

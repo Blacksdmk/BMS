@@ -4,14 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>BMS Global - Puentes</title>
-
-    <!-- MapLibre GL CSS -->
+    <!-- MapLibre -->
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" />
     <!-- Chart.js -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/Chart.min.css" />
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-
     <style>
         /* ===== VARIABLES ===== */
         :root {
@@ -58,183 +56,76 @@
             flex-wrap: wrap;
             gap: 8px;
         }
-        #topbar .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 700;
-            font-size: 1.2rem;
-        }
+        #topbar .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.2rem; }
         #topbar .logo i { color: var(--accent-color); font-size: 1.6rem; }
-        .right-actions {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
+        .right-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .top-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 1.2rem;
-            cursor: pointer;
-            padding: 6px 10px;
-            border-radius: 8px;
+            background: transparent; border: none; color: var(--text-secondary);
+            font-size: 1.2rem; cursor: pointer; padding: 6px 10px; border-radius: 8px;
             transition: background 0.2s;
         }
-        .top-btn:hover {
-            background: var(--border-color);
-            color: var(--text-primary);
-        }
-        #status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 4px;
-        }
+        .top-btn:hover { background: var(--border-color); color: var(--text-primary); }
+        #status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 4px; }
         #status-indicator.online { background: #22c55e; }
         #status-indicator.offline { background: #f59e0b; }
 
         /* ===== TABS ===== */
         #tabs {
-            display: flex;
-            gap: 2px;
-            background: var(--bg-secondary);
-            padding: 0 20px;
-            border-bottom: 1px solid var(--border-color);
-            flex-shrink: 0;
-            overflow-x: auto;
+            display: flex; gap: 2px; background: var(--bg-secondary);
+            padding: 0 20px; border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0; overflow-x: auto;
         }
         .tab-btn {
-            padding: 12px 24px;
-            background: transparent;
-            border: none;
-            border-bottom: 3px solid transparent;
-            font-weight: 600;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: 0.2s;
-            white-space: nowrap;
-            font-size: 0.95rem;
+            padding: 12px 24px; background: transparent; border: none;
+            border-bottom: 3px solid transparent; font-weight: 600;
+            color: var(--text-secondary); cursor: pointer; transition: 0.2s;
+            white-space: nowrap; font-size: 0.95rem;
         }
         .tab-btn i { margin-right: 8px; }
-        .tab-btn:hover {
-            color: var(--text-primary);
-            background: var(--bg-primary);
-        }
-        .tab-btn.active {
-            color: var(--accent-color);
-            border-bottom-color: var(--accent-color);
-        }
+        .tab-btn:hover { color: var(--text-primary); background: var(--bg-primary); }
+        .tab-btn.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
 
         /* ===== PANELES ===== */
-        #main-container {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-            position: relative;
-        }
-        .panel {
-            display: none;
-            width: 100%;
-            height: 100%;
-            overflow-y: auto;
-            padding: 20px;
-            animation: fadeIn 0.3s ease;
-        }
+        #main-container { flex: 1; display: flex; overflow: hidden; position: relative; }
+        .panel { display: none; width: 100%; height: 100%; overflow-y: auto; padding: 20px; animation: fadeIn 0.3s ease; }
         .panel.active { display: block; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
         /* ===== DASHBOARD ===== */
         .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px; margin-bottom: 24px;
         }
         .kpi-card {
-            background: var(--bg-card);
-            padding: 18px 20px;
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            border-left: 5px solid var(--accent-color);
+            background: var(--bg-card); padding: 18px 20px; border-radius: var(--radius);
+            box-shadow: var(--shadow); border-left: 5px solid var(--accent-color);
         }
-        .kpi-card .label {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-secondary);
-        }
-        .kpi-card .value {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-top: 4px;
-        }
+        .kpi-card .label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
+        .kpi-card .value { font-size: 2rem; font-weight: 700; margin-top: 4px; }
         .kpi-card.critical { border-left-color: #ef4444; }
         .kpi-card.good { border-left-color: #22c55e; }
         .kpi-card.warning { border-left-color: #f59e0b; }
 
         /* ===== DIRECTORIO ===== */
         .filters-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 20px;
-            align-items: center;
-            background: var(--bg-card);
-            padding: 16px;
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
+            display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+            align-items: center; background: var(--bg-card); padding: 16px;
+            border-radius: var(--radius); box-shadow: var(--shadow);
         }
-        .filters-row select,
-        .filters-row input {
-            padding: 8px 14px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            font-size: 0.9rem;
+        .filters-row select, .filters-row input {
+            padding: 8px 14px; border: 1px solid var(--border-color); border-radius: 8px;
+            background: var(--bg-primary); color: var(--text-primary); font-size: 0.9rem;
             min-width: 130px;
         }
-        .filters-row input[type="text"] {
-            flex: 1;
-            min-width: 200px;
-        }
-        .table-wrap {
-            overflow-x: auto;
-            background: var(--bg-card);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-        th {
-            background: var(--bg-primary);
-            text-align: left;
-            padding: 12px 16px;
-            color: var(--text-secondary);
-            font-weight: 600;
-            border-bottom: 2px solid var(--border-color);
-        }
-        td {
-            padding: 10px 16px;
-            border-bottom: 1px solid var(--border-color);
-            vertical-align: middle;
-        }
+        .filters-row input[type="text"] { flex: 1; min-width: 200px; }
+        .table-wrap { overflow-x: auto; background: var(--bg-card); border-radius: var(--radius); box-shadow: var(--shadow); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { background: var(--bg-primary); text-align: left; padding: 12px 16px; color: var(--text-secondary); font-weight: 600; border-bottom: 2px solid var(--border-color); }
+        td { padding: 10px 16px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
         tr:hover td { background: var(--bg-primary); }
         .badge-condition {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            display: inline-block;
+            padding: 4px 12px; border-radius: 20px; font-size: 0.75rem;
+            font-weight: 600; display: inline-block;
         }
         .badge-condition.optimo { background: #dcfce7; color: #166534; }
         .badge-condition.bueno { background: #dbeafe; color: #1e40af; }
@@ -242,114 +133,50 @@
         .badge-condition.malo { background: #fed7aa; color: #9a3412; }
         .badge-condition.critico { background: #fecaca; color: #991b1b; }
         .btn-sm {
-            padding: 4px 12px;
-            border: none;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            background: var(--accent-color);
-            color: white;
-            transition: 0.2s;
+            padding: 4px 12px; border: none; border-radius: 6px; font-size: 0.8rem;
+            cursor: pointer; background: var(--accent-color); color: white; transition: 0.2s;
         }
         .btn-sm:hover { background: var(--accent-hover); }
-        .btn-sm.outline {
-            background: transparent;
-            border: 1px solid var(--accent-color);
-            color: var(--accent-color);
-        }
+        .btn-sm.outline { background: transparent; border: 1px solid var(--accent-color); color: var(--accent-color); }
         .btn-sm.outline:hover { background: var(--accent-color); color: white; }
 
         /* ===== MAPA ===== */
-        #map-container {
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
-        #map {
-            width: 100%;
-            height: 100%;
-            background: #e5e7eb;
-        }
+        #map-container { width: 100%; height: 100%; position: relative; }
+        #map { width: 100%; height: 100%; background: #e5e7eb; }
         .map-controls {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            z-index: 5;
+            position: absolute; top: 16px; right: 16px;
+            display: flex; flex-direction: column; gap: 8px; z-index: 5;
         }
         .map-controls button {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 8px 12px;
-            box-shadow: var(--shadow);
-            color: var(--text-primary);
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 8px; padding: 8px 12px; box-shadow: var(--shadow);
+            color: var(--text-primary); cursor: pointer; font-size: 0.9rem;
+            transition: 0.2s; display: flex; align-items: center; gap: 6px;
         }
         .map-controls button:hover { background: var(--bg-primary); }
-        .map-controls button.toggle-on {
-            background: var(--accent-color);
-            color: white;
-        }
+        .map-controls button.toggle-on { background: var(--accent-color); color: white; }
 
         /* ===== MODAL ===== */
         .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;
             backdrop-filter: blur(4px);
         }
         .modal-overlay.open { display: flex; }
         .modal-box {
-            background: var(--bg-card);
-            max-width: 800px;
-            width: 95%;
-            max-height: 90vh;
-            border-radius: var(--radius);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            overflow-y: auto;
-            padding: 24px 28px;
-            position: relative;
-            animation: fadeIn 0.3s ease;
+            background: var(--bg-card); max-width: 800px; width: 95%; max-height: 90vh;
+            border-radius: var(--radius); box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow-y: auto; padding: 24px 28px; position: relative; animation: fadeIn 0.3s ease;
         }
-        .modal-close {
-            position: sticky;
-            top: 0;
-            float: right;
-            background: none;
-            border: none;
-            font-size: 1.8rem;
-            color: var(--text-secondary);
-            cursor: pointer;
-        }
+        .modal-close { position: sticky; top: 0; float: right; background: none; border: none; font-size: 1.8rem; color: var(--text-secondary); cursor: pointer; }
         .modal-close:hover { color: var(--text-primary); }
 
         /* ===== FORMULARIOS ===== */
         .form-group { margin-bottom: 16px; }
-        .form-group label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 4px;
-            font-size: 0.9rem;
-        }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.9rem; }
         .form-group input, .form-group select, .form-group textarea {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            background: var(--bg-primary);
-            color: var(--text-primary);
+            width: 100%; padding: 10px 14px; border: 1px solid var(--border-color);
+            border-radius: 8px; background: var(--bg-primary); color: var(--text-primary);
             font-size: 0.95rem;
         }
         .form-group textarea { min-height: 80px; resize: vertical; }
@@ -374,15 +201,12 @@
 
     <!-- ===== BARRA SUPERIOR ===== -->
     <header id="topbar">
-        <div class="logo">
-            <i class="fas fa-bridge"></i>
-            <span>BMS Global</span>
-        </div>
+        <div class="logo"><i class="fas fa-bridge"></i><span>BMS Global</span></div>
         <div class="right-actions">
             <span id="status-indicator" class="online" title="Estado de conexión"></span>
-            <button class="top-btn" id="themeToggle" title="Modo oscuro/claro"><i class="fas fa-moon"></i></button>
-            <button class="top-btn" id="soundToggle" title="Activar sonidos"><i class="fas fa-volume-up"></i></button>
-            <button class="top-btn" id="presentationBtn" title="Modo presentación"><i class="fas fa-expand"></i></button>
+            <button class="top-btn" id="themeToggle" title="Modo oscuro"><i class="fas fa-moon"></i></button>
+            <button class="top-btn" id="soundToggle" title="Sonidos"><i class="fas fa-volume-up"></i></button>
+            <button class="top-btn" id="presentationBtn" title="Presentación"><i class="fas fa-expand"></i></button>
         </div>
     </header>
 
@@ -395,7 +219,6 @@
 
     <!-- ===== CONTENEDOR ===== -->
     <div id="main-container">
-
         <!-- PANEL DASHBOARD -->
         <div id="panel-dashboard" class="panel active">
             <h2 style="margin-bottom:20px;"><i class="fas fa-chart-line"></i> Resumen Ejecutivo</h2>
@@ -441,9 +264,7 @@
                         <th>Código</th><th>Nombre</th><th>Proyecto</th><th>Región</th>
                         <th>Estado</th><th>Últ. Puntaje</th><th>Acciones</th>
                     </tr></thead>
-                    <tbody id="directoryBody">
-                        <tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">Cargando...</td></tr>
-                    </tbody>
+                    <tbody id="directoryBody"><tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">Cargando...</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -483,10 +304,10 @@
 
     <script type="module">
         // --------------------------------------------------------------
-        // 1. FIREBASE CONFIG (Tus credenciales)
+        // 1. FIREBASE CONFIG
         // --------------------------------------------------------------
         import { initializeApp } from 'firebase/app';
-        import { getDatabase, ref, onValue, set, update, push, onDisconnect, serverTimestamp } from 'firebase/database';
+        import { getDatabase, ref, onValue, set, update, push, onDisconnect } from 'firebase/database';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
         const firebaseConfig = {
@@ -520,11 +341,11 @@
             measureMode: false,
             measurePoints: [],
             currentBridgeId: null,
-            allBridges: [], // para filtros
+            allBridges: [],
         };
 
         // --------------------------------------------------------------
-        / 3. SONIDOS (Web Audio)
+        // 3. SONIDOS (Web Audio)
         // --------------------------------------------------------------
         class SoundFX {
             constructor() { this.ctx = null; this.enabled = true; }
@@ -560,7 +381,6 @@
         onAuthStateChanged(auth, user => {
             if (user) {
                 document.getElementById('status-indicator').className = 'online';
-                // Mantener conexión activa
                 const connectedRef = ref(db, '.info/connected');
                 onValue(connectedRef, snap => {
                     document.getElementById('status-indicator').className = snap.val() ? 'online' : 'offline';
@@ -572,10 +392,9 @@
         });
 
         // --------------------------------------------------------------
-         // 5. CARGA DE DATOS DESDE FIREBASE + DATOS DE PRUEBA
+        // 5. CARGA DE DATOS DESDE FIREBASE + DATOS DE PRUEBA
         // --------------------------------------------------------------
         function loadData() {
-            // Si no hay datos, creamos unos de prueba
             const projectsRef = ref(db, 'projects');
             onValue(projectsRef, (snap) => {
                 const data = snap.val();
@@ -697,7 +516,6 @@
                 }
             };
 
-            // Guardar en Firebase
             const updates = {};
             Object.keys(demo.projects).forEach(pid => {
                 const p = demo.projects[pid];
@@ -735,7 +553,6 @@
                     b.region = proj.info.region;
                     b.routeColor = proj.info.routeColor;
                     allBridges.push(b);
-                    // Inspecciones
                     const insp = (proj.inspections && proj.inspections[bid]) || {};
                     allInspections[bid] = Object.values(insp);
                 });
@@ -744,17 +561,13 @@
             state.allBridges = allBridges;
             state.inspections = allInspections;
 
-            // Actualizar vistas
             updateDashboard(allBridges, allInspections);
             updateDirectory(allBridges, allInspections);
             updateMap(allBridges, state.projects);
             populateFilters(allBridges);
-            // Cargar favoritos
-            applyFavorites();
         }
 
-        //
--------------------------------------------------------------
+        // --------------------------------------------------------------
         // 7. DASHBOARD
         // --------------------------------------------------------------
         function updateDashboard(bridges, inspections) {
@@ -783,7 +596,6 @@
             document.getElementById('kpiCritical').textContent = critical;
             document.getElementById('kpiInspections').textContent = thisMonth;
 
-            // Alertas
             const alerts = [];
             bridges.forEach(b => {
                 const insp = inspections[b.id] || [];
@@ -823,7 +635,6 @@
 
         function updateDirectory(bridges, inspections) {
             const body = document.getElementById('directoryBody');
-            // Aplicar filtros
             const projectFilter = document.getElementById('filterProject').value;
             const regionFilter = document.getElementById('filterRegion').value;
             const conditionFilter = document.getElementById('filterCondition').value;
@@ -835,7 +646,6 @@
                 if (regionFilter && b.region !== regionFilter) return false;
                 if (conditionFilter && b.currentCondition !== conditionFilter) return false;
                 if (search && !b.name.toLowerCase().includes(search) && !b.code.toLowerCase().includes(search)) return false;
-                // Inspector: revisar última inspección
                 if (inspectorFilter) {
                     const insp = inspections[b.id] || [];
                     if (insp.length === 0) return false;
@@ -846,7 +656,7 @@
             });
 
             if (filtered.length === 0) {
-                body.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">No hay puentes que coincidan con los filtros.</td></tr>`;
+                body.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">No hay puentes que coincidan.</td></tr>`;
                 return;
             }
 
@@ -854,11 +664,9 @@
             filtered.forEach(b => {
                 const insp = inspections[b.id] || [];
                 let lastScore = '-';
-                let lastDate = '-';
                 if (insp.length > 0) {
                     const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
                     lastScore = last.manualScore !== undefined ? last.manualScore : '-';
-                    lastDate = last.date ? new Date(last.date).toLocaleDateString() : '-';
                 }
                 const conditionClass = b.currentCondition ? b.currentCondition.toLowerCase() : 'regular';
                 const isFavorite = state.favorites.includes(b.id);
@@ -870,8 +678,8 @@
                     <td><span class="badge-condition ${conditionClass}">${b.currentCondition || 'N/A'}</span></td>
                     <td>${lastScore}</td>
                     <td>
-                        <button class="btn-sm" onclick="window.viewBridge('${b.id}')"><i class="fas fa-eye"></i></button>
-                        <button class="btn-sm outline favorite-btn" data-id="${b.id}" onclick="window.toggleFavorite('${b.id}')">
+                        <button class="btn-sm" onclick="viewBridge('${b.id}')"><i class="fas fa-eye"></i></button>
+                        <button class="btn-sm outline" onclick="toggleFavorite('${b.id}')">
                             <i class="fas fa-star" style="color:${isFavorite ? '#f59e0b' : 'var(--text-secondary)'}"></i>
                         </button>
                     </td>
@@ -880,215 +688,116 @@
             body.innerHTML = html;
         }
 
-        // Funciones globales para los botones
+        // --------------------------------------------------------------
+        // 9. FUNCIONES GLOBALES (para los botones)
+        // --------------------------------------------------------------
         window.viewBridge = function(bridgeId) {
             openBridgeModal(bridgeId);
         };
+
         window.toggleFavorite = function(bridgeId) {
             const idx = state.favorites.indexOf(bridgeId);
             if (idx > -1) state.favorites.splice(idx, 1);
             else state.favorites.push(bridgeId);
             localStorage.setItem('favorites', JSON.stringify(state.favorites));
-            applyFavorites();
-            // Actualizar tabla
             updateDirectory(state.allBridges, state.inspections);
+            sound.click();
         };
 
-        function applyFavorites() {
-            // Se actualiza al renderizar
-        }
+        window.addInspection = function(bridgeId) {
+            const bridge = state.allBridges.find(b => b.id === bridgeId);
+            if (!bridge) return;
 
-        //
- // 9. MAPA (MapLibre)
-        // --------------------------------------------------------------
-        function updateMap(bridges, projects) {
-            if (!state.map) {
-                // Inicializar mapa con estilo gratuito de OpenStreetMap
-                state.map = new maplibregl.Map({
-                    container: 'map',
-                    style: {
-                        version: 8,
-                        sources: {
-                            'osm': {
-                                type: 'raster',
-                                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-                                tileSize: 256,
-                                attribution: '© OpenStreetMap'
-                            }
-                        },
-                        layers: [{
-                            id: 'osm',
-                            type: 'raster',
-                            source: 'osm'
-                        }]
-                    },
-                    center: [-99.2, 19.3],
-                    zoom: 10,
-                    pitch: 45,
-                    bearing: 0,
-                    antialias: true
-                });
-                state.map.on('load', () => {
-                    addBridgeMarkers(bridges, projects);
-                    addProjectRoutes(projects);
-                });
-                // Controles de mapa
-                state.map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+            // Mostrar un modal simple con formulario
+            const score = prompt('Ingrese puntaje (0-100):');
+            if (score === null) return;
+            const numScore = parseInt(score);
+            if (isNaN(numScore) || numScore < 0 || numScore > 100) { alert('Puntaje inválido'); return; }
+
+            // Observaciones predefinidas (lista)
+            const obsOptions = ['Fisuración en losa', 'Corrosión en armaduras', 'Socavación en pilares',
+                'Desgaste de junta', 'Drenaje obstruido', 'Deflexión excesiva', 'Sin novedades'
+            ];
+            let obsText = prompt('Observaciones (elige de la lista o escribe nuevas, separadas por coma):\n' +
+                obsOptions.join(', '));
+            if (obsText === null) return;
+            const obsArray = obsText.split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+            // Subir foto (opcional)
+            let photoBase64 = '';
+            const wantPhoto = confirm('¿Desea tomar/agregar una foto?');
+            if (wantPhoto) {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(ev) {
+                            // Comprimir a 800x600
+                            const img = new Image();
+                            img.onload = function() {
+                                const canvas = document.createElement('canvas');
+                                const maxW = 800, maxH = 600;
+                                let w = img.width, h = img.height;
+                                if (w > maxW) { h = h * maxW / w; w = maxW; }
+                                if (h > maxH) { w = w * maxH / h; h = maxH; }
+                                canvas.width = w; canvas.height = h;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0, w, h);
+                                photoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                                saveInspection(bridge, numScore, obsArray, photoBase64);
+                            };
+                            img.src = ev.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                };
+                input.click();
             } else {
-                // Actualizar marcadores
-                addBridgeMarkers(bridges, projects);
-                addProjectRoutes(projects);
+                saveInspection(bridge, numScore, obsArray, '');
             }
-        }
+        };
 
-        function addBridgeMarkers(bridges, projects) {
-            const map = state.map;
-            // Eliminar capas y fuentes previas
-            if (map.getSource('bridges')) {
-                map.removeLayer('bridges-points');
-                map.removeLayer('bridges-heatmap');
-                map.removeSource('bridges');
-            }
-
-            const features = bridges.map(b => ({
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [b.coordinates.lng, b.coordinates.lat] },
-                properties: {
-                    id: b.id,
-                    name: b.name,
-                    code: b.code,
-                    condition: b.currentCondition || 'Regular',
-                    projectId: b.projectId,
-                    score: getLastScore(b.id)
-                }
-            }));
-
-            const geoJson = { type: 'FeatureCollection', features };
-
-            map.addSource('bridges', { type: 'geojson', data: geoJson });
-
-            // Capa de círculos 3D (con altura simulada)
-            map.addLayer({
-                id: 'bridges-points',
-                type: 'circle',
-                source: 'bridges',
-                paint: {
-                    'circle-radius': [
-                        'interpolate', ['linear'], ['zoom'],
-                        8, 8,
-                        15, 20
-                    ],
-                    'circle-color': [
-                        'match', ['get', 'condition'],
-                        'Optimo', '#22c55e',
-                        'Bueno', '#3b82f6',
-                        'Regular', '#f59e0b',
-                        'Malo', '#f97316',
-                        'Critico', '#ef4444',
-                        '#94a3b8'
-                    ],
-                    'circle-opacity': 0.9,
-                    'circle-stroke-color': '#ffffff',
-                    'circle-stroke-width': 2,
-                    'circle-pitch-alignment': 'map',
-                    'circle-pitch-scale': 'map'
-                }
-            }, 'osm');
-
-            // Heatmap layer (inicialmente oculta)
-            map.addLayer({
-                id: 'bridges-heatmap',
-                type: 'heatmap',
-                source: 'bridges',
-                paint: {
-                    'heatmap-weight': [
-                        'interpolate', ['linear'], ['get', 'score'],
-                        0, 0,
-                        100, 1
-                    ],
-                    'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 20, 15, 50],
-                    'heatmap-opacity': 0.6,
-                    'heatmap-color': [
-                        'interpolate', ['linear'],
-                        ['heatmap-density'],
-                        0, 'rgba(0,0,255,0)',
-                        0.2, 'rgba(0,0,255,0.4)',
-                        0.4, 'rgba(0,255,255,0.6)',
-                        0.6, 'rgba(0,255,0,0.8)',
-                        0.8, 'rgba(255,255,0,0.9)',
-                        1, 'rgba(255,0,0,1)'
-                    ]
-                }
-            }, 'bridges-points');
-            map.setLayoutProperty('bridges-heatmap', 'visibility', 'none');
-
-            // Interacción hover
-            map.on('mouseenter', 'bridges-points', () => { map.getCanvas().style.cursor = 'pointer'; sound.hover(); });
-            map.on('mouseleave', 'bridges-points', () => { map.getCanvas().style.cursor = ''; });
-            map.on('click', 'bridges-points', (e) => {
-                const id = e.features[0].properties.id;
-                openBridgeModal(id);
-                sound.click();
-            });
-        }
-
-        function addProjectRoutes(projects) {
-            const map = state.map;
-            if (map.getSource('routes')) {
-                map.removeLayer('routes-line');
-                map.removeSource('routes');
-            }
-            const features = [];
-            Object.keys(projects).forEach(pid => {
-                const proj = projects[pid];
-                const route = proj.info.route;
-                if (route && route.coordinates) {
-                    features.push({
-                        type: 'Feature',
-                        geometry: { type: 'LineString', coordinates: route.coordinates },
-                        properties: {
-                            color: proj.info.routeColor || '#2563eb',
-                            projectId: pid
-                        }
-                    });
-                }
-            });
-            const geoJson = { type: 'FeatureCollection', features };
-            if (features.length === 0) return;
-
-            map.addSource('routes', { type: 'geojson', data: geoJson });
-            map.addLayer({
-                id: 'routes-line',
-                type: 'line',
-                source: 'routes',
-                paint: {
-                    'line-color': ['get', 'color'],
-                    'line-width': 4,
-                    'line-opacity': 0.7,
-                    'line-gap-width': 2
-                }
-            }, 'bridges-points');
-
-            // Animación de ruta (se dibuja sola)
-            let progress = 0;
-            const animateRoute = () => {
-                if (progress > 1) return;
-                progress += 0.01;
-                map.setPaintProperty('routes-line', 'line-dasharray', [progress * 100, 100]);
-                if (progress < 1) requestAnimationFrame(animateRoute);
+        function saveInspection(bridge, score, observations, photoBase64) {
+            const newInspection = {
+                date: new Date().toISOString(),
+                inspectorName: 'Inspector App',
+                manualScore: score,
+                weather: 'No especificado',
+                observations: observations,
+                damages: photoBase64 ? [{ type: 'Foto', severity: 'N/A', location: 'N/A', sizeCm: 0,
+                    imageBase64: photoBase64 }] : [],
+                recommendations: 'Pendiente'
             };
-            setTimeout(animateRoute, 500);
+            const inspRef = ref(db, `projects/${bridge.projectId}/inspections/${bridge.id}`);
+            push(inspRef, newInspection).then(() => {
+                sound.success();
+                alert('Inspección guardada exitosamente.');
+                loadData();
+            }).catch(err => { alert('Error: ' + err.message);
+                sound.error(); });
         }
 
-        function getLastScore(bridgeId) {
-            const insp = state.inspections[bridgeId] || [];
-            if (insp.length === 0) return 50;
-            const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
-            return last.manualScore || 50;
-        }
+        // Función para editar inspección (pendiente de implementar)
+        window.editInspection = function(bridgeId, inspectionId) {
+            alert('Funcionalidad de edición en desarrollo. Próximamente.');
+        };
 
-        //
-------------------------------------------------------------
+        // Compartir
+        window.shareBridge = function(bridgeId) {
+            const bridge = state.allBridges.find(b => b.id === bridgeId);
+            if (!bridge) return;
+            const url = window.location.href + `?bridge=${bridgeId}`;
+            if (navigator.share) {
+                navigator.share({ title: bridge.name, text: `Inspección de ${bridge.name}`, url });
+            } else {
+                navigator.clipboard.writeText(url).then(() => alert('Enlace copiado al portapapeles.'));
+            }
+        };
+
+        // --------------------------------------------------------------
         // 10. MODAL DE DETALLE DEL PUENTE
         // --------------------------------------------------------------
         function openBridgeModal(bridgeId) {
@@ -1098,7 +807,6 @@
             document.getElementById('bridgeModal').classList.add('open');
             document.getElementById('modalBridgeName').textContent = `${bridge.code} - ${bridge.name}`;
             renderModalTab('info', bridge);
-            // Manejar tabs del modal
             document.querySelectorAll('#modalTabs .tab-btn').forEach(btn => {
                 btn.onclick = () => {
                     document.querySelectorAll('#modalTabs .tab-btn').forEach(b => b.classList.remove('active'));
@@ -1128,8 +836,8 @@
                         <div><strong>Puntaje:</strong> ${last ? last.manualScore : 'N/A'}</div>
                     </div>
                     <div style="margin-top:20px;">
-                        <button class="btn-sm" onclick="window.addInspection('${bridge.id}')"><i class="fas fa-plus"></i> Nueva inspección</button>
-                        <button class="btn-sm outline" onclick="window.shareBridge('${bridge.id}')"><i class="fas fa-share"></i> Compartir</button>
+                        <button class="btn-sm" onclick="addInspection('${bridge.id}')"><i class="fas fa-plus"></i> Nueva inspección</button>
+                        <button class="btn-sm outline" onclick="shareBridge('${bridge.id}')"><i class="fas fa-share"></i> Compartir</button>
                     </div>
                 `;
             } else if (tab === 'inspections') {
@@ -1143,6 +851,7 @@
                                 <div style="display:flex; justify-content:space-between;">
                                     <strong>${new Date(ins.date).toLocaleDateString()}</strong>
                                     <span>Puntaje: ${ins.manualScore}</span>
+                                    <button class="btn-sm" onclick="editInspection('${bridge.id}','${Object.keys(state.inspections[bridge.id]).find(k => state.inspections[bridge.id][k] === ins)}')"><i class="fas fa-edit"></i></button>
                                 </div>
                                 <div><strong>Inspector:</strong> ${ins.inspectorName || 'N/A'}</div>
                                 <div><strong>Clima:</strong> ${ins.weather || 'N/A'}</div>
@@ -1155,7 +864,6 @@
                     container.innerHTML = html;
                 }
             } else if (tab === 'history') {
-                // Gráfica de evolución
                 container.innerHTML = `<div style="height:250px;"><canvas id="historyChart"></canvas></div>`;
                 setTimeout(() => {
                     const ctx = document.getElementById('historyChart').getContext('2d');
@@ -1185,7 +893,6 @@
                     });
                 }, 100);
             } else if (tab === 'gallery') {
-                // Fotos de inspecciones (Base64)
                 let images = [];
                 sortedInsp.forEach(ins => {
                     if (ins.damages) {
@@ -1206,54 +913,180 @@
             }
         }
 
-        // Funciones globales del modal
-        window.addInspection = function(bridgeId) {
-            // Abrir formulario de inspección (simplificado)
-            const bridge = state.allBridges.find(b => b.id === bridgeId);
-            if (!bridge) return;
-            const score = prompt('Ingrese puntaje (0-100):');
-            if (score === null) return;
-            const numScore = parseInt(score);
-            if (isNaN(numScore) || numScore < 0 || numScore > 100) { alert('Puntaje inválido'); return; }
-            const obs = prompt('Observaciones (separadas por coma):');
-            const obsArray = obs ? obs.split(',').map(s => s.trim()) : [];
-            const newInspection = {
-                date: new Date().toISOString(),
-                inspectorName: 'Inspector App',
-                manualScore: numScore,
-                weather: 'No especificado',
-                observations: obsArray,
-                damages: [],
-                recommendations: 'Pendiente'
-            };
-            const inspRef = ref(db, `projects/${bridge.projectId}/inspections/${bridgeId}`);
-            push(inspRef, newInspection).then(() => {
-                sound.success();
-                alert('Inspección guardada.');
-                // Recargar datos
-                loadData();
-            }).catch(err => { alert('Error: '+err.message); sound.error(); });
-        };
-
-        window.shareBridge = function(bridgeId) {
-            const bridge = state.allBridges.find(b => b.id === bridgeId);
-            if (!bridge) return;
-            const url = window.location.href + `?bridge=${bridgeId}`;
-            if (navigator.share) {
-                navigator.share({ title: bridge.name, text: `Inspección de ${bridge.name}`, url });
-            } else {
-                navigator.clipboard.writeText(url).then(() => alert('Enlace copiado al portapapeles.'));
-            }
-        };
-
-        // Cerrar modal
         document.getElementById('closeModal').onclick = () => {
             document.getElementById('bridgeModal').classList.remove('open');
-            if (state.chart) { state.chart.destroy(); state.chart = null; }
+            if (state.chart) { state.chart.destroy();
+                state.chart = null; }
         };
 
-        //
-// 11. CONTROLES DEL MAPA
+        // --------------------------------------------------------------
+        // 11. MAPA (MapLibre)
+        // --------------------------------------------------------------
+        function updateMap(bridges, projects) {
+            if (!state.map) {
+                state.map = new maplibregl.Map({
+                    container: 'map',
+                    style: {
+                        version: 8,
+                        sources: {
+                            'osm': {
+                                type: 'raster',
+                                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                                tileSize: 256,
+                                attribution: '© OpenStreetMap'
+                            }
+                        },
+                        layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
+                    },
+                    center: [-99.2, 19.3],
+                    zoom: 10,
+                    pitch: 45,
+                    bearing: 0,
+                    antialias: true
+                });
+                state.map.on('load', () => {
+                    addBridgeMarkers(bridges, projects);
+                    addProjectRoutes(projects);
+                });
+                state.map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+            } else {
+                addBridgeMarkers(bridges, projects);
+                addProjectRoutes(projects);
+            }
+        }
+
+        function addBridgeMarkers(bridges, projects) {
+            const map = state.map;
+            if (map.getSource('bridges')) {
+                map.removeLayer('bridges-points');
+                map.removeLayer('bridges-heatmap');
+                map.removeSource('bridges');
+            }
+
+            const features = bridges.map(b => ({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [b.coordinates.lng, b.coordinates.lat] },
+                properties: {
+                    id: b.id,
+                    name: b.name,
+                    code: b.code,
+                    condition: b.currentCondition || 'Regular',
+                    projectId: b.projectId,
+                    score: getLastScore(b.id)
+                }
+            }));
+
+            const geoJson = { type: 'FeatureCollection', features };
+            map.addSource('bridges', { type: 'geojson', data: geoJson });
+
+            map.addLayer({
+                id: 'bridges-points',
+                type: 'circle',
+                source: 'bridges',
+                paint: {
+                    'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 8, 15, 20],
+                    'circle-color': [
+                        'match', ['get', 'condition'],
+                        'Optimo', '#22c55e',
+                        'Bueno', '#3b82f6',
+                        'Regular', '#f59e0b',
+                        'Malo', '#f97316',
+                        'Critico', '#ef4444',
+                        '#94a3b8'
+                    ],
+                    'circle-opacity': 0.9,
+                    'circle-stroke-color': '#ffffff',
+                    'circle-stroke-width': 2,
+                    'circle-pitch-alignment': 'map',
+                    'circle-pitch-scale': 'map'
+                }
+            }, 'osm');
+
+            map.addLayer({
+                id: 'bridges-heatmap',
+                type: 'heatmap',
+                source: 'bridges',
+                paint: {
+                    'heatmap-weight': ['interpolate', ['linear'], ['get', 'score'], 0, 0, 100, 1],
+                    'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 20, 15, 50],
+                    'heatmap-opacity': 0.6,
+                    'heatmap-color': [
+                        'interpolate', ['linear'],
+                        ['heatmap-density'],
+                        0, 'rgba(0,0,255,0)',
+                        0.2, 'rgba(0,0,255,0.4)',
+                        0.4, 'rgba(0,255,255,0.6)',
+                        0.6, 'rgba(0,255,0,0.8)',
+                        0.8, 'rgba(255,255,0,0.9)',
+                        1, 'rgba(255,0,0,1)'
+                    ]
+                }
+            }, 'bridges-points');
+            map.setLayoutProperty('bridges-heatmap', 'visibility', 'none');
+
+            map.on('mouseenter', 'bridges-points', () => { map.getCanvas().style.cursor = 'pointer';
+                sound.hover(); });
+            map.on('mouseleave', 'bridges-points', () => { map.getCanvas().style.cursor = ''; });
+            map.on('click', 'bridges-points', (e) => {
+                const id = e.features[0].properties.id;
+                openBridgeModal(id);
+                sound.click();
+            });
+        }
+
+        function addProjectRoutes(projects) {
+            const map = state.map;
+            if (map.getSource('routes')) {
+                map.removeLayer('routes-line');
+                map.removeSource('routes');
+            }
+            const features = [];
+            Object.keys(projects).forEach(pid => {
+                const proj = projects[pid];
+                const route = proj.info.route;
+                if (route && route.coordinates) {
+                    features.push({
+                        type: 'Feature',
+                        geometry: { type: 'LineString', coordinates: route.coordinates },
+                        properties: { color: proj.info.routeColor || '#2563eb', projectId: pid }
+                    });
+                }
+            });
+            if (features.length === 0) return;
+            const geoJson = { type: 'FeatureCollection', features };
+            map.addSource('routes', { type: 'geojson', data: geoJson });
+            map.addLayer({
+                id: 'routes-line',
+                type: 'line',
+                source: 'routes',
+                paint: {
+                    'line-color': ['get', 'color'],
+                    'line-width': 4,
+                    'line-opacity': 0.7,
+                    'line-gap-width': 2
+                }
+            }, 'bridges-points');
+
+            // Animación de ruta
+            let progress = 0;
+            const animateRoute = () => {
+                if (progress > 1) return;
+                progress += 0.01;
+                map.setPaintProperty('routes-line', 'line-dasharray', [progress * 100, 100]);
+                if (progress < 1) requestAnimationFrame(animateRoute);
+            };
+            setTimeout(animateRoute, 500);
+        }
+
+        function getLastScore(bridgeId) {
+            const insp = state.inspections[bridgeId] || [];
+            if (insp.length === 0) return 50;
+            const last = insp.sort((a, c) => new Date(c.date) - new Date(a.date))[0];
+            return last.manualScore || 50;
+        }
+
+        // --------------------------------------------------------------
+        // 12. CONTROLES DEL MAPA
         // --------------------------------------------------------------
         document.getElementById('toggleHeatmap').onclick = function() {
             const map = state.map;
@@ -1265,26 +1098,31 @@
         };
 
         document.getElementById('toggleWeather').onclick = function() {
-            // Simular capa de clima (añadir nubes)
             const map = state.map;
             if (!map) return;
             state.weatherVisible = !state.weatherVisible;
             if (state.weatherVisible) {
-                // Agregar capa de nubes (tiles de OpenWeatherMap o similar, aquí simulamos con una capa de raster)
                 if (!map.getSource('weather')) {
-                    map.addSource('weather', {
-                        type: 'raster',
-                        tiles: ['https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=TU_API_KEY'],
-                        tileSize: 256
-                    });
-                    map.addLayer({
-                        id: 'weather-layer',
-                        type: 'raster',
-                        source: 'weather',
-                        paint: { 'raster-opacity': 0.3 }
-                    }, 'bridges-points');
+                    // Usamos una capa de nubes gratuita de OpenWeatherMap (requiere API key)
+                    // Si no tienes key, puedes usar otra fuente o desactivar.
+                    alert('Para clima real, necesitas una API Key de OpenWeatherMap. Por ahora, solo es un placeholder.');
+                    this.classList.remove('toggle-on');
+                    state.weatherVisible = false;
+                    return;
+                    // Ejemplo con key:
+                    // map.addSource('weather', {
+                    //     type: 'raster',
+                    //     tiles: ['https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=TU_API_KEY'],
+                    //     tileSize: 256
+                    // });
+                    // map.addLayer({
+                    //     id: 'weather-layer',
+                    //     type: 'raster',
+                    //     source: 'weather',
+                    //     paint: { 'raster-opacity': 0.3 }
+                    // }, 'bridges-points');
                 }
-                map.setLayoutProperty('weather-layer', 'visibility', 'visible');
+                // map.setLayoutProperty('weather-layer', 'visibility', 'visible');
                 this.classList.add('toggle-on');
             } else {
                 if (map.getLayer('weather-layer')) {
@@ -1303,7 +1141,6 @@
                 state.map.on('click', measureClick);
             } else {
                 state.map.off('click', measureClick);
-                // Limpiar mediciones
                 if (state.map.getSource('measure')) {
                     state.map.removeLayer('measure-line');
                     state.map.removeLayer('measure-points');
@@ -1318,7 +1155,6 @@
             const pt = e.lngLat;
             state.measurePoints.push(pt);
             if (state.measurePoints.length > 1) {
-                // Dibujar línea
                 const coords = state.measurePoints.map(p => [p.lng, p.lat]);
                 const geojson = {
                     type: 'FeatureCollection',
@@ -1339,7 +1175,6 @@
                 } else {
                     state.map.getSource('measure').setData(geojson);
                 }
-                // Calcular distancia
                 const last = state.measurePoints.length - 1;
                 const dist = state.measurePoints[last - 1].distanceTo(state.measurePoints[last]);
                 const km = (dist / 1000).toFixed(2);
@@ -1355,7 +1190,7 @@
         };
 
         // --------------------------------------------------------------
-        // 12. NAVEGACIÓN PESTAÑAS
+        // 13. NAVEGACIÓN PESTAÑAS
         // --------------------------------------------------------------
         document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
             btn.onclick = function() {
@@ -1364,15 +1199,13 @@
                 this.classList.add('active');
                 document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
                 document.getElementById(`panel-${tab}`).classList.add('active');
-                if (tab === 'map' && state.map) {
-                    state.map.resize();
-                }
+                if (tab === 'map' && state.map) state.map.resize();
                 sound.click();
             };
         });
 
         // --------------------------------------------------------------
-        // 13. TEMA OSCURO
+        // 14. TEMA OSCURO
         // --------------------------------------------------------------
         document.getElementById('themeToggle').onclick = function() {
             state.darkMode = !state.darkMode;
@@ -1382,7 +1215,7 @@
         };
 
         // --------------------------------------------------------------
-        // 14. SONIDOS TOGGLE
+        // 15. SONIDOS TOGGLE
         // --------------------------------------------------------------
         document.getElementById('soundToggle').onclick = function() {
             sound.enabled = !sound.enabled;
@@ -1390,13 +1223,12 @@
             sound.click();
         };
 
-        //
-   // 15. MODO PRESENTACIÓN
+        // --------------------------------------------------------------
+        // 16. MODO PRESENTACIÓN
         // --------------------------------------------------------------
         document.getElementById('presentationBtn').onclick = function() {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen();
-                // Ocultar topbar y tabs
                 document.getElementById('topbar').style.display = 'none';
                 document.getElementById('tabs').style.display = 'none';
             } else {
@@ -1414,7 +1246,7 @@
         });
 
         // --------------------------------------------------------------
-        // 16. FILTROS EN DIRECTORIO
+        // 17. FILTROS EN DIRECTORIO
         // --------------------------------------------------------------
         document.querySelectorAll('#filterProject, #filterRegion, #filterCondition, #filterInspector, #filterSearch').forEach(el => {
             el.addEventListener('change', () => updateDirectory(state.allBridges, state.inspections));
@@ -1430,7 +1262,7 @@
         };
 
         // --------------------------------------------------------------
-        // 17. DETECTAR PARÁMETROS DE URL (para compartir)
+        // 18. DETECTAR PARÁMETROS DE URL (para compartir)
         // --------------------------------------------------------------
         const params = new URLSearchParams(window.location.search);
         const bridgeParam = params.get('bridge');
@@ -1441,20 +1273,12 @@
         }
 
         // --------------------------------------------------------------
-        // 18. INICIALIZAR
+        // 19. INICIALIZAR
         // --------------------------------------------------------------
-        console.log('🚀 BMS Global iniciado. ¡Bienvenido!');
-        // Forzar resize del mapa al cambiar de pestaña
+        console.log('🚀 BMS Global iniciado.');
         window.addEventListener('resize', () => { if (state.map) state.map.resize(); });
-
-        // Cargar datos por primera vez (ya se hace en onAuthStateChanged)
-        // Pero si ya está autenticado, loadData se llama ahí.
-        // Si no, esperamos.
-        // Como respaldo, llamamos loadData después de 2s si no se cargó.
         setTimeout(() => {
-            if (state.allBridges.length === 0) {
-                loadData();
-            }
+            if (state.allBridges.length === 0) loadData();
         }, 3000);
     </script>
 </body>

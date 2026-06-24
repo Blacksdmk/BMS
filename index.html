@@ -3326,6 +3326,703 @@ async function enhanceRoutesOSRM(){
 }
 
 console.log('✨ BMS Global v3.1 — barras 3D + OSRM listo.');
+
+
+/* ════════════════════════════════════════════════════════════════
+   ✨ EXTENSIONES v5 — Modales profesionales, CRUD de proyectos,
+   filtros avanzados, validaciones y mejoras UX
+═══════════════════════════════════════════════════════════════════ */
+(function v5(){
+'use strict';
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+
+/* ---------- CSS extra ---------- */
+const css = document.createElement('style');
+css.textContent = `
+.v5-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;animation:v5fade .18s ease;}
+@keyframes v5fade{from{opacity:0}to{opacity:1}}
+.v5-modal{background:var(--surface,#1e293b);color:var(--text,#e2e8f0);border:1px solid var(--border,#334155);border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:v5slide .22s ease;}
+@keyframes v5slide{from{transform:translateY(20px);opacity:.5}to{transform:translateY(0);opacity:1}}
+.v5-modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border,#334155);position:sticky;top:0;background:inherit;z-index:1;}
+.v5-modal-head h3{margin:0;font-size:1.05rem;font-weight:600;display:flex;align-items:center;gap:8px;}
+.v5-modal-head .v5-close{background:none;border:none;color:var(--text-faint,#94a3b8);font-size:18px;cursor:pointer;width:32px;height:32px;border-radius:6px;}
+.v5-modal-head .v5-close:hover{background:rgba(255,255,255,.08);color:#fff;}
+.v5-modal-body{padding:16px 20px;}
+.v5-modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--border,#334155);position:sticky;bottom:0;background:inherit;}
+.v5-fg{margin-bottom:14px;display:flex;flex-direction:column;gap:5px;}
+.v5-fg label{font-size:12px;color:var(--text-faint,#94a3b8);font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+.v5-fg .v5-hint{font-size:11px;color:var(--text-faint,#94a3b8);font-weight:400;text-transform:none;letter-spacing:0;}
+.v5-fg input,.v5-fg select,.v5-fg textarea{background:var(--surface-2,#0f172a);border:1px solid var(--border,#334155);color:var(--text,#e2e8f0);border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;width:100%;box-sizing:border-box;transition:border-color .15s;}
+.v5-fg input:focus,.v5-fg select:focus,.v5-fg textarea:focus{outline:none;border-color:var(--c-primary,#3b82f6);box-shadow:0 0 0 3px rgba(59,130,246,.15);}
+.v5-fg textarea{min-height:72px;resize:vertical;}
+.v5-fg.v5-err input,.v5-fg.v5-err select{border-color:var(--c-critical,#ef4444);}
+.v5-fg .v5-err-msg{color:var(--c-critical,#ef4444);font-size:11px;display:none;}
+.v5-fg.v5-err .v5-err-msg{display:block;}
+.v5-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media (max-width:540px){.v5-grid2{grid-template-columns:1fr;}}
+.v5-btn{cursor:pointer;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:500;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px;font-family:inherit;}
+.v5-btn-pri{background:var(--c-primary,#3b82f6);color:#fff;}
+.v5-btn-pri:hover{filter:brightness(1.1);}
+.v5-btn-sec{background:var(--surface-2,#0f172a);color:var(--text,#e2e8f0);border-color:var(--border,#334155);}
+.v5-btn-sec:hover{background:rgba(255,255,255,.06);}
+.v5-btn-dan{background:var(--c-critical,#ef4444);color:#fff;}
+.v5-btn-dan:hover{filter:brightness(1.1);}
+.v5-color-picker{display:flex;gap:6px;flex-wrap:wrap;}
+.v5-color-picker label{cursor:pointer;width:28px;height:28px;border-radius:50%;border:2px solid transparent;display:inline-block;text-transform:none;}
+.v5-color-picker input[type=radio]{display:none;}
+.v5-color-picker input:checked+span{box-shadow:0 0 0 3px #fff,0 0 0 5px var(--c-primary,#3b82f6);}
+.v5-color-picker span{display:block;width:100%;height:100%;border-radius:50%;border:2px solid rgba(255,255,255,.4);}
+.v5-proj-actions{display:flex;gap:4px;margin-left:8px;}
+.v5-proj-actions button{background:transparent;border:none;color:var(--text-faint,#94a3b8);cursor:pointer;padding:4px 6px;border-radius:4px;font-size:11px;}
+.v5-proj-actions button:hover{background:rgba(255,255,255,.08);color:#fff;}
+#newProjectBtn{background:var(--c-primary,#3b82f6);color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;gap:5px;}
+.v5-route-toggle{cursor:pointer;color:var(--text-faint,#94a3b8);padding:4px;border-radius:4px;}
+.v5-route-toggle.on{color:var(--c-primary,#3b82f6);}
+.v5-proj-detail-list{max-height:300px;overflow:auto;border:1px solid var(--border,#334155);border-radius:8px;}
+.v5-proj-detail-list .v5-pd-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border,#334155);font-size:13px;}
+.v5-proj-detail-list .v5-pd-row:last-child{border-bottom:none;}
+.v5-proj-detail-list .v5-pd-row:hover{background:rgba(255,255,255,.04);cursor:pointer;}
+.v5-kpi-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.v5-kpi-mini > div{background:var(--surface-2,#0f172a);border-radius:8px;padding:10px;text-align:center;}
+.v5-kpi-mini .vk{font-size:1.4rem;font-weight:700;}
+.v5-kpi-mini .vl{font-size:10px;text-transform:uppercase;color:var(--text-faint,#94a3b8);letter-spacing:.5px;}
+`;
+document.head.appendChild(css);
+
+/* ---------- Diálogo base ---------- */
+function dialog({title='Dialog', icon='', body='', actions=[], onClose=null, size=560}){
+  return new Promise(resolve=>{
+    const ov = document.createElement('div'); ov.className='v5-overlay';
+    const closeWith = v => { ov.remove(); onClose&&onClose(v); resolve(v); };
+    ov.innerHTML = `
+      <div class="v5-modal" style="max-width:${size}px" role="dialog" aria-modal="true">
+        <div class="v5-modal-head">
+          <h3>${icon?`<i class="${icon}"></i>`:''}${title}</h3>
+          <button class="v5-close" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="v5-modal-body">${body}</div>
+        <div class="v5-modal-foot"></div>
+      </div>`;
+    const foot = ov.querySelector('.v5-modal-foot');
+    actions.forEach(a=>{
+      const b = document.createElement('button');
+      b.className = 'v5-btn ' + (a.variant==='primary'?'v5-btn-pri':a.variant==='danger'?'v5-btn-dan':'v5-btn-sec');
+      b.innerHTML = (a.icon?`<i class="${a.icon}"></i>`:'') + a.label;
+      b.addEventListener('click', async ()=>{
+        if (a.onClick){
+          const r = await a.onClick(ov);
+          if (r === false) return; // cancel close
+          closeWith(r ?? a.value);
+        } else closeWith(a.value);
+      });
+      foot.appendChild(b);
+    });
+    ov.querySelector('.v5-close').addEventListener('click',()=>closeWith(null));
+    ov.addEventListener('click', e=>{ if(e.target===ov) closeWith(null); });
+    const onKey = e=>{ if(e.key==='Escape'){ closeWith(null); document.removeEventListener('keydown',onKey);} };
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(ov);
+    setTimeout(()=>{ const f = ov.querySelector('input,select,textarea'); f&&f.focus(); },50);
+  });
+}
+window.v5Dialog = dialog;
+
+async function v5Confirm({title, msg, danger=false, confirmLabel='Aceptar'}){
+  return await dialog({
+    title, icon: danger?'fas fa-triangle-exclamation':'fas fa-circle-question', size:420,
+    body: `<p style="margin:6px 0 10px;line-height:1.5;">${msg}</p>`,
+    actions: [
+      { label:'Cancelar', variant:'secondary', value:false },
+      { label:confirmLabel, variant:danger?'danger':'primary', value:true, icon:danger?'fas fa-trash':'fas fa-check' }
+    ]
+  });
+}
+
+/* ---------- Validaciones ---------- */
+const VALID = {
+  lat: v => { const n=parseFloat(v); return !isNaN(n) && n>=-90 && n<=90 ? n : null; },
+  lng: v => { const n=parseFloat(v); return !isNaN(n) && n>=-180 && n<=180 ? n : null; },
+  nonempty: v => (v||'').trim() ? v.trim() : null,
+  posInt: v => { const n=parseInt(v,10); return !isNaN(n) && n>0 ? n : null; },
+  posNum: v => { const n=parseFloat(v); return !isNaN(n) && n>0 ? n : null; },
+  year: v => { const n=parseInt(v,10); return !isNaN(n) && n>=1800 && n<=2100 ? n : null; }
+};
+function readForm(ov, schema){
+  const data = {}; let ok = true;
+  schema.forEach(f=>{
+    const el = ov.querySelector(`[name="${f.name}"]`);
+    const wrap = el?.closest('.v5-fg');
+    wrap?.classList.remove('v5-err');
+    const errEl = wrap?.querySelector('.v5-err-msg');
+    if (!el){ data[f.name] = f.default; return; }
+    let v = el.type === 'checkbox' ? el.checked : el.value;
+    if (f.validate){
+      const res = f.validate(v);
+      if (res === null && f.required){
+        ok = false; wrap?.classList.add('v5-err');
+        if (errEl) errEl.textContent = f.errMsg || 'Valor inválido';
+        return;
+      }
+      if (res !== null) v = res;
+    } else if (f.required && !(v||'').toString().trim()){
+      ok = false; wrap?.classList.add('v5-err');
+      if (errEl) errEl.textContent = f.errMsg || 'Campo obligatorio';
+      return;
+    }
+    data[f.name] = v;
+  });
+  return ok ? data : null;
+}
+
+/* ---------- Modal: Nuevo / Editar Puente ---------- */
+const COND_OPTS = ['Optimo','Bueno','Regular','Malo','Critico'];
+const MATERIAL_OPTS = ['Concreto Reforzado','Concreto Postensado','Concreto Prefabricado','Acero','Acero y Concreto','Madera','Mampostería','Otro'];
+
+function bridgeFormBody(b={}, projects, lockProject=false){
+  const projOpts = Object.entries(projects).map(([pid,p])=>`<option value="${pid}" ${b.projectId===pid?'selected':''}>${p.info?.name||pid}</option>`).join('');
+  return `
+    <div class="v5-fg">
+      <label>Proyecto *<span class="v5-err-msg"></span></label>
+      <select name="projectId" ${lockProject?'disabled':''} required>${projOpts}</select>
+    </div>
+    <div class="v5-grid2">
+      <div class="v5-fg"><label>Nombre *<span class="v5-err-msg"></span></label>
+        <input name="name" type="text" value="${b.name||''}" placeholder="Ej. Puente Mezcala" required>
+      </div>
+      <div class="v5-fg"><label>Código *<span class="v5-err-msg"></span></label>
+        <input name="code" type="text" value="${b.code||''}" placeholder="Ej. QRO-001" required>
+      </div>
+    </div>
+    <div class="v5-grid2">
+      <div class="v5-fg"><label>Latitud * <span class="v5-hint">(-90 a 90)</span><span class="v5-err-msg"></span></label>
+        <input name="lat" type="number" step="0.00001" value="${b.coordinates?.lat??''}" placeholder="19.05" required>
+      </div>
+      <div class="v5-fg"><label>Longitud * <span class="v5-hint">(-180 a 180)</span><span class="v5-err-msg"></span></label>
+        <input name="lng" type="number" step="0.00001" value="${b.coordinates?.lng??''}" placeholder="-99.20" required>
+      </div>
+    </div>
+    <div class="v5-grid2">
+      <div class="v5-fg"><label>Longitud (m)</label>
+        <input name="length" type="number" step="0.1" value="${b.length||''}" placeholder="120">
+      </div>
+      <div class="v5-fg"><label>Ancho (m)</label>
+        <input name="width" type="number" step="0.1" value="${b.width||''}" placeholder="12">
+      </div>
+    </div>
+    <div class="v5-grid2">
+      <div class="v5-fg"><label>Año de construcción</label>
+        <input name="year" type="number" min="1800" max="2100" value="${b.year||''}" placeholder="2010">
+      </div>
+      <div class="v5-fg"><label>Tramos</label>
+        <input name="spans" type="number" min="1" value="${b.spans||''}" placeholder="3">
+      </div>
+    </div>
+    <div class="v5-grid2">
+      <div class="v5-fg"><label>Material</label>
+        <select name="material">${MATERIAL_OPTS.map(m=>`<option ${b.material===m?'selected':''}>${m}</option>`).join('')}</select>
+      </div>
+      <div class="v5-fg"><label>Condición inicial</label>
+        <select name="currentCondition">${COND_OPTS.map(c=>`<option ${b.currentCondition===c?'selected':''}>${c}</option>`).join('')}</select>
+      </div>
+    </div>`;
+}
+
+async function openBridgeForm(existing=null){
+  const S = window.S || {};
+  if (!Object.keys(S.projects||{}).length){ toast('No hay proyectos. Crea uno primero.','warning'); return; }
+  const isEdit = !!existing;
+  await dialog({
+    title: isEdit ? 'Editar puente' : 'Nuevo puente',
+    icon: isEdit ? 'fas fa-pen' : 'fas fa-plus',
+    size: 620,
+    body: bridgeFormBody(existing||{}, S.projects, isEdit),
+    actions: [
+      { label:'Cancelar', variant:'secondary', value:null },
+      { label: isEdit?'Guardar cambios':'Crear puente', variant:'primary', icon:'fas fa-save',
+        onClick: async (ov)=>{
+          const data = readForm(ov, [
+            { name:'projectId', required:true, default: existing?.projectId },
+            { name:'name', required:true, errMsg:'Nombre requerido' },
+            { name:'code', required:true, errMsg:'Código requerido' },
+            { name:'lat', required:true, validate: VALID.lat, errMsg:'Latitud entre -90 y 90' },
+            { name:'lng', required:true, validate: VALID.lng, errMsg:'Longitud entre -180 y 180' },
+            { name:'length' }, { name:'width' }, { name:'year' }, { name:'spans' },
+            { name:'material' }, { name:'currentCondition' }
+          ]);
+          if (!data) return false;
+          const pid = data.projectId || existing.projectId;
+          // duplicate code check
+          const existingBridge = Object.entries(S.projects[pid]?.bridges||{})
+            .find(([bid,b])=>(b.code||'').toLowerCase()===data.code.toLowerCase() && bid !== existing?.id);
+          if (existingBridge){
+            const wrap = ov.querySelector('[name="code"]').closest('.v5-fg');
+            wrap.classList.add('v5-err');
+            wrap.querySelector('.v5-err-msg').textContent = `Ya existe un puente con código "${data.code}" en este proyecto`;
+            return false;
+          }
+          const payload = {
+            name: data.name, code: data.code,
+            coordinates: { lat: data.lat, lng: data.lng },
+            currentCondition: data.currentCondition || 'Bueno',
+            material: data.material || '',
+            length: data.length ? parseFloat(data.length) : null,
+            width: data.width ? parseFloat(data.width) : null,
+            year: data.year ? parseInt(data.year,10) : null,
+            spans: data.spans ? parseInt(data.spans,10) : null,
+            updatedAt: new Date().toISOString()
+          };
+          Object.keys(payload).forEach(k=> payload[k] === null && delete payload[k]);
+          try {
+            if (isEdit){
+              await update(ref(db, `projects/${pid}/bridges/${existing.id}`), payload);
+              toast('Puente actualizado','success'); snd.success();
+            } else {
+              payload.createdAt = new Date().toISOString();
+              const newRef = push(ref(db, `projects/${pid}/bridges`));
+              await update(newRef, payload);
+              toast('Puente creado','success'); snd.success();
+            }
+            updateDynamicFavicon();
+            return true;
+          } catch(e){ toast('Error: '+e.message,'error'); snd.error(); return false; }
+        }
+      }
+    ]
+  });
+}
+
+/* ---------- Modal: Editar Inspección ---------- */
+async function openInspectionEditForm(bridge, inspId, ins){
+  await dialog({
+    title: 'Editar inspección',
+    icon: 'fas fa-clipboard-list',
+    size: 560,
+    body: `
+      <div class="v5-grid2">
+        <div class="v5-fg"><label>Inspector *<span class="v5-err-msg"></span></label>
+          <input name="inspectorName" type="text" value="${(ins.inspectorName||'').replace(/"/g,'&quot;')}" required>
+        </div>
+        <div class="v5-fg"><label>Clima</label>
+          <select name="weather">
+            ${['Soleado','Nublado','Lluvia','Despejado','Niebla','Tormenta'].map(w=>`<option ${ins.weather===w?'selected':''}>${w}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="v5-fg"><label>Puntaje (0–100) *<span class="v5-err-msg"></span></label>
+        <input name="manualScore" type="number" min="0" max="100" value="${ins.manualScore??''}" required>
+      </div>
+      <div class="v5-fg"><label>Observaciones <span class="v5-hint">(separadas por coma)</span></label>
+        <input name="observations" type="text" value="${(Array.isArray(ins.observations)?ins.observations.join(', '):(ins.observations||'')).replace(/"/g,'&quot;')}">
+      </div>
+      <div class="v5-fg"><label>Recomendaciones</label>
+        <textarea name="recommendations">${(ins.recommendations||'').replace(/</g,'&lt;')}</textarea>
+      </div>`,
+    actions: [
+      { label:'Cancelar', variant:'secondary', value:null },
+      { label:'Guardar cambios', variant:'primary', icon:'fas fa-save', onClick: async (ov)=>{
+        const data = readForm(ov, [
+          { name:'inspectorName', required:true, errMsg:'Inspector requerido' },
+          { name:'weather' },
+          { name:'manualScore', required:true, validate: v => { const n=parseInt(v,10); return !isNaN(n)&&n>=0&&n<=100?n:null; }, errMsg:'Puntaje 0–100' },
+          { name:'observations' }, { name:'recommendations' }
+        ]);
+        if (!data) return false;
+        const history = ins._editHistory || [];
+        history.push({ at:new Date().toISOString(), prev:{ manualScore: ins.manualScore, recommendations: ins.recommendations, inspectorName: ins.inspectorName } });
+        const obsArr = (data.observations||'').split(',').map(s=>s.trim()).filter(Boolean);
+        try {
+          await update(ref(db, `projects/${bridge.projectId}/inspections/${bridge.id}/${inspId}`), {
+            inspectorName: data.inspectorName,
+            weather: data.weather || '',
+            manualScore: data.manualScore,
+            observations: obsArr,
+            recommendations: data.recommendations || '',
+            updatedAt: new Date().toISOString(),
+            _editHistory: history
+          });
+          toast('Inspección actualizada','success'); snd.success();
+          return true;
+        } catch(e){ toast('Error: '+e.message,'error'); snd.error(); return false; }
+      }}
+    ]
+  });
+}
+
+/* ---------- Modal: Nuevo / Editar Proyecto ---------- */
+const ROUTE_COLORS = ['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#ec4899','#facc15'];
+
+function projectFormBody(p={}, pid=null){
+  const info = p.info || {};
+  const coords = info.routeCoords || [];
+  const coordsStr = coords.map(c=>`${c[1]},${c[0]}`).join('\n');
+  const color = info.routeColor || '#3b82f6';
+  return `
+    <div class="v5-fg"><label>Nombre del proyecto *<span class="v5-err-msg"></span></label>
+      <input name="name" type="text" value="${(info.name||'').replace(/"/g,'&quot;')}" placeholder="Ej. Autopista México-Querétaro" required>
+    </div>
+    <div class="v5-grid2">
+      <div class="v5-fg"><label>Región *<span class="v5-err-msg"></span></label>
+        <input name="region" type="text" value="${(info.region||'').replace(/"/g,'&quot;')}" placeholder="Ej. Querétaro" required>
+      </div>
+      <div class="v5-fg"><label>Estado</label>
+        <select name="status">
+          ${['Activo','En pausa','Finalizado','Archivado'].map(s=>`<option ${info.status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="v5-fg"><label>Color de la ruta</label>
+      <div class="v5-color-picker">
+        ${ROUTE_COLORS.map(c=>`<label><input type="radio" name="routeColor" value="${c}" ${color===c?'checked':''}><span style="background:${c}"></span></label>`).join('')}
+      </div>
+    </div>
+    <div class="v5-fg"><label>Puntos de la ruta <span class="v5-hint">(lat,lng — uno por línea; mín. 2)</span><span class="v5-err-msg"></span></label>
+      <textarea name="routeCoords" placeholder="19.42,-99.55&#10;19.55,-99.40&#10;19.65,-99.20" style="min-height:100px;font-family:monospace;font-size:12px;">${coordsStr}</textarea>
+    </div>
+    ${pid?`<div class="v5-fg" style="background:rgba(59,130,246,.08);padding:10px;border-radius:8px;">
+      <label style="margin:0">ID: <code style="font-size:11px">${pid}</code> · ${Object.keys(p.bridges||{}).length} puentes</label>
+    </div>`:''}
+  `;
+}
+
+function parseRouteCoords(str){
+  const lines = (str||'').split('\n').map(l=>l.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+  const out = [];
+  for (const l of lines){
+    const m = l.split(/[,\s]+/).map(Number);
+    if (m.length < 2 || isNaN(m[0]) || isNaN(m[1])) return null;
+    const lat = m[0], lng = m[1];
+    if (lat<-90||lat>90||lng<-180||lng>180) return null;
+    out.push([lng, lat]);
+  }
+  return out;
+}
+
+async function openProjectForm(existing=null, pid=null){
+  const isEdit = !!existing;
+  await dialog({
+    title: isEdit ? 'Editar proyecto' : 'Nuevo proyecto',
+    icon: isEdit ? 'fas fa-pen' : 'fas fa-folder-plus',
+    size: 600,
+    body: projectFormBody(existing||{}, pid),
+    actions: [
+      { label:'Cancelar', variant:'secondary', value:null },
+      { label: isEdit?'Guardar':'Crear proyecto', variant:'primary', icon:'fas fa-save',
+        onClick: async (ov)=>{
+          const data = readForm(ov, [
+            { name:'name', required:true, errMsg:'Nombre requerido' },
+            { name:'region', required:true, errMsg:'Región requerida' },
+            { name:'status' }
+          ]);
+          if (!data) return false;
+          const colorEl = ov.querySelector('input[name="routeColor"]:checked');
+          const coordsStr = ov.querySelector('[name="routeCoords"]').value;
+          let routeCoords = [];
+          if (coordsStr.trim()){
+            routeCoords = parseRouteCoords(coordsStr);
+            if (!routeCoords){
+              const wrap = ov.querySelector('[name="routeCoords"]').closest('.v5-fg');
+              wrap.classList.add('v5-err');
+              wrap.querySelector('.v5-err-msg').textContent = 'Formato inválido. Usa lat,lng (mín. 2 puntos válidos).';
+              return false;
+            }
+          }
+          const info = {
+            name: data.name, region: data.region,
+            status: data.status || 'Activo',
+            routeColor: colorEl?.value || '#3b82f6',
+            routeCoords
+          };
+          try {
+            const newPid = pid || ('proj_' + Date.now().toString(36));
+            await update(ref(db, `projects/${newPid}/info`), info);
+            // invalidate route cache for this project so OSRM recalculates
+            if (S._routeCache){
+              const oldKey = JSON.stringify(existing?.info?.routeCoords||[]);
+              delete S._routeCache[oldKey];
+            }
+            if (S.map?.getSource('route-'+newPid)) S.map.getSource('route-'+newPid)._osrmDone = false;
+            toast(isEdit?'Proyecto actualizado':'Proyecto creado','success'); snd.success();
+            setTimeout(()=>{ try { refreshMapLayers(); } catch(e){} }, 300);
+            return true;
+          } catch(e){ toast('Error: '+e.message,'error'); snd.error(); return false; }
+        }
+      }
+    ]
+  });
+}
+
+async function openProjectDetail(pid){
+  const proj = S.projects[pid]; if (!proj) return;
+  const bridges = S.allBridges.filter(b=>b.projectId===pid);
+  const scores = bridges.map(b=>getLastScore(b.id)).filter(s=>s!=null);
+  const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : '–';
+  const critical = bridges.filter(b=>{const s=getLastScore(b.id); return s!=null && s<40;}).length;
+  const totalInsp = bridges.reduce((sum,b)=>sum + (S.inspections[b.id]||[]).filter(i=>!i._deleted).length, 0);
+  await dialog({
+    title: proj.info?.name || pid,
+    icon: 'fas fa-folder-open',
+    size: 620,
+    body: `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <span style="width:14px;height:14px;border-radius:50%;background:${proj.info?.routeColor||'#64748b'};display:inline-block;"></span>
+        <span style="color:var(--text-faint,#94a3b8);">${proj.info?.region||'—'} · ${proj.info?.status||'Activo'}</span>
+      </div>
+      <div class="v5-kpi-mini">
+        <div><div class="vk">${bridges.length}</div><div class="vl">Puentes</div></div>
+        <div><div class="vk" style="color:${avg!=='–' && avg<60?'var(--c-warning,#f59e0b)':'var(--c-success,#10b981)'}">${avg}</div><div class="vl">Score promedio</div></div>
+        <div><div class="vk" style="color:${critical?'var(--c-critical,#ef4444)':'inherit'}">${critical}</div><div class="vl">Críticos</div></div>
+      </div>
+      <div style="font-size:12px;color:var(--text-faint,#94a3b8);margin-bottom:6px;">${totalInsp} inspecciones registradas · Puentes:</div>
+      <div class="v5-proj-detail-list">
+        ${bridges.length===0?'<div style="padding:20px;text-align:center;color:var(--text-faint,#94a3b8)">Sin puentes aún</div>':
+          bridges.map(b=>{
+            const s = getLastScore(b.id);
+            const color = s==null?'#64748b':(s<40?'#ef4444':s<60?'#f59e0b':s<80?'#3b82f6':'#10b981');
+            return `<div class="v5-pd-row" data-bid="${b.id}">
+              <div><strong>${b.name}</strong> <span style="color:var(--text-faint,#94a3b8);font-size:11px">${b.code||''}</span></div>
+              <div style="display:flex;gap:10px;align-items:center"><span style="font-size:11px;color:var(--text-faint,#94a3b8)">${b.currentCondition||'—'}</span><span style="background:${color};color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:600;min-width:32px;text-align:center">${s??'–'}</span></div>
+            </div>`;
+          }).join('')
+        }
+      </div>`,
+    actions: [
+      { label:'Cerrar', variant:'secondary', value:null },
+      { label:'Editar proyecto', variant:'secondary', icon:'fas fa-pen', onClick: async ()=>{ openProjectForm(proj, pid); return true; } },
+      { label:'Nuevo puente aquí', variant:'primary', icon:'fas fa-plus', onClick: async ()=>{ openBridgeForm({projectId:pid}); return true; } }
+    ],
+    onClose: ()=>{}
+  });
+  // attach row clicks
+  setTimeout(()=>{
+    $$('.v5-pd-row').forEach(r=>r.addEventListener('click',()=>{
+      const bid = r.dataset.bid;
+      $$('.v5-overlay').forEach(o=>o.remove());
+      try { openBridgeModal(bid); } catch(e){}
+    }));
+  }, 80);
+}
+
+async function deleteProject(pid){
+  const proj = S.projects[pid]; if (!proj) return;
+  const bridges = S.allBridges.filter(b=>b.projectId===pid);
+  const ok = await v5Confirm({
+    title: 'Eliminar proyecto',
+    msg: `¿Marcar como eliminado el proyecto <strong>"${proj.info?.name||pid}"</strong>?<br><br>Esto ocultará el proyecto y sus <strong>${bridges.length} puente(s)</strong>.<br><span style="color:var(--text-faint,#94a3b8);font-size:12px">Borrado lógico — se puede restaurar editando directamente la base de datos.</span>`,
+    danger: true, confirmLabel: 'Eliminar'
+  });
+  if (!ok) return;
+  try {
+    await update(ref(db, `projects/${pid}/info`), { _deleted: true, deletedAt: new Date().toISOString() });
+    toast('Proyecto eliminado','success'); snd.warning && snd.warning();
+  } catch(e){ toast('Error: '+e.message,'error'); }
+}
+
+/* ---------- OVERRIDE: addBridgeBtn → modal ---------- */
+function rebindAddBridge(){
+  const btn = $('#addBridgeBtn'); if (!btn) return;
+  const clone = btn.cloneNode(true); btn.replaceWith(clone);
+  clone.addEventListener('click', ()=>{ snd.click(); openBridgeForm(null); });
+}
+rebindAddBridge();
+
+/* ---------- OVERRIDE: window wrappers de edición/eliminación ---------- */
+window._editBridge = (id) => { const b = S.allBridges.find(x=>x.id===id); if (b) openBridgeForm(b); };
+window._delBridge = async (id) => {
+  const b = S.allBridges.find(x=>x.id===id); if (!b) return;
+  const ok = await v5Confirm({ title:'Eliminar puente', msg:`¿Marcar como eliminado <strong>"${b.name}"</strong>?<br><span style="color:var(--text-faint,#94a3b8);font-size:12px">Borrado lógico — se puede restaurar.</span>`, danger:true, confirmLabel:'Eliminar' });
+  if (!ok) return;
+  try { await update(ref(db, `projects/${b.projectId}/bridges/${b.id}`), { _deleted:true, deletedAt:new Date().toISOString() });
+    toast('Puente eliminado','success'); snd.warning && snd.warning(); } catch(e){ toast('Error: '+e.message,'error'); }
+};
+window._editInsp = (bid,iid) => {
+  const b = S.allBridges.find(x=>x.id===bid);
+  const ins = (S.inspections[bid]||[]).find(x=>x._id===iid);
+  if (b && ins) openInspectionEditForm(b, iid, ins);
+};
+window._delInsp = async (bid,iid) => {
+  const b = S.allBridges.find(x=>x.id===bid); if (!b) return;
+  const ok = await v5Confirm({ title:'Eliminar inspección', msg:'¿Marcar esta inspección como eliminada? (borrado lógico)', danger:true, confirmLabel:'Eliminar' });
+  if (!ok) return;
+  try { await update(ref(db, `projects/${b.projectId}/inspections/${b.id}/${iid}`), { _deleted:true, deletedAt:new Date().toISOString() });
+    toast('Inspección eliminada','success'); snd.warning && snd.warning(); } catch(e){ toast('Error: '+e.message,'error'); }
+};
+
+/* ---------- Sidebar del mapa: botón "Nuevo proyecto" + acciones por proyecto ---------- */
+function injectMapSidebarTools(){
+  const sidebar = $('#map-sidebar'); if (!sidebar) return;
+  // Header con botón
+  let header = sidebar.querySelector('.v5-sb-head');
+  if (!header){
+    header = document.createElement('div'); header.className='v5-sb-head';
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border,#334155);gap:8px;';
+    header.innerHTML = `<strong style="font-size:12px;text-transform:uppercase;color:var(--text-faint,#94a3b8);letter-spacing:.5px">Proyectos</strong>
+      <button id="newProjectBtn" title="Nuevo proyecto"><i class="fas fa-plus"></i> Nuevo</button>`;
+    const list = $('#projectListMap');
+    if (list) sidebar.insertBefore(header, list);
+    $('#newProjectBtn').addEventListener('click', ()=>{ snd.click(); openProjectForm(null); });
+  }
+}
+injectMapSidebarTools();
+
+/* Wrap buildProjectSidebar to add per-project action buttons */
+S._hiddenRoutes = new Set(JSON.parse(localStorage.getItem('bms_hidden_routes')||'[]'));
+const _origBuildSidebar = (typeof buildProjectSidebar === 'function') ? buildProjectSidebar : null;
+window.buildProjectSidebar = function(){
+  const el = $('#projectListMap'); if (!el) return;
+  injectMapSidebarTools();
+  el.innerHTML = Object.entries(S.projects).filter(([pid,p])=>!p.info?._deleted).map(([pid, proj]) => {
+    const bridges = S.allBridges.filter(b => b.projectId === pid);
+    const routeHidden = S._hiddenRoutes.has(pid);
+    return `<div class="map-project-item" style="display:flex;align-items:center;gap:8px;">
+      <div class="proj-color-dot" style="background:${proj.info?.routeColor||'#64748b'};"></div>
+      <div class="proj-item-info" style="flex:1;cursor:pointer;" data-fly="${pid}">
+        <div class="proj-item-name">${proj.info?.name || pid}</div>
+        <div class="proj-item-meta">${proj.info?.region || '—'} · ${bridges.length} puentes</div>
+      </div>
+      <div class="v5-proj-actions">
+        <button class="v5-route-toggle ${routeHidden?'':'on'}" data-toggle-route="${pid}" title="Mostrar/ocultar ruta"><i class="fas fa-route"></i></button>
+        <button data-detail="${pid}" title="Ver detalle"><i class="fas fa-eye"></i></button>
+        <button data-edit="${pid}" title="Editar"><i class="fas fa-pen"></i></button>
+        <button data-del="${pid}" title="Eliminar"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+  // wire events
+  el.querySelectorAll('[data-fly]').forEach(e=>e.addEventListener('click',()=>window._flyToProject(e.dataset.fly)));
+  el.querySelectorAll('[data-detail]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();openProjectDetail(b.dataset.detail);}));
+  el.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();openProjectForm(S.projects[b.dataset.edit], b.dataset.edit);}));
+  el.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();deleteProject(b.dataset.del);}));
+  el.querySelectorAll('[data-toggle-route]').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    const pid = b.dataset.toggleRoute;
+    if (S._hiddenRoutes.has(pid)){ S._hiddenRoutes.delete(pid); b.classList.add('on'); }
+    else { S._hiddenRoutes.add(pid); b.classList.remove('on'); }
+    localStorage.setItem('bms_hidden_routes', JSON.stringify([...S._hiddenRoutes]));
+    applyRouteVisibility();
+  }));
+};
+function applyRouteVisibility(){
+  if (!S.map) return;
+  Object.keys(S.projects).forEach(pid=>{
+    const layer = 'route-'+pid;
+    if (S.map.getLayer(layer)){
+      S.map.setLayoutProperty(layer, 'visibility', S._hiddenRoutes.has(pid) ? 'none' : 'visible');
+    }
+  });
+}
+
+/* Re-render sidebar when data changes — hook updateMapData if exists */
+if (typeof updateMapData === 'function'){
+  const _origUpdMap = updateMapData;
+  window.updateMapData = function(){ _origUpdMap.apply(this, arguments); try{ buildProjectSidebar(); applyRouteVisibility(); }catch(e){} };
+}
+setTimeout(()=>{ try { buildProjectSidebar(); applyRouteVisibility(); } catch(e){} }, 1500);
+
+/* ---------- Filtros adicionales: Año + Material en el directorio ---------- */
+function injectDirectoryFilters(){
+  const search = $('#filterSearch'); if (!search) return;
+  const container = search.closest('.filter-group')?.parentElement || search.parentElement?.parentElement;
+  if (!container || $('#filterYear')) return;
+  const wrap1 = document.createElement('div');
+  wrap1.className = 'filter-group';
+  wrap1.innerHTML = `<label style="font-size:11px;color:var(--text-faint,#94a3b8);text-transform:uppercase">Año</label>
+    <select class="filter-control" id="filterYear"><option value="">Todos</option></select>`;
+  const wrap2 = document.createElement('div');
+  wrap2.className = 'filter-group';
+  wrap2.innerHTML = `<label style="font-size:11px;color:var(--text-faint,#94a3b8);text-transform:uppercase">Material</label>
+    <select class="filter-control" id="filterMaterial"><option value="">Todos</option></select>`;
+  const clearBtn = $('#clearFilters');
+  if (clearBtn?.parentElement) {
+    clearBtn.parentElement.insertBefore(wrap1, clearBtn);
+    clearBtn.parentElement.insertBefore(wrap2, clearBtn);
+  } else {
+    container.appendChild(wrap1); container.appendChild(wrap2);
+  }
+  $('#filterYear').addEventListener('change', ()=>{ try{updateDirectory();}catch(e){} });
+  $('#filterMaterial').addEventListener('change', ()=>{ try{updateDirectory();}catch(e){} });
+}
+injectDirectoryFilters();
+
+/* Populate options + extend filter logic */
+const _origPopulate = (typeof populateFilters==='function')?populateFilters:null;
+window.populateFilters = function(){
+  if (_origPopulate) _origPopulate();
+  const years = [...new Set(S.allBridges.map(b=>b.year).filter(Boolean))].sort((a,b)=>b-a);
+  const mats = [...new Set(S.allBridges.map(b=>b.material).filter(Boolean))].sort();
+  const ySel = $('#filterYear'); const mSel = $('#filterMaterial');
+  if (ySel){ const prev=ySel.value; ySel.innerHTML='<option value="">Todos</option>'+years.map(y=>`<option>${y}</option>`).join(''); ySel.value=prev; }
+  if (mSel){ const prev=mSel.value; mSel.innerHTML='<option value="">Todos</option>'+mats.map(m=>`<option>${m}</option>`).join(''); mSel.value=prev; }
+};
+
+/* Hook updateDirectory to also filter by year/material AND exclude soft-deleted */
+const _origUpdateDir = (typeof updateDirectory==='function')?updateDirectory:null;
+window.updateDirectory = function(){
+  // pre-filter S.allBridges removing _deleted + by year/material via a temporary swap
+  const yf = $('#filterYear')?.value || '';
+  const mf = $('#filterMaterial')?.value || '';
+  const backup = S.allBridges;
+  S.allBridges = backup.filter(b => !b._deleted)
+    .filter(b => !yf || String(b.year)===yf)
+    .filter(b => !mf || b.material===mf);
+  try { if (_origUpdateDir) _origUpdateDir(); } finally { S.allBridges = backup; }
+};
+
+/* Clear filters: include new ones */
+const cf = $('#clearFilters');
+if (cf){
+  cf.addEventListener('click', ()=>{ const y=$('#filterYear'); const m=$('#filterMaterial'); if(y)y.value=''; if(m)m.value=''; }, true);
+}
+
+/* ---------- Popup del mapa: agregar región ---------- */
+if (window.S?.map){
+  // No siempre disponible aquí; usaremos un handler propio para popup enriquecido
+}
+function enhanceMapPopups(){
+  if (!S.map || !S.map.getLayer || !S.map.getLayer('bridges-circles')) { setTimeout(enhanceMapPopups, 800); return; }
+  S.map.on('mouseenter','bridges-circles', e=>{
+    const id = e.features[0].properties.id;
+    const b = S.allBridges.find(x=>x.id===id); if (!b) return;
+    setTimeout(()=>{
+      const pop = document.querySelector('.maplibregl-popup-content');
+      if (!pop) return;
+      if (!pop.querySelector('.v5-pop-region')){
+        const div = document.createElement('div');
+        div.className = 'v5-pop-region';
+        div.style.cssText = 'font-size:0.72rem;color:var(--text-faint,#94a3b8);margin-top:2px;';
+        div.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${b.region||'—'} · <span style="opacity:.8">${b.projectName||''}</span>`;
+        pop.appendChild(div);
+      }
+    }, 30);
+  });
+}
+setTimeout(enhanceMapPopups, 2500);
+
+/* ---------- Favicon dinámico cada 30s ---------- */
+setInterval(()=>{ try { updateDynamicFavicon(); } catch(e){} }, 30000);
+
+/* ---------- Sonido diferenciado warning ---------- */
+if (typeof snd === 'object' && !snd.warning){
+  snd.warning = ()=>{ try{ beep(330,.08,'square',.12); setTimeout(()=>beep(220,.10,'square',.10),90);}catch(e){} };
+}
+
+/* ---------- Filtrar proyectos eliminados del processData ---------- */
+const _origProcess = (typeof processData==='function')?processData:null;
+if (_origProcess){
+  window.processData = function(data){
+    if (data?.projects){
+      Object.keys(data.projects).forEach(pid=>{
+        if (data.projects[pid]?.info?._deleted) delete data.projects[pid];
+      });
+    }
+    return _origProcess.call(this, data);
+  };
+}
+
+console.log('✨ BMS Global v5 — CRUD modal completo cargado.');
+})();
+
 </script>
 </body>
 </html>

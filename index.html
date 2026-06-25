@@ -5757,6 +5757,38 @@ console.log('🔥 Fix de proyectos unificado aplicado.');
   if (window.S) startV7(); else setTimeout(startV7, 1500);
 
 })();
+// ─── PATCH: Estilo del mapa ───
+
+// 1. Parchear initMap para guardar el estilo inicial
+const _origInitMap = initMap;
+initMap = function() {
+  _origInitMap.call(this);
+  if (S.map) {
+    // Guardamos el estilo OSM que se usó al crear el mapa
+    S._initialStyle = S.map.getStyle();
+    // Actualizamos MAP_STYLES.street para que apunte a este estilo
+    if (window.MAP_STYLES) {
+      MAP_STYLES.street = S._initialStyle;
+    }
+  }
+};
+
+// 2. Parchear setMapStyle para refrescar capas después del cambio
+const _origSetMapStyle = setMapStyle;
+setMapStyle = function(kind) {
+  if (!S.map) return;
+  const style = MAP_STYLES[kind];
+  if (!style) return;
+  S.map.setStyle(style);
+  S.map.once('styledata', () => {
+    S._mapDirty = true;
+    refreshMapLayers();
+    if (S.heatmapOn && S.map.getLayer('bridges-heatmap')) {
+      S.map.setLayoutProperty('bridges-heatmap', 'visibility', 'visible');
+    }
+    if (typeof applyRouteVisibility === 'function') applyRouteVisibility();
+  });
+};
 </script>
 </body>
 </html>

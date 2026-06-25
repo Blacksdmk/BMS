@@ -1138,6 +1138,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   <button class="tab-btn" data-tab="map"><i class="fas fa-map-marked-alt"></i> Mapa 3D</button>
   <button class="tab-btn" data-tab="directory"><i class="fas fa-database"></i> Directorio</button>
   <button class="tab-btn" data-tab="inspections"><i class="fas fa-clipboard-check"></i> Inspecciones</button>
+  <button class="tab-btn" data-tab="workorders"><i class="fas fa-screwdriver-wrench"></i> Órdenes</button>
+  <button class="tab-btn" data-tab="admin" style="display:none;"><i class="fas fa-user-shield"></i> Admin</button>
   <button class="tab-btn" data-tab="extras"><i class="fas fa-sparkles"></i> Extras</button>
 </nav>
 
@@ -1343,6 +1345,41 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     <div class="pagination" style="margin-top:14px;">
       <span id="inspPaginationInfo">–</span>
       <div class="pagination-controls" id="inspPaginationControls"></div>
+    </div>
+  </div>
+
+  <!-- ── ÓRDENES DE TRABAJO ── -->
+  <div id="panel-workorders" class="panel">
+    <div class="dir-header" style="margin-bottom:20px;">
+      <h2><i class="fas fa-screwdriver-wrench" style="color:var(--accent);"></i> Órdenes de Trabajo</h2>
+      <div class="dir-actions">
+        <button class="btn btn-primary btn-sm" id="newWorkOrderBtn"><i class="fas fa-plus"></i> Nueva orden</button>
+      </div>
+    </div>
+    <div id="workOrdersList" style="display:grid;gap:12px;"></div>
+  </div>
+
+  <!-- ── ADMIN ── -->
+  <div id="panel-admin" class="panel">
+    <div class="dir-header" style="margin-bottom:20px;">
+      <h2><i class="fas fa-user-shield" style="color:var(--accent);"></i> Panel de Administración</h2>
+      <div class="dir-actions">
+        <button class="btn btn-secondary btn-sm" id="reloadInspectorsBtn"><i class="fas fa-rotate"></i> Refrescar</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:18px;">
+      <div class="kpi-card"><div class="kpi-label">Inspectores totales</div><div class="kpi-value" id="kpiInspTotal">0</div></div>
+      <div class="kpi-card"><div class="kpi-label">En línea ahora</div><div class="kpi-value" id="kpiInspOnline" style="color:#10b981;">0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Admins</div><div class="kpi-value" id="kpiInspAdmins">0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Proyectos asignados</div><div class="kpi-value" id="kpiInspAssigned">0</div></div>
+    </div>
+    <div class="table-wrap">
+      <table id="adminInspectorsTable">
+        <thead><tr>
+          <th>Inspector</th><th>Email</th><th>Rol</th><th>Proyectos asignados</th><th>Última conexión</th><th>Acciones</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
 
@@ -5160,6 +5197,481 @@ setTimeout(() => {
 }, 5000);
 
 console.log('🔥 Fix de proyectos unificado aplicado.');
+
+/* ══════════════════════════════════════════════════════════════════
+   ▓▓▓ MÓDULO V7 — Admin, Presencia, Clima, EmailJS, Órdenes,
+       Comparar, Timeline, Voz, Ahorro de datos
+   ══════════════════════════════════════════════════════════════════ */
+(function v7Module(){
+
+  // ===== CONFIG =====
+  const OWM_KEY = '593d7042631f64afbd270eaae77f76c0';
+  const EMAILJS_CFG = {
+    publicKey: window.localStorage.getItem('emailjs_pk') || '',
+    serviceId: window.localStorage.getItem('emailjs_service') || '',
+    templateId: window.localStorage.getItem('emailjs_template') || ''
+  };
+  window.S = window.S || {};
+  S._allUsers = {};
+  S._allLocations = {};
+  S._presenceMarkers = {};
+  S._dataSaver = localStorage.getItem('dataSaver') === '1';
+  S._emailedLow = new Set(JSON.parse(localStorage.getItem('emailedLow')||'[]'));
+
+  // ===== CSS =====
+  const css = document.createElement('style');
+  css.textContent = `
+    .presence-marker{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);border:3px solid #fff;box-shadow:0 4px 12px rgba(16,185,129,.5),0 0 0 2px rgba(16,185,129,.3);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;animation:pulse-pres 2s infinite;}
+    @keyframes pulse-pres{0%,100%{box-shadow:0 4px 12px rgba(16,185,129,.5),0 0 0 0 rgba(16,185,129,.6)}50%{box-shadow:0 4px 12px rgba(16,185,129,.5),0 0 0 12px rgba(16,185,129,0)}}
+    .wo-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:12px;padding:14px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+    .wo-status{padding:4px 10px;border-radius:999px;font-size:.72rem;font-weight:700;text-transform:uppercase}
+    .wo-status.pending{background:#fef3c7;color:#92400e}
+    .wo-status.in_progress{background:#dbeafe;color:#1e40af}
+    .wo-status.done{background:#d1fae5;color:#065f46}
+    .timeline-floating{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.92);backdrop-filter:blur(10px);padding:10px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.1);z-index:10;display:flex;align-items:center;gap:12px;color:#fff;min-width:320px;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+    .timeline-floating input[type=range]{flex:1}
+    .voice-btn{background:#dc2626;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:.82rem}
+    .voice-btn.listening{animation:pulse-pres 1s infinite;background:#ef4444}
+    .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .compare-grid .diff{background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-weight:700}
+  `;
+  document.head.appendChild(css);
+
+  /* ── 1. USUARIOS ── */
+  function listenUsers(){
+    try{
+      onValue(ref(db,'users'), snap=>{
+        S._allUsers = snap.val() || {};
+        renderAdminInspectorsReal();
+        applyAssignedFilter();
+      });
+    }catch(e){console.warn('listenUsers',e)}
+  }
+
+  /* ── 2. PANEL ADMIN ── */
+  window.renderAdminInspectors = renderAdminInspectorsReal;
+  function renderAdminInspectorsReal(){
+    const tbody = document.querySelector('#adminInspectorsTable tbody');
+    if (!tbody) return;
+    const users = Object.entries(S._allUsers||{});
+    const projects = S.projects || {};
+    let online=0, admins=0, assigned=0;
+    tbody.innerHTML = users.map(([uid,u])=>{
+      const pres = (window.allPresence||{})[uid] || {};
+      const isOnline = !!pres.online; if (isOnline) online++;
+      if (u.role==='admin') admins++;
+      const ap = u.assignedProjects || {};
+      const apIds = Object.keys(ap).filter(k=>ap[k]);
+      if (apIds.length) assigned++;
+      const apNames = apIds.map(id=>projects[id]?.info?.name || id).join(', ') || '<span style="color:var(--text-faint)">— ninguno —</span>';
+      const last = pres.lastSeen ? new Date(pres.lastSeen).toLocaleString('es-MX') : '—';
+      const isMe = S.currentUser && S.currentUser.uid===uid;
+      return `<tr>
+        <td><b>${u.name||'Sin nombre'}</b> ${isOnline?'<span style="color:#10b981">●</span>':''} ${isMe?'<span style="font-size:.7rem;color:var(--accent)">(tú)</span>':''}</td>
+        <td>${u.email||'—'}</td>
+        <td><span class="wo-status ${u.role==='admin'?'in_progress':'pending'}">${u.role||'inspector'}</span></td>
+        <td style="max-width:260px">${apNames}</td>
+        <td style="font-size:.78rem;color:var(--text-muted)">${last}</td>
+        <td>
+          <button class="btn btn-sm btn-secondary" onclick="v7AssignProjects('${uid}')" title="Asignar proyectos"><i class="fas fa-link"></i></button>
+          <button class="btn btn-sm btn-secondary" onclick="v7ToggleRole('${uid}')" title="Cambiar rol"><i class="fas fa-user-tag"></i></button>
+          ${isMe?'':`<button class="btn btn-sm btn-danger" onclick="v7DeleteUser('${uid}')" title="Eliminar"><i class="fas fa-trash"></i></button>`}
+        </td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:30px">No hay usuarios registrados aún.</td></tr>`;
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+    set('kpiInspTotal',users.length); set('kpiInspOnline',online); set('kpiInspAdmins',admins); set('kpiInspAssigned',assigned);
+  }
+
+  window.v7AssignProjects = async function(uid){
+    const user = S._allUsers[uid]; if(!user) return;
+    const projects = Object.entries(S.projects||{}).filter(([,p])=>!p._deleted);
+    if (!projects.length){ toast('No hay proyectos disponibles','warning'); return; }
+    const current = user.assignedProjects || {};
+    const dlg = document.createElement('div');
+    dlg.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center';
+    dlg.innerHTML=`<div style="background:var(--bg-surface);padding:24px;border-radius:14px;max-width:500px;width:90%;border:1px solid var(--border);max-height:80vh;overflow:auto">
+      <h3 style="margin:0 0 14px"><i class="fas fa-link"></i> Asignar proyectos a ${user.name||user.email}</h3>
+      <div style="display:grid;gap:8px">
+        ${projects.map(([id,p])=>`<label style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg-elevated);border-radius:8px;cursor:pointer">
+          <input type="checkbox" data-pid="${id}" ${current[id]?'checked':''}>
+          <span><b>${p.info?.name||id}</b> <span style="color:var(--text-muted);font-size:.78rem">${p.info?.region||''}</span></span>
+        </label>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-secondary" id="v7cancelAssign">Cancelar</button>
+        <button class="btn btn-primary" id="v7saveAssign"><i class="fas fa-save"></i> Guardar</button>
+      </div></div>`;
+    document.body.appendChild(dlg);
+    dlg.querySelector('#v7cancelAssign').onclick = ()=>dlg.remove();
+    dlg.querySelector('#v7saveAssign').onclick = async ()=>{
+      const map = {};
+      dlg.querySelectorAll('input[data-pid]').forEach(c=>{ if(c.checked) map[c.dataset.pid]=true; });
+      try{ await update(ref(db,`users/${uid}`),{ assignedProjects: map }); toast('Asignación guardada','success'); snd.success(); dlg.remove(); }
+      catch(e){ toast('Error: '+e.message,'error'); }
+    };
+  };
+
+  window.v7ToggleRole = async function(uid){
+    const u = S._allUsers[uid]; if(!u) return;
+    const newRole = u.role==='admin' ? 'inspector':'admin';
+    const ok = await v5Confirm({title:'Cambiar rol', msg:`¿Cambiar rol de ${u.name||u.email} a "${newRole}"?`, confirmLabel:'Cambiar'});
+    if (!ok) return;
+    await update(ref(db,`users/${uid}`),{ role:newRole });
+    toast(`Rol actualizado a ${newRole}`,'success');
+  };
+
+  window.v7DeleteUser = async function(uid){
+    const u = S._allUsers[uid]; if(!u) return;
+    const ok = await v5Confirm({title:'Eliminar usuario', msg:`Esto quita a ${u.name||u.email} del directorio (no borra la cuenta de Auth).`, danger:true, confirmLabel:'Eliminar'});
+    if (!ok) return;
+    await remove(ref(db,`users/${uid}`));
+    toast('Usuario eliminado','success');
+  };
+
+  /* ── 3. FILTRO POR PROYECTOS ASIGNADOS ── */
+  function applyAssignedFilter(){
+    if (!S.currentUser || !S.userProfile) return;
+    if (S.userProfile.role === 'admin') { S._assignedPids = null; return; }
+    const me = S._allUsers[S.currentUser.uid]; if (!me) return;
+    const ap = me.assignedProjects || {};
+    const ids = Object.keys(ap).filter(k=>ap[k]);
+    S._assignedPids = ids.length ? new Set(ids) : null;
+    if (typeof processData==='function') try{processData()}catch(e){}
+    if (typeof refreshMapLayers==='function' && S.map) try{refreshMapLayers()}catch(e){}
+  }
+
+  /* ── 4. PRESENCIA EN VIVO EN EL MAPA ── */
+  function listenLiveLocations(){
+    onValue(ref(db,'locations'), snap=>{
+      S._allLocations = snap.val() || {};
+      renderPresenceOnMap();
+    });
+  }
+  function renderPresenceOnMap(){
+    if (!S.map || !window.maplibregl) return;
+    const seen = new Set();
+    Object.entries(S._allLocations).forEach(([uid,loc])=>{
+      if (!loc || !loc.active || !loc.lat || !loc.lng) return;
+      if (S.currentUser && uid===S.currentUser.uid) return;
+      seen.add(uid);
+      const init = (loc.name||'?').charAt(0).toUpperCase();
+      let m = S._presenceMarkers[uid];
+      if (!m){
+        const el = document.createElement('div');
+        el.className='presence-marker'; el.textContent=init;
+        el.title = `${loc.name||'Inspector'} • ${loc.role||''}`;
+        m = new maplibregl.Marker({element:el}).setLngLat([loc.lng,loc.lat]).addTo(S.map);
+        m.getElement().addEventListener('click',()=>{
+          new maplibregl.Popup().setLngLat([loc.lng,loc.lat]).setHTML(
+            `<b>${loc.name||'Inspector'}</b><br><span style="color:#666">${loc.role||''}</span><br><small>Actualizado: ${new Date(loc.updatedAt).toLocaleTimeString('es-MX')}</small>`
+          ).addTo(S.map);
+        });
+        S._presenceMarkers[uid]=m;
+      } else { m.setLngLat([loc.lng,loc.lat]); }
+    });
+    Object.keys(S._presenceMarkers).forEach(uid=>{
+      if (!seen.has(uid)){ S._presenceMarkers[uid].remove(); delete S._presenceMarkers[uid]; }
+    });
+  }
+  const _initMapPatch = setInterval(()=>{
+    if (S.map){ clearInterval(_initMapPatch); renderPresenceOnMap(); addWeatherLayer(); addTimelineControl(); }
+  },1000);
+
+  /* ── 5. CLIMA OWM ── */
+  let _weatherOn = false;
+  function addWeatherLayer(){
+    if (!S.map || !OWM_KEY) return;
+    const apply = ()=>{
+      try{
+        if (!S.map.getSource('owm-clouds')){
+          S.map.addSource('owm-clouds',{type:'raster',tiles:[`https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`],tileSize:256});
+          S.map.addLayer({id:'owm-clouds-layer',type:'raster',source:'owm-clouds',paint:{'raster-opacity':0.55},layout:{visibility:'none'}});
+          S.map.addSource('owm-precip',{type:'raster',tiles:[`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`],tileSize:256});
+          S.map.addLayer({id:'owm-precip-layer',type:'raster',source:'owm-precip',paint:{'raster-opacity':0.7},layout:{visibility:'none'}});
+        }
+      }catch(e){console.warn('weather',e)}
+    };
+    if (S.map.isStyleLoaded()) apply(); else S.map.once('load',apply);
+    if (document.getElementById('weatherToggleBtn')) return;
+    const btn = document.createElement('button');
+    btn.id='weatherToggleBtn'; btn.className='btn btn-sm';
+    btn.style.cssText='position:absolute;top:14px;right:14px;z-index:10;background:rgba(15,23,42,.85);color:#fff;border:1px solid rgba(255,255,255,.15);padding:8px 12px;border-radius:8px;cursor:pointer';
+    btn.innerHTML='<i class="fas fa-cloud-rain"></i> Clima';
+    btn.onclick=()=>{
+      _weatherOn = !_weatherOn;
+      const v = _weatherOn?'visible':'none';
+      try{
+        S.map.setLayoutProperty('owm-clouds-layer','visibility',v);
+        S.map.setLayoutProperty('owm-precip-layer','visibility',v);
+        toast(_weatherOn?'Capa de clima activada':'Capa de clima desactivada','info');
+      }catch(e){toast('Error capa clima','error')}
+    };
+    document.getElementById('panel-map')?.appendChild(btn);
+  }
+
+  /* ── 6. TIMELINE EN EL MAPA ── */
+  function addTimelineControl(){
+    if (document.getElementById('mapTimeline')) return;
+    const panel = document.getElementById('panel-map'); if (!panel) return;
+    const div = document.createElement('div');
+    div.id='mapTimeline'; div.className='timeline-floating';
+    div.innerHTML=`<i class="fas fa-clock"></i>
+      <input type="range" id="mapTlSlider" min="0" max="100" value="100">
+      <span id="mapTlLabel" style="font-size:.78rem;min-width:90px;text-align:right">Actual</span>
+      <button id="mapTlClose" style="background:transparent;color:#fff;border:none;cursor:pointer" title="Cerrar"><i class="fas fa-xmark"></i></button>`;
+    panel.appendChild(div);
+    const slider = div.querySelector('#mapTlSlider');
+    const label = div.querySelector('#mapTlLabel');
+    div.querySelector('#mapTlClose').onclick = ()=>{ div.style.display='none'; S._timelineDate=null; if(typeof refreshMapLayers==='function')refreshMapLayers(); };
+    slider.oninput = ()=>{
+      const all = [];
+      Object.values(S.inspections||{}).forEach(arr=>arr.forEach(i=>i.date&&all.push(new Date(i.date))));
+      if (!all.length){ label.textContent='Sin datos'; return; }
+      all.sort((a,b)=>a-b);
+      const min = all[0].getTime(), max=all[all.length-1].getTime();
+      const t = min + (max-min)*(slider.value/100);
+      S._timelineDate = new Date(t);
+      label.textContent = S._timelineDate.toLocaleDateString('es-MX',{month:'short',year:'numeric'});
+      if (typeof refreshMapLayers==='function') try{refreshMapLayers()}catch(e){}
+    };
+  }
+
+  /* ── 7. EMAILJS — alertas score<40 ── */
+  if (!document.getElementById('emailjs-sdk')){
+    const s = document.createElement('script');
+    s.id='emailjs-sdk';
+    s.src='https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+    s.onload = ()=>{ try{ if (EMAILJS_CFG.publicKey && window.emailjs) emailjs.init({publicKey:EMAILJS_CFG.publicKey}); }catch(e){} };
+    document.head.appendChild(s);
+  }
+  window.v7ConfigEmailJS = async function(){
+    const pk = prompt('EmailJS Public Key (de https://dashboard.emailjs.com/admin/account):', EMAILJS_CFG.publicKey||'');
+    if (pk===null) return;
+    const svc = prompt('Service ID:', EMAILJS_CFG.serviceId||''); if (svc===null) return;
+    const tpl = prompt('Template ID (variables: to_email, bridge_name, bridge_code, score, date, inspector, observations):', EMAILJS_CFG.templateId||''); if (tpl===null) return;
+    localStorage.setItem('emailjs_pk',pk); localStorage.setItem('emailjs_service',svc); localStorage.setItem('emailjs_template',tpl);
+    EMAILJS_CFG.publicKey=pk; EMAILJS_CFG.serviceId=svc; EMAILJS_CFG.templateId=tpl;
+    if (window.emailjs) emailjs.init({publicKey:pk});
+    toast('EmailJS configurado','success');
+  };
+  async function notifyLowScore(bridge, insp){
+    if (!EMAILJS_CFG.publicKey || !EMAILJS_CFG.serviceId || !EMAILJS_CFG.templateId){
+      console.log('[EmailJS] no configurado. Usa v7ConfigEmailJS()'); return;
+    }
+    if (!window.emailjs) return;
+    const admins = Object.values(S._allUsers||{}).filter(u=>u.role==='admin' && u.email);
+    const to = admins.map(a=>a.email).join(', ') || (S.userProfile?.email||'');
+    if (!to) return;
+    try{
+      await emailjs.send(EMAILJS_CFG.serviceId, EMAILJS_CFG.templateId, {
+        to_email: to, bridge_name: bridge.name||bridge.code, bridge_code: bridge.code,
+        score: insp.manualScore, date: insp.date, inspector: insp.inspector||'—',
+        observations: insp.observations||'—'
+      });
+      toast('🚨 Correo de alerta enviado','success');
+    }catch(e){console.warn('EmailJS',e); toast('Error EmailJS: '+(e.text||e.message),'error');}
+  }
+  function watchLowScores(){
+    onValue(ref(db,'projects'), snap=>{
+      const data = snap.val()||{};
+      Object.entries(data).forEach(([pid,p])=>{
+        const ins = p.inspections||{};
+        Object.entries(ins).forEach(([bid,arr])=>{
+          Object.entries(arr||{}).forEach(([iid,insp])=>{
+            if (!insp || insp._deleted) return;
+            const score = insp.manualScore ?? insp.score;
+            if (score!=null && score<40){
+              const key = `${pid}/${bid}/${iid}`;
+              if (!S._emailedLow.has(key)){
+                S._emailedLow.add(key);
+                localStorage.setItem('emailedLow', JSON.stringify([...S._emailedLow]));
+                const bridge = (p.bridges||{})[bid] || {code:bid};
+                notifyLowScore(bridge, insp);
+              }
+            }
+          });
+        });
+      });
+    });
+  }
+
+  /* ── 8. ÓRDENES DE TRABAJO ── */
+  S._workOrders = {};
+  function listenWorkOrders(){
+    onValue(ref(db,'workOrders'), snap=>{
+      S._workOrders = snap.val()||{};
+      renderWorkOrders();
+    });
+  }
+  function renderWorkOrders(){
+    const list = document.getElementById('workOrdersList'); if (!list) return;
+    const wos = Object.entries(S._workOrders).filter(([,w])=>!w._deleted);
+    if (!wos.length){ list.innerHTML=`<div style="padding:30px;text-align:center;color:var(--text-faint)">Sin órdenes de trabajo. Crea una nueva.</div>`; return; }
+    list.innerHTML = wos.map(([id,w])=>`<div class="wo-card">
+      <div>
+        <div style="font-weight:700">${w.title||'(sin título)'}</div>
+        <div style="color:var(--text-muted);font-size:.82rem">${w.bridgeCode||''} • Responsable: ${w.assignee||'—'} • ${w.dueDate||'sin fecha'}</div>
+        <div style="font-size:.8rem;margin-top:4px">${w.description||''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <span class="wo-status ${w.status||'pending'}">${(w.status||'pending').replace('_',' ')}</span>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-sm btn-secondary" onclick="v7CycleWO('${id}')" title="Siguiente estado"><i class="fas fa-arrow-right"></i></button>
+          <button class="btn btn-sm btn-danger" onclick="v7DeleteWO('${id}')"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+    </div>`).join('');
+  }
+  window.v7CycleWO = async (id)=>{
+    const w = S._workOrders[id]; if(!w) return;
+    const next = {pending:'in_progress', in_progress:'done', done:'pending'}[w.status||'pending'];
+    await update(ref(db,`workOrders/${id}`),{status:next});
+  };
+  window.v7DeleteWO = async (id)=>{
+    if (!(await v5Confirm({title:'Eliminar orden',msg:'¿Eliminar esta orden de trabajo?',danger:true}))) return;
+    await update(ref(db,`workOrders/${id}`),{_deleted:true});
+  };
+  window.v7NewWorkOrder = async function(prefill={}){
+    const bridges = [];
+    Object.values(S.projects||{}).forEach(p=>Object.entries(p.bridges||{}).forEach(([bid,b])=>!b._deleted && bridges.push({id:bid,...b})));
+    const dlg = document.createElement('div');
+    dlg.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center';
+    dlg.innerHTML=`<div style="background:var(--bg-surface);padding:24px;border-radius:14px;max-width:500px;width:90%;border:1px solid var(--border)">
+      <h3 style="margin:0 0 14px"><i class="fas fa-screwdriver-wrench"></i> Nueva orden de trabajo</h3>
+      <div style="display:grid;gap:10px">
+        <input id="woTitle" class="input" placeholder="Título *" value="${prefill.title||''}">
+        <select id="woBridge" class="input"><option value="">— Puente —</option>${bridges.map(b=>`<option value="${b.code}" ${prefill.bridgeCode===b.code?'selected':''}>${b.code} — ${b.name||''}</option>`).join('')}</select>
+        <input id="woAssignee" class="input" placeholder="Responsable" value="${prefill.assignee||''}">
+        <input id="woDue" type="date" class="input">
+        <textarea id="woDesc" class="input" rows="3" placeholder="Descripción">${prefill.description||''}</textarea>
+        <select id="woStatus" class="input"><option value="pending">Pendiente</option><option value="in_progress">En progreso</option><option value="done">Terminada</option></select>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-secondary" id="woCancel">Cancelar</button>
+        <button class="btn btn-primary" id="woSave"><i class="fas fa-save"></i> Crear</button>
+      </div></div>`;
+    document.body.appendChild(dlg);
+    dlg.querySelector('#woCancel').onclick=()=>dlg.remove();
+    dlg.querySelector('#woSave').onclick=async()=>{
+      const t = dlg.querySelector('#woTitle').value.trim();
+      if (!t){ toast('Título requerido','warning'); return; }
+      const data = {
+        title:t, bridgeCode: dlg.querySelector('#woBridge').value,
+        assignee: dlg.querySelector('#woAssignee').value, dueDate: dlg.querySelector('#woDue').value,
+        description: dlg.querySelector('#woDesc').value, status: dlg.querySelector('#woStatus').value,
+        createdAt: new Date().toISOString(), createdBy: S.currentUser?.uid||null
+      };
+      const nref = push(ref(db,'workOrders'));
+      await set(nref, data);
+      toast('Orden creada','success'); snd.success();
+      dlg.remove();
+    };
+  };
+
+  /* ── 9. COMPARAR INSPECCIONES ── */
+  window.v7CompareInspections = function(bridgeId){
+    const arr = (S.inspections||{})[bridgeId] || [];
+    if (arr.length<2){ toast('Necesitas al menos 2 inspecciones','warning'); return; }
+    const sorted = [...arr].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const opts = sorted.map((i,idx)=>`<option value="${idx}">${i.date} — ${i.manualScore??'—'} pts</option>`).join('');
+    const dlg = document.createElement('div');
+    dlg.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+    dlg.innerHTML=`<div style="background:var(--bg-surface);padding:24px;border-radius:14px;max-width:900px;width:100%;max-height:90vh;overflow:auto;border:1px solid var(--border)">
+      <h3 style="margin:0 0 14px"><i class="fas fa-code-compare"></i> Comparar inspecciones</h3>
+      <div style="display:flex;gap:10px;margin-bottom:14px">
+        <select id="cmpA" class="input">${opts}</select>
+        <select id="cmpB" class="input">${opts}</select>
+      </div>
+      <div id="cmpResult" class="compare-grid"></div>
+      <div style="text-align:right;margin-top:14px"><button class="btn btn-secondary" id="cmpClose">Cerrar</button></div>
+    </div>`;
+    document.body.appendChild(dlg);
+    const a=dlg.querySelector('#cmpA'), b=dlg.querySelector('#cmpB');
+    b.value = '1';
+    const render = ()=>{
+      const ia = sorted[+a.value], ib = sorted[+b.value];
+      const fields = ['date','manualScore','inspector','condition','observations','recommendations'];
+      const html = (ins, otra)=>`<div style="background:var(--bg-elevated);padding:14px;border-radius:10px;border:1px solid var(--border)">
+        ${fields.map(f=>{
+          const v = ins[f]??'—', o=otra[f]??'—';
+          const diff = String(v)!==String(o);
+          return `<div style="margin-bottom:8px"><div style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase">${f}</div><div ${diff?'class="diff"':''}>${v}</div></div>`;
+        }).join('')}
+      </div>`;
+      dlg.querySelector('#cmpResult').innerHTML = html(ia,ib)+html(ib,ia);
+    };
+    a.onchange=b.onchange=render; render();
+    dlg.querySelector('#cmpClose').onclick=()=>dlg.remove();
+  };
+
+  /* ── 10. SPEECH-TO-TEXT ── */
+  window.v7AttachVoiceInput = function(textareaEl, btnEl){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR){ btnEl.disabled=true; btnEl.title='Tu navegador no soporta dictado'; return; }
+    const rec = new SR(); rec.lang='es-MX'; rec.continuous=true; rec.interimResults=false;
+    let listening=false;
+    btnEl.onclick = ()=>{
+      if (listening){ rec.stop(); return; }
+      try{ rec.start(); listening=true; btnEl.classList.add('listening'); btnEl.innerHTML='<i class="fas fa-stop"></i> Parar'; }
+      catch(e){ toast('No se pudo iniciar dictado','error'); }
+    };
+    rec.onresult = (e)=>{
+      let txt='';
+      for (let i=e.resultIndex;i<e.results.length;i++) if (e.results[i].isFinal) txt += e.results[i][0].transcript+' ';
+      if (txt) textareaEl.value = (textareaEl.value+' '+txt).trim();
+    };
+    rec.onend = ()=>{ listening=false; btnEl.classList.remove('listening'); btnEl.innerHTML='<i class="fas fa-microphone"></i> Dictar'; };
+    rec.onerror = (e)=>{ toast('Dictado: '+e.error,'error'); };
+  };
+  const voiceObs = new MutationObserver(()=>{
+    document.querySelectorAll('textarea[name="observations"]:not([data-voice]), textarea#observations:not([data-voice])').forEach(ta=>{
+      ta.dataset.voice='1';
+      const b = document.createElement('button');
+      b.type='button'; b.className='voice-btn'; b.style.marginTop='6px';
+      b.innerHTML='<i class="fas fa-microphone"></i> Dictar';
+      ta.parentNode.insertBefore(b, ta.nextSibling);
+      v7AttachVoiceInput(ta,b);
+    });
+  });
+  voiceObs.observe(document.body,{childList:true,subtree:true});
+
+  /* ── 11. MODO AHORRO DE DATOS ── */
+  function applyDataSaver(){
+    document.body.classList.toggle('data-saver', S._dataSaver);
+    if (S._dataSaver && !document.getElementById('dsCss')){
+      const st=document.createElement('style'); st.id='dsCss';
+      st.textContent='.data-saver img[src^="data:"]{display:none!important}.data-saver .photo-thumb{background:#1e293b;color:#64748b;display:flex;align-items:center;justify-content:center}.data-saver .photo-thumb::before{content:"📷 (oculta — ahorro de datos)";font-size:.75rem}';
+      document.head.appendChild(st);
+    } else if (!S._dataSaver) {
+      document.getElementById('dsCss')?.remove();
+    }
+  }
+  window.v7ToggleDataSaver = ()=>{
+    S._dataSaver=!S._dataSaver;
+    localStorage.setItem('dataSaver', S._dataSaver?'1':'0');
+    applyDataSaver();
+    toast('Modo ahorro de datos: '+(S._dataSaver?'ON':'OFF'),'info');
+  };
+  applyDataSaver();
+
+  /* ── 12. WIRING ── */
+  setTimeout(()=>{
+    document.getElementById('newWorkOrderBtn')?.addEventListener('click', ()=>v7NewWorkOrder());
+    document.getElementById('reloadInspectorsBtn')?.addEventListener('click', ()=>{ renderAdminInspectorsReal(); toast('Actualizado','info'); });
+  }, 1500);
+
+  /* ── 13. START ── */
+  function startV7(){
+    try{ listenUsers(); }catch(e){console.warn(e)}
+    try{ listenLiveLocations(); }catch(e){console.warn(e)}
+    try{ listenWorkOrders(); }catch(e){console.warn(e)}
+    try{ watchLowScores(); }catch(e){console.warn(e)}
+    console.log('✅ V7 module activo');
+  }
+  if (window.S) startV7(); else setTimeout(startV7, 1500);
+
+})();
 </script>
 </body>
 </html>

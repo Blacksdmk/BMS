@@ -1535,8 +1535,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 <script type="module">
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, onValue, update, push, get } from 'firebase/database';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getDatabase, ref, onValue, update, push, get, set, remove, serverTimestamp } from 'firebase/database';
+import { getAuth, signInAnonymously, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
 
 /* ══════════════════════════════════════
    FIREBASE INIT
@@ -1567,6 +1567,9 @@ const S = {
   favorites: JSON.parse(localStorage.getItem('bms_favorites') || '[]'),
   currentBridgeId: null,
   currentAddInspBridgeId: null,
+  // auth
+  currentUser: null,
+  userProfile: null,  // { name, role:'admin'|'inspector', email, assignedProjects:[] }
   // directory
   sortCol: 'score', sortDir: -1,
   page: 1, perPage: 20,
@@ -1581,6 +1584,9 @@ const S = {
   pendingPhotos: [],
   // chart
   chart: null,
+  // location tracking
+  locationWatchId: null,
+  inspectorMarkers: {},
 };
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1660,21 +1666,345 @@ function fmtDate(d) {
 function fmtDateShort(d) { return new Date(d).toLocaleDateString('es-MX', { day:'2-digit', month:'short' }); }
 
 /* ══════════════════════════════════════
-   AUTH & DATA LOAD
+   AUTH — Email/Password + pantalla de login
 ══════════════════════════════════════ */
-signInAnonymously(auth).catch(e => { console.warn(e); hideLoader(); });
 
-onAuthStateChanged(auth, user => {
-  if (!user) return;
+// Inject auth screen HTML
+(function injectAuthScreen(){
+  const css = document.createElement('style');
+  css.textContent = `
+#auth-screen{position:fixed;inset:0;z-index:9500;background:var(--bg-canvas);display:flex;align-items:center;justify-content:center;padding:20px;}
+.auth-card{background:var(--bg-surface);border:1px solid var(--border-strong);border-radius:var(--radius-xl);box-shadow:var(--shadow-xl);width:100%;max-width:400px;overflow:hidden;}
+.auth-card-header{background:linear-gradient(135deg,var(--accent),var(--accent2));padding:28px 28px 20px;text-align:center;}
+.auth-logo{width:52px;height:52px;background:rgba(255,255,255,0.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff;margin:0 auto 12px;}
+.auth-card-header h2{color:#fff;font-size:1.2rem;font-weight:800;letter-spacing:-0.02em;margin:0;}
+.auth-card-header p{color:rgba(255,255,255,0.75);font-size:0.8rem;margin:4px 0 0;}
+.auth-tabs{display:flex;border-bottom:1px solid var(--border);}
+.auth-tab{flex:1;padding:12px;text-align:center;background:none;border:none;font-size:0.84rem;font-weight:600;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:color 0.15s,border-color 0.15s;font-family:var(--font-ui);}
+.auth-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.auth-body{padding:24px;}
+.auth-fg{margin-bottom:14px;}
+.auth-fg label{display:block;font-size:0.73rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;}
+.auth-input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-elevated);color:var(--text-primary);font-size:0.88rem;font-family:var(--font-ui);outline:none;transition:border-color 0.15s;}
+.auth-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim);}
+.auth-btn{width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-size:0.88rem;font-weight:700;cursor:pointer;font-family:var(--font-ui);transition:background 0.15s;margin-top:4px;}
+.auth-btn:hover{background:var(--accent-hover);}
+.auth-btn:disabled{opacity:0.6;cursor:not-allowed;}
+.auth-err{background:var(--c-critical-bg);color:var(--c-critical);border-radius:var(--radius-sm);padding:10px 12px;font-size:0.82rem;margin-bottom:12px;display:none;}
+.auth-err.show{display:block;}
+.auth-role-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.auth-role-card{border:2px solid var(--border);border-radius:var(--radius-sm);padding:10px;cursor:pointer;transition:border-color 0.15s,background 0.15s;text-align:center;}
+.auth-role-card:hover{border-color:var(--accent);background:var(--accent-dim);}
+.auth-role-card.selected{border-color:var(--accent);background:var(--accent-dim);}
+.auth-role-card i{display:block;font-size:1.4rem;margin-bottom:4px;}
+.auth-role-card span{font-size:0.8rem;font-weight:600;}
+/* User pill in topbar */
+.user-pill{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:var(--radius-pill);background:var(--bg-elevated);border:1px solid var(--border);cursor:pointer;font-size:0.78rem;font-weight:500;color:var(--text-muted);transition:background 0.15s;}
+.user-pill:hover{background:var(--bg-canvas);}
+.user-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:700;flex-shrink:0;}
+.user-online-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px #22c55e;flex-shrink:0;}
+/* Admin tab styles */
+.admin-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;}
+.admin-stat{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;}
+.admin-stat-val{font-size:1.8rem;font-weight:800;letter-spacing:-0.03em;}
+.admin-stat-label{font-size:0.75rem;color:var(--text-muted);margin-top:2px;}
+.inspector-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;transition:border-color 0.15s;}
+.inspector-card:hover{border-color:var(--border-strong);}
+.inspector-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:1rem;font-weight:700;flex-shrink:0;}
+.inspector-info{flex:1;min-width:0;}
+.inspector-name{font-weight:600;font-size:0.88rem;}
+.inspector-meta{font-size:0.75rem;color:var(--text-muted);}
+.inspector-status{display:flex;align-items:center;gap:5px;font-size:0.75rem;}
+.status-online{color:#22c55e;} .status-offline{color:var(--text-faint);}
+.activity-row{padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;font-size:0.82rem;}
+.activity-time{color:var(--text-faint);font-size:0.72rem;font-family:var(--font-mono);flex-shrink:0;width:100px;}
+.activity-type{font-weight:600;}
+/* Location pulse */
+@keyframes locPulse{0%{transform:scale(1);opacity:1}100%{transform:scale(2.2);opacity:0}}
+.loc-pulse{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);}
+.loc-pulse::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;border:2px solid var(--accent);animation:locPulse 1.5s ease infinite;}
+  `;
+  document.head.appendChild(css);
+
+  const el = document.createElement('div');
+  el.id = 'auth-screen';
+  el.innerHTML = `
+  <div class="auth-card">
+    <div class="auth-card-header">
+      <div class="auth-logo"><i class="fas fa-bridge"></i></div>
+      <h2>BMS Global</h2>
+      <p>Sistema de Gestión de Puentes</p>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-auth-tab="login">Iniciar Sesión</button>
+      <button class="auth-tab" data-auth-tab="register">Registrarse</button>
+    </div>
+    <div class="auth-body">
+      <div id="auth-err" class="auth-err"></div>
+
+      <!-- LOGIN -->
+      <div id="auth-panel-login">
+        <div class="auth-fg"><label>Correo electrónico</label>
+          <input class="auth-input" id="loginEmail" type="email" placeholder="inspector@bms.mx" autocomplete="email">
+        </div>
+        <div class="auth-fg"><label>Contraseña</label>
+          <input class="auth-input" id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="auth-btn" id="loginBtn"><i class="fas fa-sign-in-alt"></i> Entrar</button>
+      </div>
+
+      <!-- REGISTER -->
+      <div id="auth-panel-register" style="display:none;">
+        <div class="auth-fg"><label>Nombre completo</label>
+          <input class="auth-input" id="regName" type="text" placeholder="Ing. Juan Pérez">
+        </div>
+        <div class="auth-fg"><label>Correo electrónico</label>
+          <input class="auth-input" id="regEmail" type="email" placeholder="inspector@bms.mx" autocomplete="email">
+        </div>
+        <div class="auth-fg"><label>Contraseña (mín. 6 caracteres)</label>
+          <input class="auth-input" id="regPassword" type="password" placeholder="••••••••" autocomplete="new-password">
+        </div>
+        <div class="auth-fg"><label>Rol</label>
+          <div class="auth-role-row">
+            <div class="auth-role-card selected" data-role="inspector">
+              <i class="fas fa-hard-hat" style="color:var(--accent)"></i><span>Inspector</span>
+            </div>
+            <div class="auth-role-card" data-role="admin">
+              <i class="fas fa-shield-halved" style="color:var(--accent2)"></i><span>Administrador</span>
+            </div>
+          </div>
+          <input type="hidden" id="regRole" value="inspector">
+        </div>
+        <button class="auth-btn" id="registerBtn"><i class="fas fa-user-plus"></i> Crear cuenta</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+
+  // Tab switching
+  el.querySelectorAll('.auth-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      el.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('auth-panel-login').style.display = tab.dataset.authTab==='login'?'block':'none';
+      document.getElementById('auth-panel-register').style.display = tab.dataset.authTab==='register'?'block':'none';
+      document.getElementById('auth-err').classList.remove('show');
+    });
+  });
+
+  // Role cards
+  el.querySelectorAll('.auth-role-card').forEach(card => {
+    card.addEventListener('click', () => {
+      el.querySelectorAll('.auth-role-card').forEach(c=>c.classList.remove('selected'));
+      card.classList.add('selected');
+      document.getElementById('regRole').value = card.dataset.role;
+    });
+  });
+
+  // Login
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pw = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('auth-err');
+    const btn = document.getElementById('loginBtn');
+    if (!email||!pw) { errEl.textContent='Completa todos los campos.'; errEl.classList.add('show'); return; }
+    btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Entrando…';
+    try {
+      await signInWithEmailAndPassword(auth, email, pw);
+      errEl.classList.remove('show');
+    } catch(e) {
+      const msgs = { 'auth/user-not-found':'Usuario no encontrado.', 'auth/wrong-password':'Contraseña incorrecta.', 'auth/invalid-credential':'Credenciales inválidas.', 'auth/too-many-requests':'Demasiados intentos. Espera un momento.' };
+      errEl.textContent = msgs[e.code] || e.message;
+      errEl.classList.add('show');
+      btn.disabled=false; btn.innerHTML='<i class="fas fa-sign-in-alt"></i> Entrar';
+    }
+  });
+
+  // Register
+  document.getElementById('registerBtn').addEventListener('click', async () => {
+    const name = document.getElementById('regName').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const pw = document.getElementById('regPassword').value;
+    const role = document.getElementById('regRole').value;
+    const errEl = document.getElementById('auth-err');
+    const btn = document.getElementById('registerBtn');
+    if (!name||!email||!pw) { errEl.textContent='Completa todos los campos.'; errEl.classList.add('show'); return; }
+    if (pw.length < 6) { errEl.textContent='La contraseña debe tener al menos 6 caracteres.'; errEl.classList.add('show'); return; }
+    btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Creando cuenta…';
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pw);
+      await updateProfile(cred.user, { displayName: name });
+      // Save profile in DB
+      await set(ref(db, `users/${cred.user.uid}`), {
+        name, email, role, createdAt: new Date().toISOString(),
+        assignedProjects: [], active: true
+      });
+      // Log activity
+      await push(ref(db, 'activity'), { type:'register', userId:cred.user.uid, userName:name, role, timestamp:new Date().toISOString(), detail:'Cuenta creada' });
+      errEl.classList.remove('show');
+    } catch(e) {
+      const msgs = { 'auth/email-already-in-use':'Este correo ya está registrado.', 'auth/weak-password':'Contraseña muy débil.' };
+      errEl.textContent = msgs[e.code] || e.message;
+      errEl.classList.add('show');
+      btn.disabled=false; btn.innerHTML='<i class="fas fa-user-plus"></i> Crear cuenta';
+    }
+  });
+
+  // Enter key
+  ['loginEmail','loginPassword'].forEach(id => {
+    document.getElementById(id)?.addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('loginBtn')?.click(); });
+  });
+})();
+
+function hideAuthScreen() {
+  const el = document.getElementById('auth-screen');
+  if (el) { el.style.transition='opacity 0.4s'; el.style.opacity='0'; setTimeout(()=>el.remove(),400); }
+}
+
+/* ══════════════════════════════════════
+   AUTH STATE — email/password
+══════════════════════════════════════ */
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    // Show auth screen, hide app
+    const authEl = document.getElementById('auth-screen');
+    if (authEl) authEl.style.display = 'flex';
+    document.getElementById('app-loader')?.classList.add('hiding');
+    S.currentUser = null; S.userProfile = null;
+    // Stop location tracking
+    if (S.locationWatchId) { navigator.geolocation?.clearWatch(S.locationWatchId); S.locationWatchId = null; }
+    updateTopbarUser();
+    return;
+  }
+
+  S.currentUser = user;
+
+  // Load user profile
+  try {
+    const snap = await get(ref(db, `users/${user.uid}`));
+    if (snap.exists()) {
+      S.userProfile = snap.val();
+    } else {
+      // First-time anon or missing profile → create basic profile
+      S.userProfile = { name: user.displayName || user.email?.split('@')[0] || 'Usuario', email: user.email||'', role:'inspector', assignedProjects:[], active:true };
+      await set(ref(db, `users/${user.uid}`), { ...S.userProfile, createdAt: new Date().toISOString() });
+    }
+  } catch(e) { S.userProfile = { name: user.displayName||'Usuario', role:'inspector', assignedProjects:[] }; }
+
+  // Mark online presence
+  const presRef = ref(db, `presence/${user.uid}`);
+  set(presRef, { online:true, name:S.userProfile.name, role:S.userProfile.role, lastSeen:new Date().toISOString() });
+  // Clear on disconnect (best-effort)
+  update(presRef, { online:false });
+
+  // Log login
+  push(ref(db, 'activity'), { type:'login', userId:user.uid, userName:S.userProfile.name, role:S.userProfile.role, timestamp:new Date().toISOString(), detail:'Inicio de sesión' });
+
+  // Hide auth screen, show app
+  hideAuthScreen();
   document.getElementById('statusDot').className = 'status-dot';
   document.getElementById('statusLabel').textContent = 'En línea';
+  updateTopbarUser();
+
+  // Start location tracking for inspectors
+  startLocationTracking();
+
+  // Load data
   listenData();
+  // Listen to presence for admin panel
+  listenPresence();
+  // Listen to activity log for admin
+  listenActivity();
 });
+
+function updateTopbarUser() {
+  let pill = document.getElementById('userPill');
+  if (!pill) return;
+  if (!S.currentUser || !S.userProfile) {
+    pill.style.display = 'none'; return;
+  }
+  pill.style.display = 'flex';
+  const initial = (S.userProfile.name||'U').charAt(0).toUpperCase();
+  const roleLabel = S.userProfile.role === 'admin' ? '⚙️ Admin' : '🔍 Inspector';
+  pill.innerHTML = `<div class="user-avatar">${initial}</div><span>${S.userProfile.name.split(' ')[0]}</span><span style="font-size:0.7rem;opacity:0.7;">${roleLabel}</span><div class="user-online-dot"></div>`;
+
+  // Show/hide admin tab
+  const adminTab = document.querySelector('.tab-btn[data-tab="admin"]');
+  if (adminTab) adminTab.style.display = S.userProfile.role === 'admin' ? 'flex' : 'none';
+}
+
+// Sign out
+window._signOut = async function() {
+  if (!confirm('¿Cerrar sesión?')) return;
+  // Mark offline
+  if (S.currentUser) {
+    try { await update(ref(db, `presence/${S.currentUser.uid}`), { online:false, lastSeen:new Date().toISOString() }); } catch(e){}
+    if (S.locationWatchId) { navigator.geolocation?.clearWatch(S.locationWatchId); S.locationWatchId = null; }
+    try { await update(ref(db, `locations/${S.currentUser.uid}`), { active:false }); } catch(e){}
+  }
+  await signOut(auth);
+  snd.click();
+};
+
+/* ══════════════════════════════════════
+   LOCATION TRACKING (Tiempo real)
+══════════════════════════════════════ */
+function startLocationTracking() {
+  if (!navigator.geolocation || !S.currentUser) return;
+  if (S.locationWatchId) return; // already tracking
+  S.locationWatchId = navigator.geolocation.watchPosition(pos => {
+    const { latitude:lat, longitude:lng, accuracy } = pos.coords;
+    const uid = S.currentUser.uid;
+    update(ref(db, `locations/${uid}`), {
+      lat, lng, accuracy,
+      name: S.userProfile?.name || 'Inspector',
+      role: S.userProfile?.role || 'inspector',
+      active: true,
+      updatedAt: new Date().toISOString()
+    });
+  }, null, { enableHighAccuracy:true, timeout:15000, maximumAge:10000 });
+}
+
+/* ══════════════════════════════════════
+   PRESENCE LISTENER
+══════════════════════════════════════ */
+let allPresence = {};
+function listenPresence() {
+  onValue(ref(db, 'presence'), snap => {
+    allPresence = snap.val() || {};
+    renderAdminInspectors();
+    updateTopbarActiveCount();
+  });
+}
+
+function updateTopbarActiveCount() {
+  const online = Object.values(allPresence).filter(p=>p.online).length;
+  let badge = document.getElementById('adminTabBadge');
+  if (badge) badge.textContent = online > 0 ? online : '';
+}
+
+/* ══════════════════════════════════════
+   ACTIVITY LOG LISTENER
+══════════════════════════════════════ */
+let activityLog = [];
+function listenActivity() {
+  onValue(ref(db, 'activity'), snap => {
+    const raw = snap.val() || {};
+    activityLog = Object.values(raw).sort((a,b) => new Date(b.timestamp)-new Date(a.timestamp)).slice(0,200);
+    renderAdminActivity();
+  });
+}
+
+/* ══════════════════════════════════════
+   DATA LOAD
+══════════════════════════════════════ */
 
 function listenData() {
   onValue(ref(db, '/'), snap => {
     const data = snap.val();
-    if (!data || !data.projects || Object.keys(data.projects).length === 0) {
+    // Filter: only check projects key
+    const hasProjects = data?.projects && Object.keys(data.projects).some(pid => !data.projects[pid]?.info?._deleted);
+    if (!hasProjects) {
       seedData();
     } else {
       processData(data);
@@ -1769,19 +2099,28 @@ function seedData() {
    PROCESS DATA
 ══════════════════════════════════════ */
 function processData(data) {
-  S.projects = data.projects || {};
+  const rawProjects = data.projects || {};
+  // Filter out soft-deleted projects
+  S.projects = {};
+  Object.entries(rawProjects).forEach(([pid, proj]) => {
+    if (!proj?.info?._deleted) S.projects[pid] = proj;
+  });
+
   const bridges = [], inspections = {};
 
   Object.entries(S.projects).forEach(([pid, proj]) => {
     const bs = proj.bridges || {};
     Object.entries(bs).forEach(([bid, b]) => {
+      if (b?._deleted) return; // skip soft-deleted bridges
       b.id = bid; b.projectId = pid;
       b.projectName = proj.info?.name || pid;
       b.region = proj.info?.region || '—';
       b.routeColor = proj.info?.routeColor || '#64748b';
       bridges.push(b);
       const raw = proj.inspections?.[bid] || {};
-      inspections[bid] = Object.entries(raw).map(([iid,ins]) => ({ ...ins, _id:iid }));
+      inspections[bid] = Object.entries(raw)
+        .filter(([,ins]) => !ins?._deleted)
+        .map(([iid,ins]) => ({ ...ins, _id:iid }));
     });
   });
 
@@ -1792,6 +2131,8 @@ function processData(data) {
   updateDirectory();
   updateMapData();
   populateFilters();
+  // Log activity for bridge view if needed
+  try { updateDynamicFavicon(); } catch(e){}
 }
 
 /* ══════════════════════════════════════
@@ -3102,6 +3443,10 @@ document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
 });
 
 console.log('✅ BMS Global v6 — paneles Inspecciones + Extras listos.');
+
+/* ══════════════════════════════════════
+   FIX: Botón "Nuevo puente"
+══════════════════════════════════════ */
 document.getElementById('addBridgeBtn')?.addEventListener('click', async () => {
   snd.click();
   const projectIds = Object.keys(S.projects);

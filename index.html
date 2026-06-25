@@ -4811,7 +4811,130 @@ if (_origProcess){
 
 console.log('✨ BMS Global v5 — CRUD modal completo cargado.');
 })();
+// ═══════════════════════════════════════════════════════════════════
+// FIX: Gestión de proyectos y recarga de datos
+// ═══════════════════════════════════════════════════════════════════
 
+// 1. Forzar recarga si no hay proyectos después de 4s
+setTimeout(() => {
+  if (Object.keys(S.projects).length === 0) {
+    console.warn('⚠️ No se detectaron proyectos. Recargando datos...');
+    toast('Recargando datos...', 'warning');
+    listenData();
+  }
+}, 4000);
+
+// 2. Botón para forzar datos de prueba en el panel de Extras
+setTimeout(() => {
+  const container = document.querySelector('#panel-extras .card:first-child .section-title')?.parentElement;
+  if (container && !document.getElementById('forceSeedBtn')) {
+    const btn = document.createElement('button');
+    btn.id = 'forceSeedBtn';
+    btn.className = 'btn btn-secondary btn-sm';
+    btn.style.cssText = 'justify-content:flex-start;margin-top:8px;width:100%;';
+    btn.innerHTML = '<i class="fas fa-database"></i> Forzar datos de prueba';
+    btn.addEventListener('click', () => {
+      if (confirm('¿Forzar creación de datos de prueba? (Esto sobrescribirá los datos existentes)')) {
+        seedData();
+        toast('Datos de prueba generados', 'info');
+      }
+    });
+    container.appendChild(btn);
+  }
+}, 1500);
+
+// 3. Exponer funciones globales para proyectos
+window._editProject = function(pid) {
+  const proj = S.projects[pid];
+  if (proj) {
+    openProjectForm(proj, pid);
+  } else {
+    toast('Proyecto no encontrado', 'error');
+  }
+};
+
+window._deleteProject = function(pid) {
+  deleteProject(pid);
+};
+
+// 4. Botón "Nuevo proyecto" en el directorio
+setTimeout(() => {
+  const dirActions = document.querySelector('#panel-directory .dir-actions');
+  if (dirActions && !document.getElementById('addProjectBtn2')) {
+    const btn = document.createElement('button');
+    btn.id = 'addProjectBtn2';
+    btn.className = 'btn btn-primary btn-sm';
+    btn.innerHTML = '<i class="fas fa-folder-plus"></i> Nuevo proyecto';
+    btn.addEventListener('click', () => {
+      openProjectForm(null);
+    });
+    dirActions.appendChild(btn);
+  }
+}, 1500);
+
+// 5. Asegurar que los botones del sidebar funcionen (sin depender del rol)
+// Modificamos la función buildProjectSidebar para que siempre muestre acciones
+const _origBuildSidebar = window.buildProjectSidebar;
+if (_origBuildSidebar) {
+  window.buildProjectSidebar = function() {
+    // Ejecutar la original primero
+    if (typeof _origBuildSidebar === 'function') {
+      _origBuildSidebar();
+    }
+    // Luego, forzar que los botones de acciones estén visibles para todos
+    // (ya que el código original los muestra solo para admin)
+    document.querySelectorAll('.map-project-item').forEach(item => {
+      const actions = item.querySelector('.v5-proj-actions');
+      if (actions) {
+        // Asegurar que los botones estén visibles
+        actions.style.display = 'flex';
+      }
+    });
+  };
+  // Forzar ejecución para actualizar el sidebar
+  setTimeout(() => {
+    try { window.buildProjectSidebar(); } catch(e) {}
+  }, 500);
+}
+
+// 6. Agregar un botón de "Nuevo proyecto" fijo en el sidebar del mapa
+setTimeout(() => {
+  const sidebar = document.getElementById('map-sidebar');
+  const head = sidebar?.querySelector('.sidebar-head');
+  if (head && !document.getElementById('newProjectBtnFixed')) {
+    const btn = document.createElement('button');
+    btn.id = 'newProjectBtnFixed';
+    btn.className = 'icon-btn';
+    btn.title = 'Nuevo proyecto';
+    btn.innerHTML = '<i class="fas fa-folder-plus"></i>';
+    btn.addEventListener('click', () => openProjectForm(null));
+    head.appendChild(btn);
+  }
+}, 1500);
+
+// 7. Si después de todo no hay proyectos, mostrar un mensaje en el directorio
+setTimeout(() => {
+  if (Object.keys(S.projects).length === 0) {
+    const body = document.getElementById('directoryBody');
+    if (body) {
+      body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;">
+        <div style="color:var(--text-faint);">
+          <i class="fas fa-folder-open" style="font-size:2rem;display:block;margin-bottom:12px;"></i>
+          No hay proyectos cargados.
+          <br><button class="btn btn-primary btn-sm" id="forceSeedBtn2" style="margin-top:12px;">
+            <i class="fas fa-database"></i> Cargar datos de prueba
+          </button>
+        </div>
+      </td></tr>`;
+      document.getElementById('forceSeedBtn2')?.addEventListener('click', () => {
+        seedData();
+        toast('Generando datos de prueba...', 'info');
+      });
+    }
+  }
+}, 5000);
+
+console.log('✅ Fix de proyectos aplicado.');
 </script>
 </body>
 </html>

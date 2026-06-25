@@ -2746,14 +2746,69 @@ function handleMeasureClick(e) {
 
 // Geolocate
 document.getElementById('geoBtn').addEventListener('click', () => {
-  if (!navigator.geolocation) { toast('Geolocalización no disponible', 'warning'); return; }
-  navigator.geolocation.getCurrentPosition(pos => {
-    const {latitude:lat, longitude:lng} = pos.coords;
-    S.map?.flyTo({ center:[lng,lat], zoom:14, pitch:45 });
-    new maplibregl.Marker({ color:'#3b82f6' }).setLngLat([lng,lat]).addTo(S.map);
-    toast('Posición localizada', 'success');
-    snd.success();
-  }, () => toast('No se pudo obtener la posición', 'error'));
+  if (!navigator.geolocation) {
+    toast('Geolocalización no disponible', 'warning');
+    return;
+  }
+
+  // Si el mapa no está listo, esperamos
+  if (!S.map) {
+    toast('El mapa aún no está listo', 'warning');
+    return;
+  }
+
+  // Mostramos un toast mientras buscamos
+  toast('Obteniendo tu posición...', 'info');
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+
+      // --- FORZAR UN RESIZE PARA REPINTAR ---
+      S.map.resize();
+
+      // --- ESPERAR A QUE EL MAPA TERMINE DE REPINTAR ---
+      S.map.once('render', () => {
+        // Vuelo suave
+        S.map.flyTo({
+          center: [lng, lat],
+          zoom: 14,
+          pitch: 45,
+          speed: 1.2
+        });
+
+        // Agregar un marcador temporal
+        new maplibregl.Marker({ color: '#3b82f6' })
+          .setLngLat([lng, lat])
+          .addTo(S.map);
+
+        toast('📍 Posición localizada', 'success');
+        snd.success();
+      });
+
+      // Fallback: si 'render' no se dispara en 1s, forzar el vuelo
+      setTimeout(() => {
+        // Si ya se disparó 'render', esto no hará nada
+        S.map.flyTo({
+          center: [lng, lat],
+          zoom: 14,
+          pitch: 45,
+          speed: 1.2
+        });
+      }, 1000);
+    },
+    (err) => {
+      console.warn('Geolocation error:', err);
+      toast('No se pudo obtener la posición: ' + err.message, 'error');
+      snd.error();
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    }
+  );
+
   snd.click();
 });
 

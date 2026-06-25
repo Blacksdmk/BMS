@@ -1612,7 +1612,32 @@ const snd = {
   error:   () => { beep(220, 0.1, 'sawtooth', 0.15); setTimeout(()=>beep(180,0.1,'sawtooth',0.1),110); },
   hover:   () => beep(1000, 0.03, 'sine', 0.06),
 };
+// ── Stubs para funciones de administración (se implementarán en el futuro) ──
+window.renderAdminInspectors = function() {
+  // Esta función se llama desde listenPresence()
+  // Por ahora, no hace nada para evitar errores.
+  // console.log('Panel de inspectores no implementado aún');
+};
+window.renderAdminActivity = function() {
+  // Esta función se llama desde listenActivity()
+  // Por ahora, no hace nada para evitar errores.
+  // console.log('Panel de actividad no implementado aún');
+};
 
+// ── Asegurar que v5Dialog esté disponible (usar el real o fallback) ──
+if (typeof window.v5Dialog === 'undefined') {
+  // Si v5 no lo definió, usamos una implementación simple con confirm
+  window.v5Dialog = function(opts) {
+    return new Promise((resolve) => {
+      const result = confirm(opts.title + '\n' + opts.body);
+      resolve(result);
+    });
+  };
+  window.v5Confirm = function(opts) {
+    return confirm(opts.msg);
+  };
+  console.warn('⚠️ v5Dialog no estaba definido. Usando fallback con confirm().');
+}
 /* ══════════════════════════════════════
    TOAST
 ══════════════════════════════════════ */

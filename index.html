@@ -1699,27 +1699,164 @@ function toast(msg, type='info', dur=3500) {
 }
 
 /* ══════════════════════════════════════
-   HELPERS
+   HELPERS — ESCALA SIAP (0–5)
+   Basado en el Sistema de Inspección de Apoyos de Puentes (SIAP)
+   5 = Sin daño  4 = Daño leve  3 = Daño moderado
+   2 = Daño severo  1 = Daño muy severo  0 = Falla / colapso inminente
 ══════════════════════════════════════ */
+
+/* Tabla SIAP completa: para cada nivel 0–5, su descripción oficial,
+   criterios de calificación, y acción recomendada. */
+const SIAP_TABLE = {
+  5: {
+    label: 'Sin Daño',
+    condition: 'Optimo',
+    color: '#10b981',
+    bgColor: 'rgba(16,185,129,0.15)',
+    badgeClass: 'badge-optimo',
+    desc: 'Sin deterioro observable. Elemento en condiciones nuevas o con mantenimiento adecuado.',
+    criteria: [
+      'Sin fisuras, corrosión ni deformaciones visibles',
+      'Geometría original conservada al 100%',
+      'Sin socavación ni pérdida de sección',
+      'Apoyos y juntas en perfecto funcionamiento',
+      'Sin señales de humedad, eflorescencias ni depósitos'
+    ],
+    accion: 'Mantenimiento preventivo rutinario. Próxima inspección ordinaria en 24 meses.',
+    urgencia: 'baja',
+    periodoMeses: 24
+  },
+  4: {
+    label: 'Daño Leve',
+    condition: 'Bueno',
+    color: '#3b82f6',
+    bgColor: 'rgba(59,130,246,0.15)',
+    badgeClass: 'badge-bueno',
+    desc: 'Deterioro incipiente sin afectación estructural. Requiere atención en mantenimiento preventivo.',
+    criteria: [
+      'Fisuras capilares superficiales (ancho < 0.3 mm)',
+      'Inicio de corrosión superficial sin pérdida de sección',
+      'Eflorescencias o manchas de humedad leves',
+      'Erosión superficial del recubrimiento de concreto',
+      'Pequeñas imperfecciones geométricas menores al 5% de la dimensión'
+    ],
+    accion: 'Mantenimiento preventivo a corto plazo. Sellado de fisuras, pintura anticorrosiva. Próxima inspección en 12 meses.',
+    urgencia: 'baja',
+    periodoMeses: 12
+  },
+  3: {
+    label: 'Daño Moderado',
+    condition: 'Regular',
+    color: '#f59e0b',
+    bgColor: 'rgba(245,158,11,0.15)',
+    badgeClass: 'badge-regular',
+    desc: 'Deterioro moderado con posible afectación a la capacidad de carga. Requiere intervención a mediano plazo.',
+    criteria: [
+      'Fisuras estructurales (ancho 0.3–0.5 mm, longitud significativa)',
+      'Corrosión activa con pérdida de sección del acero hasta un 20%',
+      'Desportillamiento del recubrimiento (área ≤ 20% del elemento)',
+      'Socavación incipiente en pilares (≤ 30 cm de profundidad)',
+      'Apoyos con desgaste notable pero sin desplazamiento',
+      'Juntas de expansión con deterioro que no impide su función'
+    ],
+    accion: 'Intervención de mantenimiento correctivo. Inyección de grietas, reparación de recubrimiento. Próxima inspección en 6 meses.',
+    urgencia: 'media',
+    periodoMeses: 6
+  },
+  2: {
+    label: 'Daño Severo',
+    condition: 'Malo',
+    color: '#f97316',
+    bgColor: 'rgba(249,115,22,0.15)',
+    badgeClass: 'badge-malo',
+    desc: 'Deterioro severo con afectación clara a la capacidad estructural. Requiere intervención urgente.',
+    criteria: [
+      'Fisuras estructurales mayores (ancho > 0.5 mm) o patrón de fisuración extendido',
+      'Corrosión severa con pérdida de sección del 20–40%, exposición de refuerzo',
+      'Desportillamiento mayor (área > 20% del elemento)',
+      'Socavación significativa en pilares (30–60 cm) o pérdida de apoyo lateral',
+      'Desplazamiento de apoyos o juntas fuera de tolerancia',
+      'Deformación excesiva visible (> L/200) o deflexión anormal bajo carga'
+    ],
+    accion: 'Intervención prioritaria de rehabilitación. Restricción de cargas pesadas recomendada. Inspección especializada inmediata. Próxima evaluación en 2 meses.',
+    urgencia: 'alta',
+    periodoMeses: 2
+  },
+  1: {
+    label: 'Daño Muy Severo',
+    condition: 'Critico',
+    color: '#ef4444',
+    bgColor: 'rgba(239,68,68,0.15)',
+    badgeClass: 'badge-critico',
+    desc: 'Deterioro muy severo con alta probabilidad de falla. Requiere acción inmediata y posible cierre al tráfico.',
+    criteria: [
+      'Fisuras de corte o flexión críticas con evidencia de movimiento',
+      'Corrosión extrema con pérdida de sección > 40%, armadura expuesta y activa',
+      'Pérdida masiva de recubrimiento > 50% del elemento',
+      'Socavación crítica (> 60 cm) o pérdida de cimiento expuesta',
+      'Apoyos dañados, volcados o desplazados estructuralmente',
+      'Deformaciones permanentes visibles, viga alabeada, tablero hundido',
+      'Asentamientos diferenciales en pilares o estribos'
+    ],
+    accion: 'ACCIÓN INMEDIATA REQUERIDA. Consideración de cierre preventivo al tráfico. Estudio estructural de emergencia. Inspección en ≤ 30 días.',
+    urgencia: 'critica',
+    periodoMeses: 1
+  },
+  0: {
+    label: 'Falla / Colapso',
+    condition: 'Critico',
+    color: '#7f1d1d',
+    bgColor: 'rgba(127,29,29,0.25)',
+    badgeClass: 'badge-critico',
+    desc: 'Falla estructural o colapso inminente. Cierre inmediato obligatorio y atención de emergencia.',
+    criteria: [
+      'Colapso parcial o total de algún elemento estructural',
+      'Falla de pilar, estribo o tablero con pérdida de continuidad',
+      'Pérdida total de capacidad de apoyo (apoyo destruido o ausente)',
+      'Socavación que ha dejado pilares sin soporte',
+      'Grietas de colapso con separación visible entre elementos',
+      'Deformación plástica extrema indicando plastificación del acero'
+    ],
+    accion: 'CIERRE INMEDIATO Y OBLIGATORIO. Notificar a autoridades. Medidas de seguridad perimetral. Plan de emergencia estructural.',
+    urgencia: 'emergencia',
+    periodoMeses: 0
+  }
+};
+
+function siapFromScore(s) {
+  // s is already 0-5, clamp and round to nearest 0.5
+  if (s == null || isNaN(s)) return null;
+  const n = Math.max(0, Math.min(5, parseFloat(s)));
+  return Math.round(n * 2) / 2; // rounds to nearest 0.5
+}
+
+function siapLevel(s) {
+  // Returns the integer SIAP level (0-5) for lookup in SIAP_TABLE
+  if (s == null) return null;
+  return Math.min(5, Math.max(0, Math.round(parseFloat(s))));
+}
+
 function conditionFromScore(s) {
-  if (s >= 80) return 'Optimo';
-  if (s >= 60) return 'Bueno';
-  if (s >= 40) return 'Regular';
-  if (s >= 20) return 'Malo';
-  return 'Critico';
+  if (s == null) return 'Regular';
+  const lvl = siapLevel(s);
+  return SIAP_TABLE[lvl]?.condition || 'Regular';
 }
 function conditionColor(c) {
-  return { Optimo:'#10b981', Bueno:'#3b82f6', Regular:'#f59e0b', Malo:'#f97316', Critico:'#ef4444' }[c] || '#94a3b8';
+  const map = { Optimo:'#10b981', Bueno:'#3b82f6', Regular:'#f59e0b', Malo:'#f97316', Critico:'#ef4444' };
+  return map[c] || '#94a3b8';
 }
 function conditionBadgeClass(c) {
   return { Optimo:'badge-optimo', Bueno:'badge-bueno', Regular:'badge-regular', Malo:'badge-malo', Critico:'badge-critico' }[c] || 'badge-na';
 }
 function scoreColor(s) {
-  if (s >= 80) return '#10b981';
-  if (s >= 60) return '#3b82f6';
-  if (s >= 40) return '#f59e0b';
-  if (s >= 20) return '#f97316';
-  return '#ef4444';
+  if (s == null) return '#94a3b8';
+  const lvl = siapLevel(s);
+  return SIAP_TABLE[lvl]?.color || '#94a3b8';
+}
+// Format score for display: always show as X.X SIAP
+function fmtScore(s) {
+  if (s == null) return '—';
+  return parseFloat(s).toFixed(1);
 }
 function getLastScore(bridgeId) {
   const insp = S.inspections[bridgeId] || [];
@@ -2231,7 +2368,7 @@ function processData(rawData) {
 }
 
 /* ══════════════════════════════════════
-   DASHBOARD
+   DASHBOARD — escala SIAP 0–5
 ══════════════════════════════════════ */
 function updateDashboard() {
   const bridges = S.allBridges;
@@ -2249,7 +2386,8 @@ function updateDashboard() {
       const last = [...insp].sort((a,c) => new Date(c.date)-new Date(a.date))[0];
       if (last.manualScore != null) {
         scores.push(last.manualScore);
-        if (last.manualScore < 40) critical++;
+        // SIAP: crítico si nivel <= 1
+        if (last.manualScore <= 1) critical++;
       }
       const d = new Date(last.date);
       if (d.getMonth() === thisMonth && d.getFullYear() === thisYear) monthCount++;
@@ -2260,13 +2398,15 @@ function updateDashboard() {
     else condCounts['Regular']++;
   });
 
-  const avg = scores.length ? Math.round(scores.reduce((a,v)=>a+v,0)/scores.length) : 0;
-  const goodCount = scores.filter(s=>s>=60).length;
+  // SIAP average score (0–5)
+  const avg = scores.length ? Math.round((scores.reduce((a,v)=>a+v,0)/scores.length) * 10) / 10 : 0;
+  // "Bueno o mejor" = SIAP >= 3 (Moderado o mejor)
+  const goodCount = scores.filter(s=>s>=3).length;
   const goodPct = scores.length ? Math.round(goodCount/scores.length*100) : 0;
 
   document.getElementById('kpiTotal').textContent = bridges.length;
   document.getElementById('kpiProjects').textContent = Object.keys(S.projects).length;
-  document.getElementById('kpiAvg').textContent = avg;
+  document.getElementById('kpiAvg').textContent = avg.toFixed(1);
   document.getElementById('kpiCritical').textContent = critical;
   document.getElementById('kpiInspections').textContent = monthCount;
   document.getElementById('kpiGoodPct').textContent = goodPct+'%';
@@ -2275,10 +2415,10 @@ function updateDashboard() {
   document.getElementById('kpiAvg').style.color = avgColor;
   document.getElementById('kpiCritical').style.color = critical > 0 ? 'var(--c-critical)' : 'var(--c-optimal)';
 
-  // Alerts
+  // Alerts — SIAP <= 1 (Daño muy severo o Falla)
   const alertsEl = document.getElementById('alertsPanel');
   const alertBridges = bridges
-    .filter(b => { const s = getLastScore(b.id); return s !== null && s < 40; })
+    .filter(b => { const s = getLastScore(b.id); return s !== null && s <= 1; })
     .sort((a,b) => getLastScore(a.id) - getLastScore(b.id));
 
   if (alertBridges.length === 0) {
@@ -2291,13 +2431,15 @@ function updateDashboard() {
     alertsEl.innerHTML = alertBridges.map(b => {
       const s = getLastScore(b.id);
       const ins = getLastInspection(b.id);
+      const lvl = siapLevel(s);
+      const siapInfo = SIAP_TABLE[lvl] || SIAP_TABLE[1];
       return `<div class="alert-item" onclick="window._viewBridge('${b.id}')">
-        <div class="alert-dot ${s < 20 ? 'critical' : 'warning'}"></div>
+        <div class="alert-dot ${s <= 0 ? 'critical' : 'warning'}"></div>
         <div class="alert-info">
           <div class="alert-name">${b.name}</div>
-          <div class="alert-meta">${b.code} · ${b.projectName} · ${ins ? fmtDate(ins.date) : '—'}</div>
+          <div class="alert-meta">${b.code} · ${b.projectName} · ${ins ? fmtDate(ins.date) : '—'} · <strong style="color:${siapInfo.color}">${siapInfo.label}</strong></div>
         </div>
-        <div class="alert-score ${s >= 20 ? 'warn':''}">${s}</div>
+        <div class="alert-score" style="background:${siapInfo.bgColor};color:${siapInfo.color};">SIAP ${fmtScore(s)}</div>
       </div>`;
     }).join('');
   }
@@ -2320,15 +2462,17 @@ function updateDashboard() {
   if (!last5.length) { recentEl.innerHTML = '<div class="empty-state"><i class="fas fa-clipboard"></i><p>Sin inspecciones</p></div>'; return; }
   recentEl.innerHTML = last5.map(({bridge:b, ins}) => {
     const s = ins.manualScore;
-    const c = conditionFromScore(s ?? 50);
+    const c = conditionFromScore(s ?? 3);
+    const lvl = siapLevel(s);
+    const siapInfo = SIAP_TABLE[lvl] || {};
     return `<div class="alert-item" onclick="window._viewBridge('${b.id}')" style="margin-bottom:8px;">
       <div class="legend-dot" style="width:11px;height:11px;border-radius:50%;background:${conditionColor(c)};flex-shrink:0;box-shadow:0 0 4px ${conditionColor(c)};"></div>
       <div class="alert-info">
         <div class="alert-name">${b.name}</div>
         <div class="alert-meta">${ins.inspectorName || '—'} · ${fmtDate(ins.date)}</div>
       </div>
-      <div class="alert-score ${s >= 40 ? 'warn':''}" style="${s>=40?'background:var(--c-regular-bg);color:var(--c-regular)':''}">
-        ${s ?? '—'}
+      <div class="alert-score" style="background:${siapInfo.bgColor||'var(--bg-elevated)'};color:${siapInfo.color||'var(--text-muted)'};">
+        ${s != null ? fmtScore(s) : '—'}
       </div>
     </div>`;
   }).join('');

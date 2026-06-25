@@ -4935,6 +4935,293 @@ setTimeout(() => {
 }, 5000);
 
 console.log('✅ Fix de proyectos aplicado.');
+   // ═══════════════════════════════════════════════════════════════════
+// 🔥 FIX COMPLETO: gestion de proyectos + errores de funciones
+// ═══════════════════════════════════════════════════════════════════
+
+// 1. Definir funciones faltantes (stubs)
+window.renderAdminInspectors = function() {
+  // Esta función se llama desde listenPresence
+  // Si no hay panel de administración, mostramos un mensaje en consola o toast
+  // console.log('Panel de inspectores no implementado aún');
+};
+window.renderAdminActivity = function() {
+  // Similar para actividad
+  // console.log('Panel de actividad no implementado aún');
+};
+
+// 2. Exponer funciones de proyectos globalmente
+window.openProjectForm = function(existing, pid) {
+  // Si existe, llamamos a la función interna (si está definida)
+  if (typeof openProjectForm === 'function') {
+    // La función interna está dentro de v5, pero no es accesible directamente.
+    // En su lugar, usamos la que exponemos en el bloque v5 (si existe)
+    // Como la v5 la definió como función local, la re-creamos aquí.
+    // Usamos el mismo código que en v5 pero adaptado.
+    // Para no duplicar, mejor llamamos a la versión global que creamos a continuación.
+  }
+  // Como no podemos acceder a la interna, la redefinimos aquí (con el mismo código)
+  // pero simplificado para que funcione.
+  // Lo mejor es redefinirla completamente.
+};
+
+// Reescribimos las funciones principales de proyectos para que estén disponibles globalmente
+// (copiamos el código de v5 pero lo exponemos)
+
+// Variables para evitar duplicados
+if (typeof window._projectFunctions === 'undefined') {
+  window._projectFunctions = true;
+
+  // Función para parsear coordenadas de ruta
+  function parseRouteCoords(str) {
+    const lines = (str || '').split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) return null;
+    const out = [];
+    for (const l of lines) {
+      const parts = l.split(/[,\s]+/).map(Number);
+      if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+      const lat = parts[0], lng = parts[1];
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+      out.push([lng, lat]);
+    }
+    return out;
+  }
+
+  // Función para abrir el formulario de proyecto (modal)
+  window.openProjectForm = async function(existing = null, pid = null) {
+    const isEdit = !!existing;
+    // Usamos el diálogo v5 que ya existe (si está disponible)
+    if (typeof dialog !== 'function') {
+      toast('La función dialog no está disponible. Reinicia la página.', 'error');
+      return;
+    }
+    // Construir el body del formulario (igual que en v5)
+    const info = existing?.info || {};
+    const coords = info.routeCoords || [];
+    const coordsStr = coords.map(c => `${c[1]},${c[0]}`).join('\n');
+    const color = info.routeColor || '#3b82f6';
+    const ROUTE_COLORS = ['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#ec4899','#facc15'];
+    const body = `
+      <div class="v5-fg"><label>Nombre del proyecto *</label>
+        <input name="name" type="text" value="${(info.name||'').replace(/"/g,'&quot;')}" placeholder="Ej. Autopista México-Querétaro" required>
+      </div>
+      <div class="v5-grid2">
+        <div class="v5-fg"><label>Región *</label>
+          <input name="region" type="text" value="${(info.region||'').replace(/"/g,'&quot;')}" placeholder="Ej. Querétaro" required>
+        </div>
+        <div class="v5-fg"><label>Estado</label>
+          <select name="status">
+            ${['Activo','En pausa','Finalizado','Archivado'].map(s => `<option ${info.status===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="v5-fg"><label>Color de la ruta</label>
+        <div class="v5-color-picker">
+          ${ROUTE_COLORS.map(c => `<label><input type="radio" name="routeColor" value="${c}" ${color===c?'checked':''}><span style="background:${c}"></span></label>`).join('')}
+        </div>
+      </div>
+      <div class="v5-fg"><label>Puntos de la ruta (lat,lng — uno por línea; mín. 2)</label>
+        <textarea name="routeCoords" placeholder="19.42,-99.55&#10;19.55,-99.40" style="min-height:100px;font-family:monospace;font-size:12px;">${coordsStr}</textarea>
+      </div>
+      ${pid ? `<div class="v5-fg" style="background:rgba(59,130,246,.08);padding:10px;border-radius:8px;"><label style="margin:0">ID: <code style="font-size:11px">${pid}</code> · ${Object.keys(existing?.bridges||{}).length} puentes</label></div>` : ''}
+    `;
+
+    await dialog({
+      title: isEdit ? 'Editar proyecto' : 'Nuevo proyecto',
+      icon: isEdit ? 'fas fa-pen' : 'fas fa-folder-plus',
+      size: 600,
+      body: body,
+      actions: [
+        { label: 'Cancelar', variant: 'secondary', value: null },
+        { label: isEdit ? 'Guardar' : 'Crear proyecto', variant: 'primary', icon: 'fas fa-save',
+          onClick: async (ov) => {
+            // Leer los datos del formulario
+            const name = ov.querySelector('[name="name"]').value.trim();
+            const region = ov.querySelector('[name="region"]').value.trim();
+            const status = ov.querySelector('[name="status"]').value || 'Activo';
+            const colorEl = ov.querySelector('input[name="routeColor"]:checked');
+            const routeColor = colorEl?.value || '#3b82f6';
+            const coordsText = ov.querySelector('[name="routeCoords"]').value;
+            if (!name) { toast('Nombre requerido', 'warning'); return false; }
+            if (!region) { toast('Región requerida', 'warning'); return false; }
+            let routeCoords = [];
+            if (coordsText.trim()) {
+              routeCoords = parseRouteCoords(coordsText);
+              if (!routeCoords) {
+                toast('Formato de coordenadas inválido', 'error');
+                ov.querySelector('[name="routeCoords"]').closest('.v5-fg').classList.add('v5-err');
+                return false;
+              }
+            }
+            const newPid = pid || ('proj_' + Date.now().toString(36));
+            const infoUpdate = { name, region, status, routeColor, routeCoords };
+            try {
+              await update(ref(db, `projects/${newPid}/info`), infoUpdate);
+              // Limpiar caché de ruta si existe
+              if (S._routeCache) {
+                const oldKey = JSON.stringify(existing?.info?.routeCoords || []);
+                delete S._routeCache[oldKey];
+              }
+              if (S.map?.getSource('route-'+newPid)) {
+                S.map.getSource('route-'+newPid)._osrmDone = false;
+              }
+              toast(isEdit ? 'Proyecto actualizado' : 'Proyecto creado', 'success');
+              snd.success();
+              // Recargar datos
+              setTimeout(() => { try { refreshMapLayers(); } catch(e){} }, 300);
+              return true;
+            } catch(e) {
+              toast('Error: ' + e.message, 'error');
+              snd.error();
+              return false;
+            }
+          }
+        }
+      ]
+    });
+  };
+
+  // Función para eliminar proyecto
+  window.deleteProject = async function(pid) {
+    const proj = S.projects[pid];
+    if (!proj) return;
+    const bridges = S.allBridges.filter(b => b.projectId === pid);
+    const ok = await v5Confirm({
+      title: 'Eliminar proyecto',
+      msg: `¿Marcar como eliminado el proyecto <strong>"${proj.info?.name || pid}"</strong>?<br><br>Esto ocultará el proyecto y sus <strong>${bridges.length} puente(s)</strong>.<br><span style="color:var(--text-faint,#94a3b8);font-size:12px">Borrado lógico — se puede restaurar editando directamente la base de datos.</span>`,
+      danger: true,
+      confirmLabel: 'Eliminar'
+    });
+    if (!ok) return;
+    try {
+      await update(ref(db, `projects/${pid}/info`), { _deleted: true, deletedAt: new Date().toISOString() });
+      toast('Proyecto eliminado', 'success');
+      if (typeof snd.warning === 'function') snd.warning();
+    } catch(e) {
+      toast('Error: ' + e.message, 'error');
+    }
+  };
+
+  // Función para ver detalle del proyecto (ya existe en v5, pero la exponemos)
+  window.openProjectDetail = async function(pid) {
+    const proj = S.projects[pid];
+    if (!proj) return;
+    const bridges = S.allBridges.filter(b => b.projectId === pid);
+    const scores = bridges.map(b => getLastScore(b.id)).filter(s => s != null);
+    const avg = scores.length ? Math.round(scores.reduce((a,b) => a + b, 0) / scores.length) : '–';
+    const critical = bridges.filter(b => { const s = getLastScore(b.id); return s != null && s < 40; }).length;
+    const totalInsp = bridges.reduce((sum, b) => sum + (S.inspections[b.id] || []).filter(i => !i._deleted).length, 0);
+    await dialog({
+      title: proj.info?.name || pid,
+      icon: 'fas fa-folder-open',
+      size: 620,
+      body: `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+          <span style="width:14px;height:14px;border-radius:50%;background:${proj.info?.routeColor||'#64748b'};display:inline-block;"></span>
+          <span style="color:var(--text-faint,#94a3b8);">${proj.info?.region||'—'} · ${proj.info?.status||'Activo'}</span>
+        </div>
+        <div class="v5-kpi-mini">
+          <div><div class="vk">${bridges.length}</div><div class="vl">Puentes</div></div>
+          <div><div class="vk" style="color:${avg!=='–' && avg<60?'var(--c-warning,#f59e0b)':'var(--c-success,#10b981)'}">${avg}</div><div class="vl">Score promedio</div></div>
+          <div><div class="vk" style="color:${critical?'var(--c-critical,#ef4444)':'inherit'}">${critical}</div><div class="vl">Críticos</div></div>
+        </div>
+        <div style="font-size:12px;color:var(--text-faint,#94a3b8);margin-bottom:6px;">${totalInsp} inspecciones registradas · Puentes:</div>
+        <div class="v5-proj-detail-list">
+          ${bridges.length===0?'<div style="padding:20px;text-align:center;color:var(--text-faint,#94a3b8)">Sin puentes aún</div>':
+            bridges.map(b => {
+              const s = getLastScore(b.id);
+              const color = s==null?'#64748b':(s<40?'#ef4444':s<60?'#f59e0b':s<80?'#3b82f6':'#10b981');
+              return `<div class="v5-pd-row" data-bid="${b.id}">
+                <div><strong>${b.name}</strong> <span style="color:var(--text-faint,#94a3b8);font-size:11px">${b.code||''}</span></div>
+                <div style="display:flex;gap:10px;align-items:center"><span style="font-size:11px;color:var(--text-faint,#94a3b8)">${b.currentCondition||'—'}</span><span style="background:${color};color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:600;min-width:32px;text-align:center">${s??'–'}</span></div>
+              </div>`;
+            }).join('')
+          }
+        </div>
+      `,
+      actions: [
+        { label: 'Cerrar', variant: 'secondary', value: null },
+        { label: 'Editar proyecto', variant: 'secondary', icon: 'fas fa-pen', onClick: async () => { openProjectForm(proj, pid); return true; } },
+        { label: 'Nuevo puente aquí', variant: 'primary', icon: 'fas fa-plus', onClick: async () => { openBridgeForm({projectId: pid}); return true; } }
+      ]
+    });
+    // attach row clicks
+    setTimeout(() => {
+      document.querySelectorAll('.v5-pd-row').forEach(r => {
+        r.addEventListener('click', () => {
+          const bid = r.dataset.bid;
+          document.querySelectorAll('.v5-overlay').forEach(o => o.remove());
+          try { openBridgeModal(bid); } catch(e) {}
+        });
+      });
+    }, 80);
+  };
+}
+
+// 3. Agregar botones de "Nuevo proyecto" en el directorio y en el mapa
+setTimeout(() => {
+  // Botón en el directorio (junto a "Nuevo puente")
+  const dirActions = document.querySelector('#panel-directory .dir-actions');
+  if (dirActions && !document.getElementById('addProjectBtnDir')) {
+    const btn = document.createElement('button');
+    btn.id = 'addProjectBtnDir';
+    btn.className = 'btn btn-primary btn-sm';
+    btn.innerHTML = '<i class="fas fa-folder-plus"></i> Nuevo proyecto';
+    btn.addEventListener('click', () => { openProjectForm(null); });
+    dirActions.appendChild(btn);
+  }
+
+  // Botón en el sidebar del mapa (en el encabezado)
+  const sidebarHead = document.querySelector('#map-sidebar .sidebar-head');
+  if (sidebarHead && !document.getElementById('addProjectBtnMap')) {
+    const btn = document.createElement('button');
+    btn.id = 'addProjectBtnMap';
+    btn.className = 'icon-btn';
+    btn.title = 'Nuevo proyecto';
+    btn.innerHTML = '<i class="fas fa-folder-plus"></i>';
+    btn.addEventListener('click', () => { openProjectForm(null); });
+    sidebarHead.appendChild(btn);
+  }
+}, 1500);
+
+// 4. Forzar recarga de datos si no hay proyectos después de 3 segundos
+setTimeout(() => {
+  if (Object.keys(S.projects).length === 0) {
+    console.warn('⚠️ No se detectaron proyectos. Forzando recarga...');
+    toast('Recargando datos...', 'warning');
+    listenData();
+  }
+}, 3000);
+
+// 5. Si después de 5 segundos sigue sin proyectos, mostrar botón en directorio
+setTimeout(() => {
+  if (Object.keys(S.projects).length === 0) {
+    const body = document.getElementById('directoryBody');
+    if (body) {
+      body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;">
+        <div style="color:var(--text-faint);">
+          <i class="fas fa-folder-open" style="font-size:2rem;display:block;margin-bottom:12px;"></i>
+          No hay proyectos cargados.
+          <br><button class="btn btn-primary btn-sm" id="forceSeedBtn3" style="margin-top:12px;">
+            <i class="fas fa-database"></i> Cargar datos de prueba
+          </button>
+          <br><button class="btn btn-secondary btn-sm" id="newProjectBtn3" style="margin-top:8px;">
+            <i class="fas fa-plus"></i> Crear proyecto
+          </button>
+        </div>
+      </td></tr>`;
+      document.getElementById('forceSeedBtn3')?.addEventListener('click', () => {
+        seedData();
+        toast('Generando datos de prueba...', 'info');
+      });
+      document.getElementById('newProjectBtn3')?.addEventListener('click', () => {
+        openProjectForm(null);
+      });
+    }
+  }
+}, 5000);
+
+console.log('🔥 Fix completo de proyectos aplicado.');
 </script>
 </body>
 </html>

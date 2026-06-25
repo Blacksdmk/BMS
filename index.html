@@ -1124,6 +1124,11 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     <button class="icon-btn" id="themeToggle" title="Cambiar tema"><i class="fas fa-moon"></i></button>
     <button class="icon-btn" id="soundToggle" title="Sonidos"><i class="fas fa-volume-up"></i></button>
     <button class="icon-btn" id="presentationBtn" title="Modo presentación"><i class="fas fa-expand"></i></button>
+    <div class="user-pill" id="userPill" style="display:none;" onclick="window._toggleProfileMenu && window._toggleProfileMenu()"></div>
+    <div id="profileMenu" style="display:none;position:absolute;top:56px;right:12px;background:var(--bg-surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);padding:14px;min-width:240px;z-index:9999;">
+      <div id="profileMenuInfo" style="margin-bottom:10px;font-size:0.85rem;color:var(--text-primary);"></div>
+      <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="window._signOut && window._signOut()"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</button>
+    </div>
   </div>
 </header>
 
@@ -1588,6 +1593,7 @@ const S = {
   locationWatchId: null,
   inspectorMarkers: {},
 };
+window.S = S;
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -1946,28 +1952,48 @@ function updateTopbarUser() {
   let pill = document.getElementById('userPill');
   if (!pill) return;
   if (!S.currentUser || !S.userProfile) {
-    pill.style.display = 'none'; return;
+    pill.style.display = 'none';
+    const m = document.getElementById('profileMenu'); if (m) m.style.display='none';
+    return;
   }
   pill.style.display = 'flex';
   const initial = (S.userProfile.name||'U').charAt(0).toUpperCase();
   const roleLabel = S.userProfile.role === 'admin' ? '⚙️ Admin' : '🔍 Inspector';
   pill.innerHTML = `<div class="user-avatar">${initial}</div><span>${S.userProfile.name.split(' ')[0]}</span><span style="font-size:0.7rem;opacity:0.7;">${roleLabel}</span><div class="user-online-dot"></div>`;
-
-  // Show/hide admin tab
+  const info = document.getElementById('profileMenuInfo');
+  if (info) {
+    info.innerHTML = `<div style="font-weight:700;font-size:1rem;">${S.userProfile.name||'Usuario'}</div>
+      <div style="color:var(--text-muted);font-size:0.78rem;">${S.userProfile.email||'(anónimo)'}</div>
+      <div style="margin-top:6px;font-size:0.75rem;color:var(--text-faint);">Rol: ${roleLabel}</div>
+      <div style="margin-top:4px;font-size:0.7rem;color:#10b981;"><i class="fas fa-circle"></i> Registrado y en línea</div>`;
+  }
   const adminTab = document.querySelector('.tab-btn[data-tab="admin"]');
   if (adminTab) adminTab.style.display = S.userProfile.role === 'admin' ? 'flex' : 'none';
 }
 
+window._toggleProfileMenu = function(){
+  const m = document.getElementById('profileMenu'); if (!m) return;
+  m.style.display = (m.style.display === 'none' || !m.style.display) ? 'block' : 'none';
+};
+document.addEventListener('click', (e)=>{
+  const m = document.getElementById('profileMenu');
+  const p = document.getElementById('userPill');
+  if (m && p && !m.contains(e.target) && !p.contains(e.target)) m.style.display='none';
+});
+
 // Sign out
 window._signOut = async function() {
-  if (!confirm('¿Cerrar sesión?')) return;
-  // Mark offline
+  const ok = (typeof v5Confirm === 'function')
+    ? await v5Confirm({ title:'Cerrar sesión', msg:'¿Seguro que deseas cerrar sesión?', danger:true, confirmLabel:'Cerrar sesión' })
+    : confirm('¿Cerrar sesión?');
+  if (!ok) return;
   if (S.currentUser) {
     try { await update(ref(db, `presence/${S.currentUser.uid}`), { online:false, lastSeen:new Date().toISOString() }); } catch(e){}
     if (S.locationWatchId) { navigator.geolocation?.clearWatch(S.locationWatchId); S.locationWatchId = null; }
     try { await update(ref(db, `locations/${S.currentUser.uid}`), { active:false }); } catch(e){}
   }
   await signOut(auth);
+  const m = document.getElementById('profileMenu'); if (m) m.style.display='none';
   snd.click();
 };
 
@@ -2574,16 +2600,24 @@ function refreshMapLayers() {
 }
 
 function buildProjectSidebar() {
+  // Delegate to the rich v5 override if available, else render minimal fallback
+  if (typeof window.buildProjectSidebar === 'function' && window.buildProjectSidebar !== buildProjectSidebar) {
+    return window.buildProjectSidebar();
+  }
   const el = document.getElementById('projectListMap');
-  el.innerHTML = Object.entries(S.projects).map(([pid, proj]) => {
+  if (!el) return;
+  el.innerHTML = Object.entries(S.projects).filter(([pid,p])=>!p.info?._deleted).map(([pid, proj]) => {
     const bridges = S.allBridges.filter(b => b.projectId === pid);
-    return `<div class="map-project-item" onclick="window._flyToProject('${pid}')">
+    return `<div class="map-project-item" style="display:flex;align-items:center;gap:8px;">
       <div class="proj-color-dot" style="background:${proj.info?.routeColor||'#64748b'};"></div>
-      <div class="proj-item-info">
+      <div class="proj-item-info" style="flex:1;cursor:pointer;" onclick="window._flyToProject('${pid}')">
         <div class="proj-item-name">${proj.info?.name || pid}</div>
-        <div class="proj-item-meta">${proj.info?.region || '—'}</div>
+        <div class="proj-item-meta">${proj.info?.region || '—'} · ${bridges.length} puentes</div>
       </div>
-      <div class="proj-bridge-count">${bridges.length}</div>
+      <div class="v5-proj-actions" style="display:flex;">
+        <button onclick="event.stopPropagation();window._editProject && window._editProject('${pid}')" title="Editar"><i class="fas fa-pen"></i></button>
+        <button onclick="event.stopPropagation();window._deleteProject && window._deleteProject('${pid}')" title="Eliminar"><i class="fas fa-trash"></i></button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -4343,7 +4377,7 @@ function bridgeFormBody(b={}, projects, lockProject=false){
 }
 
 async function openBridgeForm(existing=null){
-  const S = window.S || {};
+  const S = window.S || globalThis.S || {};
   if (!Object.keys(S.projects||{}).length){ toast('No hay proyectos. Crea uno primero.','warning'); return; }
   const isEdit = !!existing;
   await dialog({

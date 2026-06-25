@@ -2086,17 +2086,17 @@ function listenActivity() {
 /* ══════════════════════════════════════
    DATA LOAD
 ══════════════════════════════════════ */
-
 function listenData() {
   onValue(ref(db, '/'), snap => {
     const data = snap.val();
-    // Filter: only check projects key
-    const hasProjects = data?.projects && Object.keys(data.projects).some(pid => !data.projects[pid]?.info?._deleted);
-    if (!hasProjects) {
-      seedData();
-    } else {
+    // Si existe el nodo projects (aunque esté vacío), no ejecutamos seedData
+    if (data?.projects && typeof data.projects === 'object' && Object.keys(data.projects).length > 0) {
+      // Si todos los proyectos están eliminados, igual procesamos datos vacíos
       processData(data);
       hideLoader();
+    } else {
+      // Solo si no hay nodo projects o está vacío, ejecutamos seedData
+      seedData();
     }
   }, err => { toast('Error cargando datos: '+err.message, 'error'); hideLoader(); });
 }

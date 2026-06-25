@@ -5380,35 +5380,65 @@ console.log('🔥 Fix de proyectos unificado aplicado.');
 
   /* ── 5. CLIMA OWM ── */
   let _weatherOn = false;
-  function addWeatherLayer(){
-    if (!S.map || !OWM_KEY) return;
-    const apply = ()=>{
-      try{
-        if (!S.map.getSource('owm-clouds')){
-          S.map.addSource('owm-clouds',{type:'raster',tiles:[`https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`],tileSize:256});
-          S.map.addLayer({id:'owm-clouds-layer',type:'raster',source:'owm-clouds',paint:{'raster-opacity':0.55},layout:{visibility:'none'}});
-          S.map.addSource('owm-precip',{type:'raster',tiles:[`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`],tileSize:256});
-          S.map.addLayer({id:'owm-precip-layer',type:'raster',source:'owm-precip',paint:{'raster-opacity':0.7},layout:{visibility:'none'}});
-        }
-      }catch(e){console.warn('weather',e)}
-    };
-    if (S.map.isStyleLoaded()) apply(); else S.map.once('load',apply);
-    if (document.getElementById('weatherToggleBtn')) return;
-    const btn = document.createElement('button');
-    btn.id='weatherToggleBtn'; btn.className='btn btn-sm';
-    btn.style.cssText='position:absolute;top:14px;right:14px;z-index:10;background:rgba(15,23,42,.85);color:#fff;border:1px solid rgba(255,255,255,.15);padding:8px 12px;border-radius:8px;cursor:pointer';
-    btn.innerHTML='<i class="fas fa-cloud-rain"></i> Clima';
-    btn.onclick=()=>{
-      _weatherOn = !_weatherOn;
-      const v = _weatherOn?'visible':'none';
-      try{
-        S.map.setLayoutProperty('owm-clouds-layer','visibility',v);
-        S.map.setLayoutProperty('owm-precip-layer','visibility',v);
-        toast(_weatherOn?'Capa de clima activada':'Capa de clima desactivada','info');
-      }catch(e){toast('Error capa clima','error')}
-    };
-    document.getElementById('panel-map')?.appendChild(btn);
-  }
+  function addWeatherLayer() {
+  if (!S.map || !OWM_KEY) return;
+  // Añadir las capas al mapa (como ya lo haces)
+  const apply = () => {
+    try {
+      if (!S.map.getSource('owm-clouds')) {
+        S.map.addSource('owm-clouds', {
+          type: 'raster',
+          tiles: [`https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`],
+          tileSize: 256
+        });
+        S.map.addLayer({
+          id: 'owm-clouds-layer',
+          type: 'raster',
+          source: 'owm-clouds',
+          paint: { 'raster-opacity': 0.55 },
+          layout: { visibility: 'none' }
+        });
+        S.map.addSource('owm-precip', {
+          type: 'raster',
+          tiles: [`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`],
+          tileSize: 256
+        });
+        S.map.addLayer({
+          id: 'owm-precip-layer',
+          type: 'raster',
+          source: 'owm-precip',
+          paint: { 'raster-opacity': 0.7 },
+          layout: { visibility: 'none' }
+        });
+      }
+    } catch (e) { console.warn('weather', e); }
+  };
+  if (S.map.isStyleLoaded()) apply();
+  else S.map.once('load', apply);
+
+  // Ahora, en lugar de crear un nuevo botón, insertamos el botón en el grupo de controles existente
+  const controlsGroup = document.querySelector('#panel-map .map-controls-group');
+  if (!controlsGroup) return;
+
+  // Evitar duplicados
+  if (document.getElementById('weatherToggleBtn')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'weatherToggleBtn';
+  btn.className = 'map-ctrl-btn';
+  btn.innerHTML = '<i class="fas fa-cloud-rain"></i> Clima';
+  btn.addEventListener('click', () => {
+    _weatherOn = !_weatherOn;
+    const v = _weatherOn ? 'visible' : 'none';
+    try {
+      S.map.setLayoutProperty('owm-clouds-layer', 'visibility', v);
+      S.map.setLayoutProperty('owm-precip-layer', 'visibility', v);
+      toast(_weatherOn ? 'Capa de clima activada' : 'Capa de clima desactivada', 'info');
+    } catch (e) { toast('Error capa clima', 'error'); }
+  });
+  // Insertar al final del grupo
+  controlsGroup.appendChild(btn);
+}
 
   /* ── 6. TIMELINE EN EL MAPA ── */
   function addTimelineControl(){

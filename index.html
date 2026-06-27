@@ -1530,12 +1530,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
           <span class="obs-chip" data-obs="Humedad excesiva">Humedad</span>
           <span class="obs-chip" data-obs="Sin novedades">Sin novedades</span>
         </div>
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <input class="form-control" id="inspObsCustom" type="text" placeholder="Observaciones adicionales…" style="flex:1;">
-          <button type="button" id="voiceObsBtn" class="btn btn-ghost btn-sm" title="Dictar observación por voz" style="flex-shrink:0;padding:0 12px;">
-            <i class="fas fa-microphone"></i>
-          </button>
-        </div>
+        <input class="form-control" id="inspObsCustom" type="text" placeholder="Observaciones adicionales…" style="margin-top:8px;">
       </div>
       <div class="form-group" style="margin-top:12px;">
         <label>Recomendaciones</label>
@@ -1699,164 +1694,27 @@ function toast(msg, type='info', dur=3500) {
 }
 
 /* ══════════════════════════════════════
-   HELPERS — ESCALA SIAP (0–5)
-   Basado en el Sistema de Inspección de Apoyos de Puentes (SIAP)
-   5 = Sin daño  4 = Daño leve  3 = Daño moderado
-   2 = Daño severo  1 = Daño muy severo  0 = Falla / colapso inminente
+   HELPERS
 ══════════════════════════════════════ */
-
-/* Tabla SIAP completa: para cada nivel 0–5, su descripción oficial,
-   criterios de calificación, y acción recomendada. */
-const SIAP_TABLE = {
-  5: {
-    label: 'Sin Daño',
-    condition: 'Optimo',
-    color: '#10b981',
-    bgColor: 'rgba(16,185,129,0.15)',
-    badgeClass: 'badge-optimo',
-    desc: 'Sin deterioro observable. Elemento en condiciones nuevas o con mantenimiento adecuado.',
-    criteria: [
-      'Sin fisuras, corrosión ni deformaciones visibles',
-      'Geometría original conservada al 100%',
-      'Sin socavación ni pérdida de sección',
-      'Apoyos y juntas en perfecto funcionamiento',
-      'Sin señales de humedad, eflorescencias ni depósitos'
-    ],
-    accion: 'Mantenimiento preventivo rutinario. Próxima inspección ordinaria en 24 meses.',
-    urgencia: 'baja',
-    periodoMeses: 24
-  },
-  4: {
-    label: 'Daño Leve',
-    condition: 'Bueno',
-    color: '#3b82f6',
-    bgColor: 'rgba(59,130,246,0.15)',
-    badgeClass: 'badge-bueno',
-    desc: 'Deterioro incipiente sin afectación estructural. Requiere atención en mantenimiento preventivo.',
-    criteria: [
-      'Fisuras capilares superficiales (ancho < 0.3 mm)',
-      'Inicio de corrosión superficial sin pérdida de sección',
-      'Eflorescencias o manchas de humedad leves',
-      'Erosión superficial del recubrimiento de concreto',
-      'Pequeñas imperfecciones geométricas menores al 5% de la dimensión'
-    ],
-    accion: 'Mantenimiento preventivo a corto plazo. Sellado de fisuras, pintura anticorrosiva. Próxima inspección en 12 meses.',
-    urgencia: 'baja',
-    periodoMeses: 12
-  },
-  3: {
-    label: 'Daño Moderado',
-    condition: 'Regular',
-    color: '#f59e0b',
-    bgColor: 'rgba(245,158,11,0.15)',
-    badgeClass: 'badge-regular',
-    desc: 'Deterioro moderado con posible afectación a la capacidad de carga. Requiere intervención a mediano plazo.',
-    criteria: [
-      'Fisuras estructurales (ancho 0.3–0.5 mm, longitud significativa)',
-      'Corrosión activa con pérdida de sección del acero hasta un 20%',
-      'Desportillamiento del recubrimiento (área ≤ 20% del elemento)',
-      'Socavación incipiente en pilares (≤ 30 cm de profundidad)',
-      'Apoyos con desgaste notable pero sin desplazamiento',
-      'Juntas de expansión con deterioro que no impide su función'
-    ],
-    accion: 'Intervención de mantenimiento correctivo. Inyección de grietas, reparación de recubrimiento. Próxima inspección en 6 meses.',
-    urgencia: 'media',
-    periodoMeses: 6
-  },
-  2: {
-    label: 'Daño Severo',
-    condition: 'Malo',
-    color: '#f97316',
-    bgColor: 'rgba(249,115,22,0.15)',
-    badgeClass: 'badge-malo',
-    desc: 'Deterioro severo con afectación clara a la capacidad estructural. Requiere intervención urgente.',
-    criteria: [
-      'Fisuras estructurales mayores (ancho > 0.5 mm) o patrón de fisuración extendido',
-      'Corrosión severa con pérdida de sección del 20–40%, exposición de refuerzo',
-      'Desportillamiento mayor (área > 20% del elemento)',
-      'Socavación significativa en pilares (30–60 cm) o pérdida de apoyo lateral',
-      'Desplazamiento de apoyos o juntas fuera de tolerancia',
-      'Deformación excesiva visible (> L/200) o deflexión anormal bajo carga'
-    ],
-    accion: 'Intervención prioritaria de rehabilitación. Restricción de cargas pesadas recomendada. Inspección especializada inmediata. Próxima evaluación en 2 meses.',
-    urgencia: 'alta',
-    periodoMeses: 2
-  },
-  1: {
-    label: 'Daño Muy Severo',
-    condition: 'Critico',
-    color: '#ef4444',
-    bgColor: 'rgba(239,68,68,0.15)',
-    badgeClass: 'badge-critico',
-    desc: 'Deterioro muy severo con alta probabilidad de falla. Requiere acción inmediata y posible cierre al tráfico.',
-    criteria: [
-      'Fisuras de corte o flexión críticas con evidencia de movimiento',
-      'Corrosión extrema con pérdida de sección > 40%, armadura expuesta y activa',
-      'Pérdida masiva de recubrimiento > 50% del elemento',
-      'Socavación crítica (> 60 cm) o pérdida de cimiento expuesta',
-      'Apoyos dañados, volcados o desplazados estructuralmente',
-      'Deformaciones permanentes visibles, viga alabeada, tablero hundido',
-      'Asentamientos diferenciales en pilares o estribos'
-    ],
-    accion: 'ACCIÓN INMEDIATA REQUERIDA. Consideración de cierre preventivo al tráfico. Estudio estructural de emergencia. Inspección en ≤ 30 días.',
-    urgencia: 'critica',
-    periodoMeses: 1
-  },
-  0: {
-    label: 'Falla / Colapso',
-    condition: 'Critico',
-    color: '#7f1d1d',
-    bgColor: 'rgba(127,29,29,0.25)',
-    badgeClass: 'badge-critico',
-    desc: 'Falla estructural o colapso inminente. Cierre inmediato obligatorio y atención de emergencia.',
-    criteria: [
-      'Colapso parcial o total de algún elemento estructural',
-      'Falla de pilar, estribo o tablero con pérdida de continuidad',
-      'Pérdida total de capacidad de apoyo (apoyo destruido o ausente)',
-      'Socavación que ha dejado pilares sin soporte',
-      'Grietas de colapso con separación visible entre elementos',
-      'Deformación plástica extrema indicando plastificación del acero'
-    ],
-    accion: 'CIERRE INMEDIATO Y OBLIGATORIO. Notificar a autoridades. Medidas de seguridad perimetral. Plan de emergencia estructural.',
-    urgencia: 'emergencia',
-    periodoMeses: 0
-  }
-};
-
-function siapFromScore(s) {
-  // s is already 0-5, clamp and round to nearest 0.5
-  if (s == null || isNaN(s)) return null;
-  const n = Math.max(0, Math.min(5, parseFloat(s)));
-  return Math.round(n * 2) / 2; // rounds to nearest 0.5
-}
-
-function siapLevel(s) {
-  // Returns the integer SIAP level (0-5) for lookup in SIAP_TABLE
-  if (s == null) return null;
-  return Math.min(5, Math.max(0, Math.round(parseFloat(s))));
-}
-
 function conditionFromScore(s) {
-  if (s == null) return 'Regular';
-  const lvl = siapLevel(s);
-  return SIAP_TABLE[lvl]?.condition || 'Regular';
+  if (s >= 80) return 'Optimo';
+  if (s >= 60) return 'Bueno';
+  if (s >= 40) return 'Regular';
+  if (s >= 20) return 'Malo';
+  return 'Critico';
 }
 function conditionColor(c) {
-  const map = { Optimo:'#10b981', Bueno:'#3b82f6', Regular:'#f59e0b', Malo:'#f97316', Critico:'#ef4444' };
-  return map[c] || '#94a3b8';
+  return { Optimo:'#10b981', Bueno:'#3b82f6', Regular:'#f59e0b', Malo:'#f97316', Critico:'#ef4444' }[c] || '#94a3b8';
 }
 function conditionBadgeClass(c) {
   return { Optimo:'badge-optimo', Bueno:'badge-bueno', Regular:'badge-regular', Malo:'badge-malo', Critico:'badge-critico' }[c] || 'badge-na';
 }
 function scoreColor(s) {
-  if (s == null) return '#94a3b8';
-  const lvl = siapLevel(s);
-  return SIAP_TABLE[lvl]?.color || '#94a3b8';
-}
-// Format score for display: always show as X.X SIAP
-function fmtScore(s) {
-  if (s == null) return '—';
-  return parseFloat(s).toFixed(1);
+  if (s >= 80) return '#10b981';
+  if (s >= 60) return '#3b82f6';
+  if (s >= 40) return '#f59e0b';
+  if (s >= 20) return '#f97316';
+  return '#ef4444';
 }
 function getLastScore(bridgeId) {
   const insp = S.inspections[bridgeId] || [];
@@ -2228,17 +2086,17 @@ function listenActivity() {
 /* ══════════════════════════════════════
    DATA LOAD
 ══════════════════════════════════════ */
+
 function listenData() {
   onValue(ref(db, '/'), snap => {
     const data = snap.val();
-    // Si existe el nodo projects (aunque esté vacío), no ejecutamos seedData
-    if (data?.projects && typeof data.projects === 'object' && Object.keys(data.projects).length > 0) {
-      // Si todos los proyectos están eliminados, igual procesamos datos vacíos
+    // Filter: only check projects key
+    const hasProjects = data?.projects && Object.keys(data.projects).some(pid => !data.projects[pid]?.info?._deleted);
+    if (!hasProjects) {
+      seedData();
+    } else {
       processData(data);
       hideLoader();
-    } else {
-      // Solo si no hay nodo projects o está vacío, ejecutamos seedData
-      seedData();
     }
   }, err => { toast('Error cargando datos: '+err.message, 'error'); hideLoader(); });
 }
@@ -2328,9 +2186,7 @@ function seedData() {
 /* ══════════════════════════════════════
    PROCESS DATA
 ══════════════════════════════════════ */
-function processData(rawData) {
-  // CRITICAL: deep-clone so extension-block hooks cannot mutate the live Firebase snapshot
-  const data = JSON.parse(JSON.stringify(rawData));
+function processData(data) {
   const rawProjects = data.projects || {};
   // Filter out soft-deleted projects
   S.projects = {};
@@ -2363,12 +2219,12 @@ function processData(rawData) {
   updateDirectory();
   updateMapData();
   populateFilters();
+  // Log activity for bridge view if needed
   try { updateDynamicFavicon(); } catch(e){}
-  try { if (typeof renderDashboardExtras === 'function') renderDashboardExtras(); } catch(e){}
 }
 
 /* ══════════════════════════════════════
-   DASHBOARD — escala SIAP 0–5
+   DASHBOARD
 ══════════════════════════════════════ */
 function updateDashboard() {
   const bridges = S.allBridges;
@@ -2386,8 +2242,7 @@ function updateDashboard() {
       const last = [...insp].sort((a,c) => new Date(c.date)-new Date(a.date))[0];
       if (last.manualScore != null) {
         scores.push(last.manualScore);
-        // SIAP: crítico si nivel <= 1
-        if (last.manualScore <= 1) critical++;
+        if (last.manualScore < 40) critical++;
       }
       const d = new Date(last.date);
       if (d.getMonth() === thisMonth && d.getFullYear() === thisYear) monthCount++;
@@ -2398,15 +2253,13 @@ function updateDashboard() {
     else condCounts['Regular']++;
   });
 
-  // SIAP average score (0–5)
-  const avg = scores.length ? Math.round((scores.reduce((a,v)=>a+v,0)/scores.length) * 10) / 10 : 0;
-  // "Bueno o mejor" = SIAP >= 3 (Moderado o mejor)
-  const goodCount = scores.filter(s=>s>=3).length;
+  const avg = scores.length ? Math.round(scores.reduce((a,v)=>a+v,0)/scores.length) : 0;
+  const goodCount = scores.filter(s=>s>=60).length;
   const goodPct = scores.length ? Math.round(goodCount/scores.length*100) : 0;
 
   document.getElementById('kpiTotal').textContent = bridges.length;
   document.getElementById('kpiProjects').textContent = Object.keys(S.projects).length;
-  document.getElementById('kpiAvg').textContent = avg.toFixed(1);
+  document.getElementById('kpiAvg').textContent = avg;
   document.getElementById('kpiCritical').textContent = critical;
   document.getElementById('kpiInspections').textContent = monthCount;
   document.getElementById('kpiGoodPct').textContent = goodPct+'%';
@@ -2415,10 +2268,10 @@ function updateDashboard() {
   document.getElementById('kpiAvg').style.color = avgColor;
   document.getElementById('kpiCritical').style.color = critical > 0 ? 'var(--c-critical)' : 'var(--c-optimal)';
 
-  // Alerts — SIAP <= 1 (Daño muy severo o Falla)
+  // Alerts
   const alertsEl = document.getElementById('alertsPanel');
   const alertBridges = bridges
-    .filter(b => { const s = getLastScore(b.id); return s !== null && s <= 1; })
+    .filter(b => { const s = getLastScore(b.id); return s !== null && s < 40; })
     .sort((a,b) => getLastScore(a.id) - getLastScore(b.id));
 
   if (alertBridges.length === 0) {
@@ -2431,15 +2284,13 @@ function updateDashboard() {
     alertsEl.innerHTML = alertBridges.map(b => {
       const s = getLastScore(b.id);
       const ins = getLastInspection(b.id);
-      const lvl = siapLevel(s);
-      const siapInfo = SIAP_TABLE[lvl] || SIAP_TABLE[1];
       return `<div class="alert-item" onclick="window._viewBridge('${b.id}')">
-        <div class="alert-dot ${s <= 0 ? 'critical' : 'warning'}"></div>
+        <div class="alert-dot ${s < 20 ? 'critical' : 'warning'}"></div>
         <div class="alert-info">
           <div class="alert-name">${b.name}</div>
-          <div class="alert-meta">${b.code} · ${b.projectName} · ${ins ? fmtDate(ins.date) : '—'} · <strong style="color:${siapInfo.color}">${siapInfo.label}</strong></div>
+          <div class="alert-meta">${b.code} · ${b.projectName} · ${ins ? fmtDate(ins.date) : '—'}</div>
         </div>
-        <div class="alert-score" style="background:${siapInfo.bgColor};color:${siapInfo.color};">SIAP ${fmtScore(s)}</div>
+        <div class="alert-score ${s >= 20 ? 'warn':''}">${s}</div>
       </div>`;
     }).join('');
   }
@@ -2462,17 +2313,15 @@ function updateDashboard() {
   if (!last5.length) { recentEl.innerHTML = '<div class="empty-state"><i class="fas fa-clipboard"></i><p>Sin inspecciones</p></div>'; return; }
   recentEl.innerHTML = last5.map(({bridge:b, ins}) => {
     const s = ins.manualScore;
-    const c = conditionFromScore(s ?? 3);
-    const lvl = siapLevel(s);
-    const siapInfo = SIAP_TABLE[lvl] || {};
+    const c = conditionFromScore(s ?? 50);
     return `<div class="alert-item" onclick="window._viewBridge('${b.id}')" style="margin-bottom:8px;">
       <div class="legend-dot" style="width:11px;height:11px;border-radius:50%;background:${conditionColor(c)};flex-shrink:0;box-shadow:0 0 4px ${conditionColor(c)};"></div>
       <div class="alert-info">
         <div class="alert-name">${b.name}</div>
         <div class="alert-meta">${ins.inspectorName || '—'} · ${fmtDate(ins.date)}</div>
       </div>
-      <div class="alert-score" style="background:${siapInfo.bgColor||'var(--bg-elevated)'};color:${siapInfo.color||'var(--text-muted)'};">
-        ${s != null ? fmtScore(s) : '—'}
+      <div class="alert-score ${s >= 40 ? 'warn':''}" style="${s>=40?'background:var(--c-regular-bg);color:var(--c-regular)':''}">
+        ${s ?? '—'}
       </div>
     </div>`;
   }).join('');
@@ -2682,12 +2531,6 @@ function initMap() {
     },
     center: [-99.2, 19.0], zoom: 8, pitch: 45, bearing: 0, antialias: true
   });
-
-  // 🔥 GUARDAR EL ESTILO INICIAL (OSM)
-  S._initialStyle = S.map.getStyle();
-  // 🔥 ASIGNARLO AL BOTÓN "street"
-  MAP_STYLES.street = S._initialStyle;
-
   S.map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
   S.map.on('load', () => {
     refreshMapLayers();
@@ -2698,9 +2541,6 @@ function initMap() {
     openBridgeModal(id);
     snd.click();
   });
-
-  // ... (el resto de tu código: mouseenter, mouseleave, buildProjectSidebar, etc.)
-  // Asegúrate de mantener todo lo que ya tenías después de esto.
   S.map.on('mouseenter', 'bridges-circles', e => {
     S.map.getCanvas().style.cursor = 'pointer';
     snd.hover();
@@ -2906,69 +2746,14 @@ function handleMeasureClick(e) {
 
 // Geolocate
 document.getElementById('geoBtn').addEventListener('click', () => {
-  if (!navigator.geolocation) {
-    toast('Geolocalización no disponible', 'warning');
-    return;
-  }
-
-  // Si el mapa no está listo, esperamos
-  if (!S.map) {
-    toast('El mapa aún no está listo', 'warning');
-    return;
-  }
-
-  // Mostramos un toast mientras buscamos
-  toast('Obteniendo tu posición...', 'info');
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const { latitude: lat, longitude: lng } = pos.coords;
-
-      // --- FORZAR UN RESIZE PARA REPINTAR ---
-      S.map.resize();
-
-      // --- ESPERAR A QUE EL MAPA TERMINE DE REPINTAR ---
-      S.map.once('render', () => {
-        // Vuelo suave
-        S.map.flyTo({
-          center: [lng, lat],
-          zoom: 14,
-          pitch: 45,
-          speed: 1.2
-        });
-
-        // Agregar un marcador temporal
-        new maplibregl.Marker({ color: '#3b82f6' })
-          .setLngLat([lng, lat])
-          .addTo(S.map);
-
-        toast('📍 Posición localizada', 'success');
-        snd.success();
-      });
-
-      // Fallback: si 'render' no se dispara en 1s, forzar el vuelo
-      setTimeout(() => {
-        // Si ya se disparó 'render', esto no hará nada
-        S.map.flyTo({
-          center: [lng, lat],
-          zoom: 14,
-          pitch: 45,
-          speed: 1.2
-        });
-      }, 1000);
-    },
-    (err) => {
-      console.warn('Geolocation error:', err);
-      toast('No se pudo obtener la posición: ' + err.message, 'error');
-      snd.error();
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 60000
-    }
-  );
-
+  if (!navigator.geolocation) { toast('Geolocalización no disponible', 'warning'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const {latitude:lat, longitude:lng} = pos.coords;
+    S.map?.flyTo({ center:[lng,lat], zoom:14, pitch:45 });
+    new maplibregl.Marker({ color:'#3b82f6' }).setLngLat([lng,lat]).addTo(S.map);
+    toast('Posición localizada', 'success');
+    snd.success();
+  }, () => toast('No se pudo obtener la posición', 'error'));
   snd.click();
 });
 
@@ -3224,27 +3009,6 @@ document.getElementById('photoUploadArea').addEventListener('click', () => {
 });
 document.getElementById('photoInput').addEventListener('change', function() {
   Array.from(this.files).forEach(file => compressAndAddPhoto(file));
-});
-
-// Voice input button in inspection modal
-document.getElementById('voiceObsBtn')?.addEventListener('click', function() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { toast('Voz no disponible en este navegador. Usa Chrome o Edge.', 'warning'); return; }
-  const rec = new SR();
-  rec.lang = 'es-MX'; rec.continuous = false; rec.interimResults = false;
-  this.style.color = 'var(--c-critical)';
-  this.innerHTML = '<i class="fas fa-microphone fa-beat"></i>';
-  toast('🎙️ Escuchando…', 'info', 3000);
-  rec.start();
-  const btn = this;
-  rec.onresult = (e) => {
-    const text = e.results[0][0].transcript;
-    const field = document.getElementById('inspObsCustom');
-    field.value = (field.value ? field.value + ', ' : '') + text;
-    toast(`Dictado: "${text}"`, 'success');
-  };
-  rec.onerror = () => { toast('No se pudo capturar audio.', 'error'); };
-  rec.onend = () => { btn.style.color=''; btn.innerHTML='<i class="fas fa-microphone"></i>'; };
 });
 
 function compressAndAddPhoto(file) {
@@ -3725,100 +3489,29 @@ if (autoDarkCb) {
   });
 }
 
-// Stub buttons + REAL implementations
+// Stub buttons
 document.querySelectorAll('.ext-stub').forEach(btn => {
   btn.addEventListener('click', () => {
-    const k = btn.dataset.stub;
-    // --- REAL: Voice input ---
-    if (k === 'voice') {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) { toast('Web Speech API no disponible en este navegador. Usa Chrome o Edge.', 'warning'); return; }
-      const rec = new SpeechRecognition();
-      rec.lang = 'es-MX'; rec.continuous = false; rec.interimResults = false;
-      const obsField = document.getElementById('inspObsCustom');
-      const target = document.getElementById('addInspModal')?.classList.contains('open') && obsField ? obsField : null;
-      if (!target) { toast('Abre el formulario de nueva inspección primero, luego activa la voz.', 'info'); return; }
-      toast('🎙️ Escuchando… habla ahora', 'info', 4000);
-      btn.style.background = 'var(--c-critical)'; btn.style.color = '#fff';
-      rec.start();
-      rec.onresult = (e) => {
-        const transcript = e.results[0][0].transcript;
-        target.value = (target.value ? target.value + ', ' : '') + transcript;
-        toast(`Capturado: "${transcript}"`, 'success');
-        btn.style.background = ''; btn.style.color = '';
-      };
-      rec.onerror = (e) => { toast('Error de voz: ' + e.error, 'error'); btn.style.background=''; btn.style.color=''; };
-      rec.onend = () => { btn.style.background=''; btn.style.color=''; };
-      return;
-    }
-    // --- REAL: Haptic ---
-    if (k === 'haptic') {
-      if (navigator.vibrate) {
-        navigator.vibrate([100, 50, 100, 50, 200]);
-        toast('📳 Vibración activada (patrón BMS)', 'success');
-      } else { toast('Tu dispositivo no soporta vibración.', 'warning'); }
-      return;
-    }
-    // --- REAL: Dynamic background ---
-    if (k === 'dynbg') {
-      const h1 = Math.floor(Math.random()*360), h2 = (h1+120)%360;
-      const isDark = document.documentElement.dataset.theme === 'dark';
-      document.body.style.background = `linear-gradient(135deg, hsl(${h1},40%,${isDark?'12%':'88%'}), hsl(${h2},40%,${isDark?'8%':'93%'}))`;
-      toast('🎨 Fondo dinámico aplicado. Recarga para resetear.', 'info');
-      return;
-    }
-    // --- REAL: Data saver ---
-    if (k === 'datasaver') {
-      S._dataSaver = !S._dataSaver;
-      if (S._dataSaver) {
-        // Disable heatmap and 3D bars
-        if (S.map?.getLayer('bridges-heatmap')) S.map.setLayoutProperty('bridges-heatmap','visibility','none');
-        if (typeof toggle3DBars === 'function') toggle3DBars(false);
-        S.heatmapOn = false;
-        document.getElementById('toggleHeatmap')?.classList.remove('on');
-        toast('💾 Modo ahorro activado: heatmap y barras 3D desactivados.', 'info');
-      } else {
-        toast('💾 Modo ahorro desactivado.', 'info');
-      }
-      return;
-    }
-    // --- REAL: Pattern detection ---
-    if (k === 'patterns') {
-      // Analyze recurring observations across all inspections
-      const freq = {};
-      Object.values(S.inspections).forEach(arr => arr.filter(i=>!i._deleted).forEach(ins => {
-        (ins.observations||[]).forEach(obs => {
-          if (obs && obs !== 'Sin observaciones específicas') freq[obs] = (freq[obs]||0) + 1;
-        });
-      }));
-      const sorted = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,5);
-      if (!sorted.length) { toast('No hay suficientes observaciones para analizar patrones.', 'warning'); return; }
-      const msg = sorted.map(([obs,n])=>`• ${obs}: ${n}x`).join('\n');
-      alert('📊 Patrones de daño más frecuentes:\n\n' + msg + '\n\nConsulta con un ingeniero estructural para acciones preventivas.');
-      toast('Análisis de patrones completado', 'success');
-      return;
-    }
-    // --- STUBS con info real ---
     const msgs = {
-      weather: 'La capa de clima requiere una API key de OpenWeatherMap. Configura OPENWEATHER_KEY en el código y activa la capa desde el panel del mapa.',
-      email: 'Las alertas por correo requieren configurar EmailJS: registra una cuenta en emailjs.com, agrega tu Service ID, Template ID y Public Key en el código.',
-      biometric: 'WebAuthn requiere HTTPS (no funciona en localhost sin certificado), un autenticador registrado (Windows Hello, Face ID) y una llave pública almacenada en Firebase.',
-      ar: 'El gemelo digital AR requiere: 1) Un modelo 3D del puente en formato GLB, 2) La librería model-viewer de Google, 3) Acceso a la cámara del dispositivo.',
-      mascot: 'La mascota 3D (Castor) requiere un modelo GLB animado. Se puede integrar con three.js o model-viewer una vez tengas el asset.',
-      gyro: 'El parallax con giroscopio requiere DeviceOrientationEvent (permiso en iOS) y un mapa 3D con rotación dinámica. Disponible solo en móvil.',
-      workorder: 'Las órdenes de trabajo ya están en la pestaña Inspecciones. Para integrar correos, conecta EmailJS o Nodemailer con Firebase Cloud Functions.',
-      presence: 'La presencia en vivo ya está activa en el mapa (marcadores de inspectores conectados). El "Live View" completo con candados requiere reglas de Firebase.'
+      weather:'Requiere API key de OpenWeatherMap. Activa la capa desde el panel del mapa.',
+      voice:'La Web Speech API requiere permisos del micrófono y navegador compatible (Chrome/Edge).',
+      biometric:'WebAuthn requiere HTTPS, un autenticador registrado y navegador compatible.',
+      ar:'AR requiere modelo 3D GLB del puente y acceso a la cámara. En desarrollo.',
+      presence:'Presencia en vivo requiere Firebase RTDB con reglas de presencia configuradas.',
+      haptic: () => { if(navigator.vibrate) { navigator.vibrate([60,30,60]); return '¡Vibración activada! (si tu dispositivo lo soporta)'; } return 'Tu dispositivo no soporta vibración o no tiene permiso.'; },
+      workorder:'Las órdenes de trabajo requieren un backend dedicado de gestión de tareas.',
+      mascot:'La mascota 3D (Castor) requiere un modelo GLB. Feature en roadmap.'
     };
-    toast(msgs[k] || k, 'info', 5000);
+    const msg = msgs[btn.dataset.stub];
+    toast(typeof msg === 'function' ? msg() : msg,'info',4000);
+    snd.click();
   });
 });
 
-/* Hook: call updateInspectionsPanel and extras after each data refresh */
-// We hook listenData's onValue callback path through processData directly.
-// Store original reference safely without re-wrapping.
-const _pd_for_panels = processData;
+/* Hook processData to also update new panels */
+const _origProcessData = processData;
 window.processData = function(data) {
-  _pd_for_panels(data);
+  _origProcessData(data);
   try { updateInspectionsPanel(); } catch(e){}
   if (document.getElementById('panel-extras')?.classList.contains('active')) {
     try { renderExtrasPanel(); } catch(e){}
@@ -3980,8 +3673,8 @@ function updateDynamicFavicon(){
 document.getElementById('themeToggle')?.addEventListener('click', () => { localStorage.setItem('bms_theme_manual','1'); });
 
 /* ---------- Hook: refrescar favicon cuando hay datos ---------- */
-// NOTE: favicon refresh is now called from inside processData() directly.
-// This hook is removed to avoid triple-wrapping processData which caused bridge deletion bugs.
+const _origProcess = processData;
+processData = function(data){ _origProcess(data); try{ updateDynamicFavicon(); renderDashboardExtras(); }catch(e){console.warn(e);} };
 
 /* ---------- MAPA: estilos satélite / híbrido + hover neón + geofencing ---------- */
 const MAP_STYLES = {
@@ -4158,76 +3851,23 @@ async function exportBridgeSheetPDF(bridge){
   if (!window.jspdf) { toast('jsPDF no cargado','error'); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  // Header
-  doc.setFillColor(37,99,235); doc.rect(0,0,210,22,'F');
-  doc.setTextColor(255,255,255); doc.setFontSize(16); doc.setFont('helvetica','bold');
-  doc.text('BMS Global — Ficha Técnica', 14, 14);
-  doc.setTextColor(0,0,0); doc.setFont('helvetica','normal');
-  // Bridge info
-  doc.setFontSize(13); doc.setFont('helvetica','bold');
-  doc.text(bridge.name||'Puente', 14, 30);
-  doc.setFontSize(9); doc.setFont('helvetica','normal');
-  doc.text(`Código: ${bridge.code||'–'} · Proyecto: ${bridge.projectName||'–'} · Región: ${bridge.region||'–'}`, 14, 36);
-  doc.text(`Coordenadas: ${bridge.coordinates?.lat?.toFixed(5)}, ${bridge.coordinates?.lng?.toFixed(5)}`, 14, 41);
-  doc.text(`Condición actual: ${bridge.currentCondition||'–'} · Material: ${bridge.material||'–'}`, 14, 46);
-  if (bridge.length) doc.text(`Longitud: ${bridge.length} m · Ancho: ${bridge.width||'–'} m · Tramos: ${bridge.spans||'–'} · Año: ${bridge.year||'–'}`, 14, 51);
-  const life = typeof lifeExpectancy === 'function' ? lifeExpectancy(bridge) : null;
-  if (life) doc.text(`Vida útil estimada: ${life.remainingYears} años (regresión lineal)`, 14, 56);
-  const next = typeof nextInspectionDate === 'function' ? nextInspectionDate(bridge) : null;
-  if (next) doc.text(`Próxima inspección sugerida: ${next.toLocaleDateString('es-MX')}`, 14, 61);
-  // Separator
-  let y = 68; doc.setDrawColor(200,200,200); doc.line(14,y,196,y); y+=6;
-  // Inspection history
-  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.text('Historial de inspecciones', 14, y); y+=6;
-  doc.setFontSize(8); doc.setFont('helvetica','normal');
-  const insp = (S.inspections[bridge.id]||[]).filter(i=>!i._deleted).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  for (const i of insp) {
-    if (y > 260) { doc.addPage(); y=20; }
-    const dateStr = new Date(i.date).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});
-    const cond = typeof conditionFromScore === 'function' ? conditionFromScore(i.manualScore??50) : '';
-    doc.setFont('helvetica','bold');
-    doc.text(`${dateStr} — Score: ${i.manualScore??'–'}/100 (${cond}) — Inspector: ${i.inspectorName||'–'}`, 14, y); y+=5;
-    doc.setFont('helvetica','normal');
-    if (i.weather) { doc.text(`  Clima: ${i.weather}`, 14, y); y+=4; }
-    if (i.observations?.length) {
-      const obsText = `  Obs: ${i.observations.filter(o=>o!=='Sin observaciones específicas').join(', ')||'Ninguna'}`;
-      const lines = doc.splitTextToSize(obsText, 180);
-      doc.text(lines, 14, y); y+=lines.length*4;
-    }
-    if (i.recommendations) {
-      const recLines = doc.splitTextToSize(`  Rec: ${i.recommendations}`, 180);
-      doc.text(recLines, 14, y); y+=recLines.length*4;
-    }
-    // Signature
-    if (i.signature) {
-      try {
-        if (y+22 > 275) { doc.addPage(); y=20; }
-        doc.text('  Firma:', 14, y); y+=3;
-        doc.addImage(i.signature, 'PNG', 14, y, 60, 18);
-        y+=22;
-      } catch(err){}
-    }
-    // Photos from damages
-    if (i.damages?.length) {
-      for (const dmg of i.damages) {
-        if (!dmg.imageBase64 || dmg.imageBase64.length < 200) continue;
-        if (y+42 > 275) { doc.addPage(); y=20; }
-        doc.text(`  📷 ${dmg.type||'Foto'}:`, 14, y); y+=3;
-        try { doc.addImage(dmg.imageBase64, 'JPEG', 14, y, 60, 40); y+=44; } catch(err){}
-      }
-    }
-    y+=2; doc.setDrawColor(230,230,230); doc.line(14,y,196,y); y+=4;
-  }
-  if (!insp.length) { doc.text('Sin inspecciones registradas.', 14, y); }
-  // Footer
-  const pageCount = doc.internal.getNumberOfPages();
-  for (let p=1;p<=pageCount;p++) {
-    doc.setPage(p);
-    doc.setFontSize(7); doc.setTextColor(150,150,150);
-    doc.text(`BMS Global · Generado: ${new Date().toLocaleString('es-MX')} · Pág. ${p}/${pageCount}`, 14, 292);
-  }
+  doc.setFontSize(18); doc.text(bridge.name||'Puente', 14, 18);
+  doc.setFontSize(10); doc.text(`Código: ${bridge.code||'–'}`, 14, 26);
+  doc.text(`Coordenadas: ${bridge.coordinates?.lat?.toFixed(5)}, ${bridge.coordinates?.lng?.toFixed(5)}`, 14, 32);
+  doc.text(`Condición actual: ${bridge.currentCondition||'–'}`, 14, 38);
+  const life = lifeExpectancy(bridge);
+  if (life) doc.text(`Vida útil estimada: ${life.remainingYears} años`, 14, 44);
+  const next = nextInspectionDate(bridge);
+  doc.text(`Próxima inspección sugerida: ${next.toLocaleDateString()}`, 14, 50);
+  let y = 62; doc.setFontSize(12); doc.text('Historial de inspecciones', 14, y); y+=6; doc.setFontSize(9);
+  const insp = Object.values(S.inspections[bridge.id]||{}).filter(i=>!i._deleted).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  insp.forEach(i=>{
+    doc.text(`${new Date(i.date).toLocaleDateString()} — score ${i.manualScore??'–'} — ${i.inspectorName||'–'}`, 14, y); y+=5;
+    if (i.recommendations){ const lines = doc.splitTextToSize(`  Rec: ${i.recommendations}`, 180); doc.text(lines,14,y); y+=lines.length*5; }
+    if (y>280){ doc.addPage(); y=20; }
+  });
   doc.save(`ficha_${(bridge.code||bridge.name||'puente').replace(/[^\w-]/g,'_')}.pdf`);
-  toast('Ficha técnica PDF generada con fotos y firmas','success');
+  toast('Ficha técnica generada','success');
 }
 
 /* ---------- INSPECCIONES + DIRECTORIO CRUD ---------- */
@@ -4781,7 +4421,8 @@ async function openBridgeForm(existing=null){
     title: isEdit ? 'Editar puente' : 'Nuevo puente',
     icon: isEdit ? 'fas fa-pen' : 'fas fa-plus',
     size: 620,
-    body: bridgeFormBody(existing||{}, S.projects, isEdit),
+    // ⬇️ Antes pasábamos `isEdit` como lockProject, lo que impedía cambiar el proyecto al editar.
+    body: bridgeFormBody(existing||{}, S.projects, false),
     actions: [
       { label:'Cancelar', variant:'secondary', value:null },
       { label: isEdit?'Guardar cambios':'Crear puente', variant:'primary', icon:'fas fa-save',
@@ -4796,10 +4437,11 @@ async function openBridgeForm(existing=null){
             { name:'material' }, { name:'currentCondition' }
           ]);
           if (!data) return false;
-          const pid = data.projectId || existing.projectId;
-          // duplicate code check
+          const pid = data.projectId || existing?.projectId;
+          if (!pid){ toast('Selecciona un proyecto','error'); return false; }
+          // duplicate code check (ignora al puente actual aunque cambie de proyecto)
           const existingBridge = Object.entries(S.projects[pid]?.bridges||{})
-            .find(([bid,b])=>(b.code||'').toLowerCase()===data.code.toLowerCase() && bid !== existing?.id);
+            .find(([bid,b])=>!b._deleted && (b.code||'').toLowerCase()===data.code.toLowerCase() && bid !== existing?.id);
           if (existingBridge){
             const wrap = ov.querySelector('[name="code"]').closest('.v5-fg');
             wrap.classList.add('v5-err');
@@ -4807,28 +4449,49 @@ async function openBridgeForm(existing=null){
             return false;
           }
           const payload = {
-            name: data.name,
-            code: data.code,
+            name: data.name, code: data.code,
             coordinates: { lat: data.lat, lng: data.lng },
             currentCondition: data.currentCondition || 'Bueno',
             material: data.material || '',
+            length: data.length ? parseFloat(data.length) : null,
+            width: data.width ? parseFloat(data.width) : null,
+            year: data.year ? parseInt(data.year,10) : null,
+            spans: data.spans ? parseInt(data.spans,10) : null,
             updatedAt: new Date().toISOString()
           };
-          // Only include optional numeric fields if they have valid values
-          if (data.length && !isNaN(parseFloat(data.length))) payload.length = parseFloat(data.length);
-          if (data.width && !isNaN(parseFloat(data.width))) payload.width = parseFloat(data.width);
-          if (data.year && !isNaN(parseInt(data.year,10))) payload.year = parseInt(data.year,10);
-          if (data.spans && !isNaN(parseInt(data.spans,10))) payload.spans = parseInt(data.spans,10);
+          Object.keys(payload).forEach(k=> payload[k] === null && delete payload[k]);
           try {
             if (isEdit){
-              await update(ref(db, `projects/${pid}/bridges/${existing.id}`), payload);
-              toast('Puente actualizado','success'); snd.success();
+              const oldPid = existing.projectId;
+              if (oldPid && oldPid !== pid){
+                // Mover puente a otro proyecto: copiar nodo + inspecciones y limpiar el original
+                const [bSnap, iSnap] = await Promise.all([
+                  get(ref(db, `projects/${oldPid}/bridges/${existing.id}`)),
+                  get(ref(db, `projects/${oldPid}/inspections/${existing.id}`))
+                ]);
+                const oldBridge = bSnap.val() || {};
+                const oldInsp   = iSnap.val() || null;
+                const multi = {};
+                multi[`projects/${pid}/bridges/${existing.id}`]      = { ...oldBridge, ...payload };
+                multi[`projects/${oldPid}/bridges/${existing.id}`]   = null;
+                if (oldInsp){
+                  multi[`projects/${pid}/inspections/${existing.id}`]    = oldInsp;
+                  multi[`projects/${oldPid}/inspections/${existing.id}`] = null;
+                }
+                await update(ref(db), multi);
+                toast('Puente movido al nuevo proyecto','success'); snd.success();
+              } else {
+                await update(ref(db, `projects/${pid}/bridges/${existing.id}`), payload);
+                toast('Puente actualizado','success'); snd.success();
+              }
             } else {
               payload.createdAt = new Date().toISOString();
-              payload.projectId = pid; // store projectId on the bridge itself for easy lookup
-              // Use set() on a new push key — safer than update() which can merge incorrectly
+              // 🔑 Generar ID único con push().key y escribir con set() para garantizar
+              // que NO se sobreescriba ningún hermano (bug: update(newRef, payload) podía
+              // chocar con escrituras concurrentes en algunos navegadores).
               const newKey = push(ref(db, `projects/${pid}/bridges`)).key;
-              await update(ref(db, `projects/${pid}/bridges/${newKey}`), payload);
+              if (!newKey) throw new Error('No se pudo generar ID único para el puente');
+              await set(ref(db, `projects/${pid}/bridges/${newKey}`), payload);
               toast('Puente creado','success'); snd.success();
             }
             updateDynamicFavicon();
@@ -5247,21 +4910,26 @@ function enhanceMapPopups(){
 }
 setTimeout(enhanceMapPopups, 2500);
 
-/* ---------- Favicon dinámico cada 15s (reducido para ser más reactivo) ---------- */
-setInterval(()=>{ try { updateDynamicFavicon(); } catch(e){} }, 15000);
-// Also update immediately on page focus (user switches back to the tab)
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) try{ updateDynamicFavicon(); }catch(e){} });
+/* ---------- Favicon dinámico cada 30s ---------- */
+setInterval(()=>{ try { updateDynamicFavicon(); } catch(e){} }, 30000);
 
 /* ---------- Sonido diferenciado warning ---------- */
 if (typeof snd === 'object' && !snd.warning){
   snd.warning = ()=>{ try{ beep(330,.08,'square',.12); setTimeout(()=>beep(220,.10,'square',.10),90);}catch(e){} };
 }
 
-/* ---------- NOTE: processData hook REMOVED from here.
-   The base processData already filters _deleted projects via deep-clone.
-   Adding another hook that mutates data.projects with `delete` was the root cause
-   of bridges disappearing when adding a 3rd bridge to a project.
-   The filtering is now done safely inside processData() itself. ---------- */
+/* ---------- Filtrar proyectos eliminados del processData ---------- */
+const _origProcess = (typeof processData==='function')?processData:null;
+if (_origProcess){
+  window.processData = function(data){
+    if (data?.projects){
+      Object.keys(data.projects).forEach(pid=>{
+        if (data.projects[pid]?.info?._deleted) delete data.projects[pid];
+      });
+    }
+    return _origProcess.call(this, data);
+  };
+}
 
 console.log('✨ BMS Global v5 — CRUD modal completo cargado.');
 })();
@@ -5738,65 +5406,35 @@ console.log('🔥 Fix de proyectos unificado aplicado.');
 
   /* ── 5. CLIMA OWM ── */
   let _weatherOn = false;
-  function addWeatherLayer() {
-  if (!S.map || !OWM_KEY) return;
-  // Añadir las capas al mapa (como ya lo haces)
-  const apply = () => {
-    try {
-      if (!S.map.getSource('owm-clouds')) {
-        S.map.addSource('owm-clouds', {
-          type: 'raster',
-          tiles: [`https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`],
-          tileSize: 256
-        });
-        S.map.addLayer({
-          id: 'owm-clouds-layer',
-          type: 'raster',
-          source: 'owm-clouds',
-          paint: { 'raster-opacity': 0.55 },
-          layout: { visibility: 'none' }
-        });
-        S.map.addSource('owm-precip', {
-          type: 'raster',
-          tiles: [`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`],
-          tileSize: 256
-        });
-        S.map.addLayer({
-          id: 'owm-precip-layer',
-          type: 'raster',
-          source: 'owm-precip',
-          paint: { 'raster-opacity': 0.7 },
-          layout: { visibility: 'none' }
-        });
-      }
-    } catch (e) { console.warn('weather', e); }
-  };
-  if (S.map.isStyleLoaded()) apply();
-  else S.map.once('load', apply);
-
-  // Ahora, en lugar de crear un nuevo botón, insertamos el botón en el grupo de controles existente
-  const controlsGroup = document.querySelector('#panel-map .map-controls-group');
-  if (!controlsGroup) return;
-
-  // Evitar duplicados
-  if (document.getElementById('weatherToggleBtn')) return;
-
-  const btn = document.createElement('button');
-  btn.id = 'weatherToggleBtn';
-  btn.className = 'map-ctrl-btn';
-  btn.innerHTML = '<i class="fas fa-cloud-rain"></i> Clima';
-  btn.addEventListener('click', () => {
-    _weatherOn = !_weatherOn;
-    const v = _weatherOn ? 'visible' : 'none';
-    try {
-      S.map.setLayoutProperty('owm-clouds-layer', 'visibility', v);
-      S.map.setLayoutProperty('owm-precip-layer', 'visibility', v);
-      toast(_weatherOn ? 'Capa de clima activada' : 'Capa de clima desactivada', 'info');
-    } catch (e) { toast('Error capa clima', 'error'); }
-  });
-  // Insertar al final del grupo
-  controlsGroup.appendChild(btn);
-}
+  function addWeatherLayer(){
+    if (!S.map || !OWM_KEY) return;
+    const apply = ()=>{
+      try{
+        if (!S.map.getSource('owm-clouds')){
+          S.map.addSource('owm-clouds',{type:'raster',tiles:[`https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`],tileSize:256});
+          S.map.addLayer({id:'owm-clouds-layer',type:'raster',source:'owm-clouds',paint:{'raster-opacity':0.55},layout:{visibility:'none'}});
+          S.map.addSource('owm-precip',{type:'raster',tiles:[`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`],tileSize:256});
+          S.map.addLayer({id:'owm-precip-layer',type:'raster',source:'owm-precip',paint:{'raster-opacity':0.7},layout:{visibility:'none'}});
+        }
+      }catch(e){console.warn('weather',e)}
+    };
+    if (S.map.isStyleLoaded()) apply(); else S.map.once('load',apply);
+    if (document.getElementById('weatherToggleBtn')) return;
+    const btn = document.createElement('button');
+    btn.id='weatherToggleBtn'; btn.className='btn btn-sm';
+    btn.style.cssText='position:absolute;top:14px;right:14px;z-index:10;background:rgba(15,23,42,.85);color:#fff;border:1px solid rgba(255,255,255,.15);padding:8px 12px;border-radius:8px;cursor:pointer';
+    btn.innerHTML='<i class="fas fa-cloud-rain"></i> Clima';
+    btn.onclick=()=>{
+      _weatherOn = !_weatherOn;
+      const v = _weatherOn?'visible':'none';
+      try{
+        S.map.setLayoutProperty('owm-clouds-layer','visibility',v);
+        S.map.setLayoutProperty('owm-precip-layer','visibility',v);
+        toast(_weatherOn?'Capa de clima activada':'Capa de clima desactivada','info');
+      }catch(e){toast('Error capa clima','error')}
+    };
+    document.getElementById('panel-map')?.appendChild(btn);
+  }
 
   /* ── 6. TIMELINE EN EL MAPA ── */
   function addTimelineControl(){
@@ -6060,7 +5698,6 @@ console.log('🔥 Fix de proyectos unificado aplicado.');
   if (window.S) startV7(); else setTimeout(startV7, 1500);
 
 })();
-
 </script>
 </body>
 </html>

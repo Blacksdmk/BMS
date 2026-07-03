@@ -1123,6 +1123,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     </div>
     <button class="icon-btn" id="themeToggle" title="Cambiar tema"><i class="fas fa-moon"></i></button>
     <button class="icon-btn" id="soundToggle" title="Sonidos"><i class="fas fa-volume-up"></i></button>
+    <button class="icon-btn" id="backupBtn" title="Exportar respaldo"><i class="fas fa-download"></i></button>
     <button class="icon-btn" id="presentationBtn" title="Modo presentación"><i class="fas fa-expand"></i></button>
     <div class="user-pill" id="userPill" style="display:none;" onclick="window._toggleProfileMenu && window._toggleProfileMenu()"></div>
     <div id="profileMenu" style="display:none;position:absolute;top:56px;right:12px;background:var(--bg-surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);padding:14px;min-width:240px;z-index:9999;">
@@ -1577,8 +1578,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 <script type="module">
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, onValue, update, push, get, set, remove, serverTimestamp } from 'firebase/database';
-import { getAuth, signInAnonymously, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
+import { getDatabase, ref, onValue, update, push, get, set, remove, onDisconnect } from 'firebase/database';
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
 
 /* ══════════════════════════════════════
    FIREBASE INIT
@@ -1688,7 +1689,7 @@ function toast(msg, type='info', dur=3500) {
   const icons = { success:'fa-circle-check', error:'fa-circle-xmark', info:'fa-circle-info', warning:'fa-triangle-exclamation' };
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  el.innerHTML = `<i class="fas ${icons[type]} toast-icon"></i><span>${msg}</span>`;
+  el.innerHTML = `<i class="fas ${icons[type]} toast-icon"></i><span>${escapeHtml(msg)}</span>`;
   document.getElementById('toast-container').appendChild(el);
   setTimeout(() => { el.classList.add('toast-out'); el.addEventListener('animationend', () => el.remove()); }, dur);
 }
@@ -1709,6 +1710,45 @@ function conditionColor(c) {
 function conditionBadgeClass(c) {
   return { Optimo:'badge-optimo', Bueno:'badge-bueno', Regular:'badge-regular', Malo:'badge-malo', Critico:'badge-critico' }[c] || 'badge-na';
 }
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[ch]));
+}
+function safeText(value, fallback='—') {
+  return value === undefined || value === null || value === '' ? fallback : escapeHtml(value);
+}
+function safeAttr(value) {
+  return escapeHtml(value).replace(/`/g, '&#96;');
+}
+function currentUserRecord() {
+  return S._allUsers?.[S.currentUser?.uid] || S.userProfile || {};
+}
+function isAdmin() {
+  return currentUserRecord().role === 'admin';
+}
+function assignedProjectIds() {
+  const assigned = currentUserRecord().assignedProjects || {};
+  if (Array.isArray(assigned)) return assigned.filter(Boolean);
+  return Object.keys(assigned).filter(pid => assigned[pid]);
+}
+function canAccessProject(pid) {
+  if (!S.currentUser || !pid) return false;
+  return isAdmin() || assignedProjectIds().includes(pid);
+}
+function canWriteProject(pid) {
+  return canAccessProject(pid);
+}
+function requireAdmin(action='realizar esta acción') {
+  if (isAdmin()) return true;
+  toast(`Solo un administrador puede ${action}.`, 'warning');
+  return false;
+}
+function requireProjectWrite(pid, action='modificar este proyecto') {
+  if (canWriteProject(pid)) return true;
+  toast(`No tienes permiso para ${action}.`, 'warning');
+  return false;
+}
 function scoreColor(s) {
   if (s >= 80) return '#10b981';
   if (s >= 60) return '#3b82f6';
@@ -1726,6 +1766,26 @@ function getLastInspection(bridgeId) {
   const insp = S.inspections[bridgeId] || [];
   if (!insp.length) return null;
   return [...insp].sort((a,b) => new Date(b.date)-new Date(a.date))[0];
+}
+async function syncBridgeConditionFromInspections(bridge) {
+  if (!bridge?.projectId || !bridge?.id) return;
+  const snap = await get(ref(db, `projects/${bridge.projectId}/inspections/${bridge.id}`));
+  const rows = snap.exists()
+    ? Object.values(snap.val()).filter(ins => !ins?._deleted)
+    : [];
+  const latest = rows
+    .filter(ins => ins?.date)
+    .sort((a,b) => new Date(b.date) - new Date(a.date))[0];
+  const updates = {};
+  if (latest?.manualScore != null) {
+    updates.currentCondition = conditionFromScore(latest.manualScore);
+    updates.lastInspectionDate = latest.date.slice(0, 10);
+  } else {
+    updates.currentCondition = 'Regular';
+    updates.lastInspectionDate = null;
+  }
+  updates.updatedAt = new Date().toISOString();
+  await update(ref(db, `projects/${bridge.projectId}/bridges/${bridge.id}`), updates);
 }
 function fmtDate(d) {
   const dt = new Date(d);
@@ -1832,17 +1892,7 @@ function fmtDateShort(d) { return new Date(d).toLocaleDateString('es-MX', { day:
         <div class="auth-fg"><label>Contraseña (mín. 6 caracteres)</label>
           <input class="auth-input" id="regPassword" type="password" placeholder="••••••••" autocomplete="new-password">
         </div>
-        <div class="auth-fg"><label>Rol</label>
-          <div class="auth-role-row">
-            <div class="auth-role-card selected" data-role="inspector">
-              <i class="fas fa-hard-hat" style="color:var(--accent)"></i><span>Inspector</span>
-            </div>
-            <div class="auth-role-card" data-role="admin">
-              <i class="fas fa-shield-halved" style="color:var(--accent2)"></i><span>Administrador</span>
-            </div>
-          </div>
-          <input type="hidden" id="regRole" value="inspector">
-        </div>
+        <input type="hidden" id="regRole" value="inspector">
         <button class="auth-btn" id="registerBtn"><i class="fas fa-user-plus"></i> Crear cuenta</button>
       </div>
     </div>
@@ -1893,7 +1943,7 @@ function fmtDateShort(d) { return new Date(d).toLocaleDateString('es-MX', { day:
     const name = document.getElementById('regName').value.trim();
     const email = document.getElementById('regEmail').value.trim();
     const pw = document.getElementById('regPassword').value;
-    const role = document.getElementById('regRole').value;
+    const role = 'inspector';
     const errEl = document.getElementById('auth-err');
     const btn = document.getElementById('registerBtn');
     if (!name||!email||!pw) { errEl.textContent='Completa todos los campos.'; errEl.classList.add('show'); return; }
@@ -1905,10 +1955,10 @@ function fmtDateShort(d) { return new Date(d).toLocaleDateString('es-MX', { day:
       // Save profile in DB
       await set(ref(db, `users/${cred.user.uid}`), {
         name, email, role, createdAt: new Date().toISOString(),
-        assignedProjects: [], active: true
+        assignedProjects: {}, active: true
       });
       // Log activity
-      await push(ref(db, 'activity'), { type:'register', userId:cred.user.uid, userName:name, role, timestamp:new Date().toISOString(), detail:'Cuenta creada' });
+      await push(ref(db, 'activity'), { type:'register', userId:cred.user.uid, userName:name, role, timestamp:new Date().toISOString(), detail:'Cuenta creada como inspector' });
       errEl.classList.remove('show');
     } catch(e) {
       const msgs = { 'auth/email-already-in-use':'Este correo ya está registrado.', 'auth/weak-password':'Contraseña muy débil.' };
@@ -1937,7 +1987,7 @@ onAuthStateChanged(auth, async user => {
     // Show auth screen, hide app
     const authEl = document.getElementById('auth-screen');
     if (authEl) authEl.style.display = 'flex';
-    document.getElementById('app-loader')?.classList.add('hiding');
+    hideLoader();
     S.currentUser = null; S.userProfile = null;
     // Stop location tracking
     if (S.locationWatchId) { navigator.geolocation?.clearWatch(S.locationWatchId); S.locationWatchId = null; }
@@ -1954,16 +2004,16 @@ onAuthStateChanged(auth, async user => {
       S.userProfile = snap.val();
     } else {
       // First-time anon or missing profile → create basic profile
-      S.userProfile = { name: user.displayName || user.email?.split('@')[0] || 'Usuario', email: user.email||'', role:'inspector', assignedProjects:[], active:true };
+      S.userProfile = { name: user.displayName || user.email?.split('@')[0] || 'Usuario', email: user.email||'', role:'inspector', assignedProjects:{}, active:true };
       await set(ref(db, `users/${user.uid}`), { ...S.userProfile, createdAt: new Date().toISOString() });
     }
-  } catch(e) { S.userProfile = { name: user.displayName||'Usuario', role:'inspector', assignedProjects:[] }; }
+  } catch(e) { S.userProfile = { name: user.displayName||'Usuario', role:'inspector', assignedProjects:{} }; }
 
   // Mark online presence
   const presRef = ref(db, `presence/${user.uid}`);
-  set(presRef, { online:true, name:S.userProfile.name, role:S.userProfile.role, lastSeen:new Date().toISOString() });
-  // Clear on disconnect (best-effort)
-  update(presRef, { online:false });
+  const presencePayload = { online:true, name:S.userProfile.name, role:S.userProfile.role, lastSeen:new Date().toISOString() };
+  set(presRef, presencePayload);
+  onDisconnect(presRef).update({ online:false, lastSeen:new Date().toISOString() });
 
   // Log login
   push(ref(db, 'activity'), { type:'login', userId:user.uid, userName:S.userProfile.name, role:S.userProfile.role, timestamp:new Date().toISOString(), detail:'Inicio de sesión' });
@@ -1996,12 +2046,12 @@ function updateTopbarUser() {
   pill.style.display = 'flex';
   const initial = (S.userProfile.name||'U').charAt(0).toUpperCase();
   const roleLabel = S.userProfile.role === 'admin' ? '⚙️ Admin' : '🔍 Inspector';
-  pill.innerHTML = `<div class="user-avatar">${initial}</div><span>${S.userProfile.name.split(' ')[0]}</span><span style="font-size:0.7rem;opacity:0.7;">${roleLabel}</span><div class="user-online-dot"></div>`;
+  pill.innerHTML = `<div class="user-avatar">${safeText(initial)}</div><span>${safeText((S.userProfile.name||'Usuario').split(' ')[0])}</span><span style="font-size:0.7rem;opacity:0.7;">${safeText(roleLabel)}</span><div class="user-online-dot"></div>`;
   const info = document.getElementById('profileMenuInfo');
   if (info) {
-    info.innerHTML = `<div style="font-weight:700;font-size:1rem;">${S.userProfile.name||'Usuario'}</div>
-      <div style="color:var(--text-muted);font-size:0.78rem;">${S.userProfile.email||'(anónimo)'}</div>
-      <div style="margin-top:6px;font-size:0.75rem;color:var(--text-faint);">Rol: ${roleLabel}</div>
+    info.innerHTML = `<div style="font-weight:700;font-size:1rem;">${safeText(S.userProfile.name,'Usuario')}</div>
+      <div style="color:var(--text-muted);font-size:0.78rem;">${safeText(S.userProfile.email,'(anónimo)')}</div>
+      <div style="margin-top:6px;font-size:0.75rem;color:var(--text-faint);">Rol: ${safeText(roleLabel)}</div>
       <div style="margin-top:4px;font-size:0.7rem;color:#10b981;"><i class="fas fa-circle"></i> Registrado y en línea</div>`;
   }
   const adminTab = document.querySelector('.tab-btn[data-tab="admin"]');
@@ -2088,12 +2138,22 @@ function listenActivity() {
 ══════════════════════════════════════ */
 
 function listenData() {
+  if (!S.currentUser) {
+    hideLoader();
+    return;
+  }
   onValue(ref(db, '/'), snap => {
-    const data = snap.val();
+    const data = snap.val() || {};
     // Filter: only check projects key
     const hasProjects = data?.projects && Object.keys(data.projects).some(pid => !data.projects[pid]?.info?._deleted);
     if (!hasProjects) {
-      seedData();
+      if (isAdmin()) {
+        seedData();
+      } else {
+        processData(data);
+        hideLoader();
+        toast('No hay proyectos asignados para tu usuario.', 'info', 5000);
+      }
     } else {
       processData(data);
       hideLoader();
@@ -2111,6 +2171,7 @@ function hideLoader() {
    SEED DATA
 ══════════════════════════════════════ */
 function seedData() {
+  if (!requireAdmin('cargar datos de demostración')) return;
   const now = new Date().toISOString();
   const demo = {
     projects: {
@@ -2187,10 +2248,14 @@ function seedData() {
    PROCESS DATA
 ══════════════════════════════════════ */
 function processData(data) {
+  if (data) S._lastData = data;
+  else data = S._lastData;
+  if (!data) return;
   const rawProjects = data.projects || {};
   // Filter out soft-deleted projects
   S.projects = {};
   Object.entries(rawProjects).forEach(([pid, proj]) => {
+    if (S._assignedPids instanceof Set && !S._assignedPids.has(pid)) return;
     if (!proj?.info?._deleted) S.projects[pid] = proj;
   });
 
@@ -2222,6 +2287,34 @@ function processData(data) {
   // Log activity for bridge view if needed
   try { updateDynamicFavicon(); } catch(e){}
 }
+
+async function exportBackup() {
+  if (!S.currentUser) { toast('Inicia sesión para exportar respaldo.', 'warning'); return; }
+  const snap = await get(ref(db, '/'));
+  const data = snap.val() || {};
+  const backup = {
+    exportedAt: new Date().toISOString(),
+    exportedBy: S.currentUser.uid,
+    scope: isAdmin() ? 'all' : 'assigned-projects',
+    data
+  };
+  if (!isAdmin()) {
+    const allowed = new Set(assignedProjectIds());
+    backup.data = {
+      projects: Object.fromEntries(Object.entries(data.projects || {}).filter(([pid]) => allowed.has(pid))),
+      users: { [S.currentUser.uid]: data.users?.[S.currentUser.uid] || currentUserRecord() }
+    };
+  }
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type:'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `bms_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Respaldo JSON generado', 'success');
+}
+window._exportBackup = exportBackup;
 
 /* ══════════════════════════════════════
    DASHBOARD
@@ -2287,8 +2380,8 @@ function updateDashboard() {
       return `<div class="alert-item" onclick="window._viewBridge('${b.id}')">
         <div class="alert-dot ${s < 20 ? 'critical' : 'warning'}"></div>
         <div class="alert-info">
-          <div class="alert-name">${b.name}</div>
-          <div class="alert-meta">${b.code} · ${b.projectName} · ${ins ? fmtDate(ins.date) : '—'}</div>
+          <div class="alert-name">${safeText(b.name)}</div>
+          <div class="alert-meta">${safeText(b.code)} · ${safeText(b.projectName)} · ${ins ? safeText(fmtDate(ins.date)) : '—'}</div>
         </div>
         <div class="alert-score ${s >= 20 ? 'warn':''}">${s}</div>
       </div>`;
@@ -2317,8 +2410,8 @@ function updateDashboard() {
     return `<div class="alert-item" onclick="window._viewBridge('${b.id}')" style="margin-bottom:8px;">
       <div class="legend-dot" style="width:11px;height:11px;border-radius:50%;background:${conditionColor(c)};flex-shrink:0;box-shadow:0 0 4px ${conditionColor(c)};"></div>
       <div class="alert-info">
-        <div class="alert-name">${b.name}</div>
-        <div class="alert-meta">${ins.inspectorName || '—'} · ${fmtDate(ins.date)}</div>
+        <div class="alert-name">${safeText(b.name)}</div>
+        <div class="alert-meta">${safeText(ins.inspectorName)} · ${safeText(fmtDate(ins.date))}</div>
       </div>
       <div class="alert-score ${s >= 40 ? 'warn':''}" style="${s>=40?'background:var(--c-regular-bg);color:var(--c-regular)':''}">
         ${s ?? '—'}
@@ -2406,11 +2499,11 @@ function renderDirectoryPage() {
       const isFav = S.favorites.includes(b.id);
       const scorePct = score !== null ? score : 0;
       return `<tr>
-        <td><span class="bridge-code">${b.code}</span></td>
-        <td class="bridge-name-cell">${b.name}</td>
-        <td>${b.projectName || '—'}</td>
-        <td>${b.region || '—'}</td>
-        <td><span class="badge ${conditionBadgeClass(cond)}">${cond}</span></td>
+        <td><span class="bridge-code">${safeText(b.code)}</span></td>
+        <td class="bridge-name-cell">${safeText(b.name)}</td>
+        <td>${safeText(b.projectName)}</td>
+        <td>${safeText(b.region)}</td>
+        <td><span class="badge ${conditionBadgeClass(cond)}">${safeText(cond)}</span></td>
         <td>
           ${score !== null
             ? `<span class="score-mono" style="color:${scoreColor(score)};">${score}</span>
@@ -2841,24 +2934,24 @@ function renderModalTab(tab, bridge) {
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
             <span class="badge ${conditionBadgeClass(cond)}">${cond}</span>
           </div>
-          <div class="score-detail-title">${score !== null ? 'Última inspección: '+fmtDate(lastInsp.date) : 'Sin inspecciones'}</div>
-          <div class="score-detail-meta">${lastInsp ? 'Inspector: '+lastInsp.inspectorName : 'Registra la primera inspección'}</div>
+          <div class="score-detail-title">${score !== null ? 'Última inspección: '+safeText(fmtDate(lastInsp.date)) : 'Sin inspecciones'}</div>
+          <div class="score-detail-meta">${lastInsp ? 'Inspector: '+safeText(lastInsp.inspectorName) : 'Registra la primera inspección'}</div>
         </div>
       </div>
       <div class="info-grid">
-        <div class="info-item"><div class="info-item-label">Código</div><div class="info-item-value mono">${bridge.code}</div></div>
-        <div class="info-item"><div class="info-item-label">Proyecto</div><div class="info-item-value">${bridge.projectName}</div></div>
-        <div class="info-item"><div class="info-item-label">Región</div><div class="info-item-value">${bridge.region}</div></div>
+        <div class="info-item"><div class="info-item-label">Código</div><div class="info-item-value mono">${safeText(bridge.code)}</div></div>
+        <div class="info-item"><div class="info-item-label">Proyecto</div><div class="info-item-value">${safeText(bridge.projectName)}</div></div>
+        <div class="info-item"><div class="info-item-label">Región</div><div class="info-item-value">${safeText(bridge.region)}</div></div>
         <div class="info-item"><div class="info-item-label">Longitud</div><div class="info-item-value mono">${bridge.length ? bridge.length+' m' : '—'}</div></div>
         <div class="info-item"><div class="info-item-label">Ancho</div><div class="info-item-value mono">${bridge.width ? bridge.width+' m' : '—'}</div></div>
         <div class="info-item"><div class="info-item-label">Año de construcción</div><div class="info-item-value mono">${bridge.year || '—'}</div></div>
-        <div class="info-item"><div class="info-item-label">Material</div><div class="info-item-value">${bridge.material || '—'}</div></div>
+        <div class="info-item"><div class="info-item-label">Material</div><div class="info-item-value">${safeText(bridge.material)}</div></div>
         <div class="info-item"><div class="info-item-label">Tramos</div><div class="info-item-value mono">${bridge.spans || '—'}</div></div>
         <div class="info-item"><div class="info-item-label">Coordenadas</div><div class="info-item-value mono" style="font-size:0.78rem;">${bridge.coordinates?.lat?.toFixed(4)}, ${bridge.coordinates?.lng?.toFixed(4)}</div></div>
       </div>
       ${lastInsp?.recommendations ? `<div style="background:var(--bg-elevated);border-left:3px solid var(--accent);border-radius:var(--radius-sm);padding:12px 14px;margin-top:4px;">
         <div style="font-size:0.72rem;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Recomendación</div>
-        <div style="font-size:0.85rem;">${lastInsp.recommendations}</div>
+        <div style="font-size:0.85rem;">${safeText(lastInsp.recommendations)}</div>
       </div>` : ''}
     `;
   } else if (tab === 'inspections') {
@@ -2873,17 +2966,17 @@ function renderModalTab(tab, bridge) {
         <div class="insp-header">
           <div>
             <div style="font-weight:700;font-size:0.92rem;">Inspección ${insp.length - i}</div>
-            <div class="insp-date">${fmtDate(ins.date)}</div>
+            <div class="insp-date">${safeText(fmtDate(ins.date))}</div>
           </div>
           <span class="insp-score-badge" style="background:${conditionColor(c)}22;color:${conditionColor(c)};">${s ?? '—'}/100</span>
         </div>
         <div class="insp-meta-row">
-          <div class="insp-meta"><strong>Inspector:</strong> ${ins.inspectorName || '—'}</div>
-          <div class="insp-meta"><strong>Clima:</strong> ${ins.weather || '—'}</div>
-          <div class="insp-meta"><strong>Condición:</strong> <span class="badge ${conditionBadgeClass(c)}">${c}</span></div>
+          <div class="insp-meta"><strong>Inspector:</strong> ${safeText(ins.inspectorName)}</div>
+          <div class="insp-meta"><strong>Clima:</strong> ${safeText(ins.weather)}</div>
+          <div class="insp-meta"><strong>Condición:</strong> <span class="badge ${conditionBadgeClass(c)}">${safeText(c)}</span></div>
         </div>
-        ${ins.observations?.length ? `<div class="insp-obs">${ins.observations.map(o=>`<span class="obs-tag">${o}</span>`).join('')}</div>` : ''}
-        ${ins.recommendations ? `<div style="margin-top:10px;font-size:0.82rem;color:var(--text-muted);"><i class="fas fa-lightbulb" style="color:var(--c-regular);margin-right:4px;"></i>${ins.recommendations}</div>` : ''}
+        ${ins.observations?.length ? `<div class="insp-obs">${ins.observations.map(o=>`<span class="obs-tag">${safeText(o)}</span>`).join('')}</div>` : ''}
+        ${ins.recommendations ? `<div style="margin-top:10px;font-size:0.82rem;color:var(--text-muted);"><i class="fas fa-lightbulb" style="color:var(--c-regular);margin-right:4px;"></i>${safeText(ins.recommendations)}</div>` : ''}
         ${ins.signature ? `<div style="margin-top:10px;"><div style="font-size:0.72rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Firma</div><img src="${ins.signature}" alt="firma" style="max-width:220px;background:#fff;border-radius:6px;border:1px solid var(--border);"></div>` : ''}
         <div style="margin-top:10px;display:flex;gap:6px;">
           <button class="btn btn-ghost btn-sm" onclick="window._editInsp('${bridge.id}','${ins._id}')"><i class="fas fa-pen"></i> Editar</button>
@@ -2951,9 +3044,9 @@ function renderModalTab(tab, bridge) {
       return;
     }
     body.innerHTML = `<div class="gallery-grid">${images.map(img=>`
-      <div class="gallery-item" onclick="window.open('${img.src}')">
-        <img src="${img.src}" alt="${img.caption}">
-        <div class="gallery-caption">${img.caption} · ${fmtDateShort(img.date)}</div>
+      <div class="gallery-item" onclick="window.open('${safeAttr(img.src)}')">
+        <img src="${safeAttr(img.src)}" alt="${safeAttr(img.caption)}">
+        <div class="gallery-caption">${safeText(img.caption)} · ${safeText(fmtDateShort(img.date))}</div>
       </div>`).join('')}</div>`;
   }
 }
@@ -3057,6 +3150,7 @@ document.getElementById('saveInspectionBtn').addEventListener('click', (ev) => {
 
   const bridge = S.allBridges.find(b=>b.id===S.currentAddInspBridgeId);
   if (!bridge) return;
+  if (!requireProjectWrite(bridge.projectId, 'registrar inspecciones en este proyecto')) return;
 
   const newInsp = {
     date: new Date().toISOString(),
@@ -3182,6 +3276,9 @@ document.getElementById('soundToggle').addEventListener('click', function() {
   this.classList.toggle('active', !S.soundOn);
   toast(S.soundOn ? 'Sonidos activados' : 'Sonidos silenciados', 'info');
 });
+document.getElementById('backupBtn')?.addEventListener('click', () => {
+  exportBackup().catch(e => toast('Error generando respaldo: ' + e.message, 'error'));
+});
 
 /* ══════════════════════════════════════
    PRESENTATION MODE
@@ -3285,20 +3382,20 @@ function renderInspectionsTable() {
       const c = s != null ? conditionFromScore(s) : 'Regular';
       const obsText = Array.isArray(ins.observations) ? ins.observations.filter(o=>o&&o!=='Sin observaciones específicas').slice(0,2).join(', ') || '—' : (ins.observations||'—');
       return `<tr>
-        <td style="white-space:nowrap;font-size:0.78rem;color:var(--text-muted);">${fmtDate(ins.date)}</td>
+        <td style="white-space:nowrap;font-size:0.78rem;color:var(--text-muted);">${safeText(fmtDate(ins.date))}</td>
         <td>
-          <div style="font-weight:600;font-size:0.84rem;">${bridge.name}</div>
-          <div style="font-size:0.72rem;color:var(--text-faint);font-family:var(--font-mono);">${bridge.code}</div>
+          <div style="font-weight:600;font-size:0.84rem;">${safeText(bridge.name)}</div>
+          <div style="font-size:0.72rem;color:var(--text-faint);font-family:var(--font-mono);">${safeText(bridge.code)}</div>
         </td>
-        <td style="font-size:0.82rem;">${bridge.projectName||'—'}</td>
-        <td style="font-size:0.82rem;">${ins.inspectorName||'—'}</td>
-        <td style="font-size:0.78rem;color:var(--text-muted);">${ins.weather||'—'}</td>
-        <td style="font-size:0.78rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${Array.isArray(ins.observations)?ins.observations.join(', '):ins.observations||''}">${obsText}</td>
+        <td style="font-size:0.82rem;">${safeText(bridge.projectName)}</td>
+        <td style="font-size:0.82rem;">${safeText(ins.inspectorName)}</td>
+        <td style="font-size:0.78rem;color:var(--text-muted);">${safeText(ins.weather)}</td>
+        <td style="font-size:0.78rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${safeAttr(Array.isArray(ins.observations)?ins.observations.join(', '):ins.observations||'')}">${safeText(obsText)}</td>
         <td>
           ${s!=null ? `<span style="font-family:var(--font-mono);font-weight:700;color:${scoreColor(s)};">${s}</span>
             <span class="score-bar-wrap"><span class="score-bar" style="width:${s}%;background:${scoreColor(s)};"></span></span>` : '<span style="color:var(--text-faint)">—</span>'}
         </td>
-        <td><span class="badge ${conditionBadgeClass(c)}">${c}</span></td>
+        <td><span class="badge ${conditionBadgeClass(c)}">${safeText(c)}</span></td>
         <td>
           <div class="action-cell">
             <button class="act-btn map-btn" onclick="window._viewBridge('${bridge.id}')" title="Ver puente"><i class="fas fa-eye"></i></button>
@@ -3553,6 +3650,7 @@ document.getElementById('addBridgeBtn')?.addEventListener('click', async () => {
   const idx = parseInt(choice,10) - 1;
   if (isNaN(idx) || idx < 0 || idx >= projectIds.length) { toast('Proyecto inválido', 'error'); return; }
   const pid = projectIds[idx];
+  if (!requireProjectWrite(pid, 'crear puentes en este proyecto')) return;
 
   const name = prompt('Nombre del puente:'); if (!name) return;
   const code = prompt('Código del puente:', 'PB-' + Date.now().toString().slice(-5)); if (!code) return;
@@ -3565,12 +3663,14 @@ document.getElementById('addBridgeBtn')?.addEventListener('click', async () => {
   const cond = prompt('Condición inicial (Optimo / Bueno / Regular / Malo / Critico):', 'Bueno') || 'Bueno';
 
   try {
-    const newRef = push(ref(db, `projects/${pid}/bridges`));
-    await update(newRef, {
+    const newKey = push(ref(db, `projects/${pid}/bridges`)).key;
+    if (!newKey) throw new Error('No se pudo generar ID único para el puente');
+    await set(ref(db, `projects/${pid}/bridges/${newKey}`), {
       name, code,
       coordinates: { lat, lng },
       currentCondition: cond,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       additionalData: {}
     });
     toast('Puente agregado correctamente', 'success');
@@ -3589,10 +3689,14 @@ setTimeout(() => {
   const lbl = document.getElementById('statusLabel');
   const dot = document.getElementById('statusDot');
   const loader = document.getElementById('app-loader');
+  if (!S.currentUser) {
+    if (loader && loader.style.display !== 'none') hideLoader();
+    return;
+  }
   if (lbl && lbl.textContent === 'Conectando…') {
     lbl.textContent = 'Sin conexión';
     if (dot) dot.style.background = 'var(--c-critical)';
-    toast('No se pudo conectar a la base de datos. Revisa la configuración de Firebase (Auth anónimo habilitado y reglas de RTDB).', 'warning', 6000);
+    toast('No se pudo conectar a la base de datos. Revisa la configuración de Firebase y las reglas de RTDB.', 'warning', 6000);
   }
   if (loader && loader.style.display !== 'none') hideLoader();
 }, 7000);
@@ -3871,49 +3975,6 @@ async function exportBridgeSheetPDF(bridge){
 }
 
 /* ---------- INSPECCIONES + DIRECTORIO CRUD ---------- */
-async function editBridge(bridge){
-  const name = prompt('Nombre del puente:', bridge.name); if(!name) return;
-  const code = prompt('Código:', bridge.code||''); if(code===null) return;
-  const lat  = parseFloat(prompt('Latitud:', bridge.coordinates?.lat??0));
-  const lng  = parseFloat(prompt('Longitud:', bridge.coordinates?.lng??0));
-  if (isNaN(lat)||isNaN(lng)){ toast('Coordenadas inválidas','error'); return; }
-  try {
-    await update(ref(db, `projects/${bridge.projectId}/bridges/${bridge.id}`), {
-      name, code, coordinates:{lat,lng}, updatedAt:new Date().toISOString()
-    });
-    toast('Puente actualizado','success'); snd.success();
-  } catch(e){ toast('Error: '+e.message,'error'); }
-}
-async function softDeleteBridge(bridge){
-  if(!confirm(`¿Marcar como eliminado el puente "${bridge.name}"?\n(Borrado lógico — se puede restaurar)`)) return;
-  try{
-    await update(ref(db, `projects/${bridge.projectId}/bridges/${bridge.id}`),{ _deleted:true, deletedAt:new Date().toISOString() });
-    toast('Puente eliminado (lógico)','success');
-  }catch(e){ toast('Error: '+e.message,'error'); }
-}
-async function editInspection(bridge, inspId, ins){
-  const score = parseInt(prompt('Score (0-100):', ins.manualScore??70),10);
-  if(isNaN(score)||score<0||score>100){ toast('Score inválido','error'); return; }
-  const rec = prompt('Recomendaciones:', ins.recommendations||'');
-  try{
-    const history = ins._editHistory || [];
-    history.push({ at:new Date().toISOString(), prev:{manualScore:ins.manualScore, recommendations:ins.recommendations} });
-    await update(ref(db, `projects/${bridge.projectId}/inspections/${bridge.id}/${inspId}`), {
-      manualScore: score, recommendations: rec||'', updatedAt:new Date().toISOString(), _editHistory: history
-    });
-    toast('Inspección actualizada','success'); snd.success();
-  }catch(e){ toast('Error: '+e.message,'error'); }
-}
-async function softDeleteInspection(bridge, inspId){
-  if(!confirm('¿Eliminar esta inspección? (borrado lógico)')) return;
-  try{ await update(ref(db,`projects/${bridge.projectId}/inspections/${bridge.id}/${inspId}`),{ _deleted:true, deletedAt:new Date().toISOString() });
-    toast('Inspección eliminada','success'); }catch(e){ toast('Error: '+e.message,'error'); }
-}
-
-window._editBridge = (id)=>{ const b=S.allBridges.find(x=>x.id===id); if(b) editBridge(b); };
-window._delBridge  = (id)=>{ const b=S.allBridges.find(x=>x.id===id); if(b) softDeleteBridge(b); };
-window._editInsp   = (bid,iid)=>{ const b=S.allBridges.find(x=>x.id===bid); const ins=(S.inspections[bid]||[]).find(x=>x._id===iid); if(b&&ins) editInspection(b,iid,ins); };
-window._delInsp    = (bid,iid)=>{ const b=S.allBridges.find(x=>x.id===bid); if(b) softDeleteInspection(b,iid); };
 window._pdfBridge  = (id)=>{ const b=S.allBridges.find(x=>x.id===id); if(b) exportBridgeSheetPDF(b); };
 window._qrBridge   = (id)=>{ showBridgeQR(id); };
 
@@ -4416,6 +4477,7 @@ function bridgeFormBody(b={}, projects, lockProject=false){
 async function openBridgeForm(existing=null){
   const S = window.S || globalThis.S || {};
   if (!Object.keys(S.projects||{}).length){ toast('No hay proyectos. Crea uno primero.','warning'); return; }
+  if (existing?.projectId && !requireProjectWrite(existing.projectId, 'modificar este puente')) return;
   const isEdit = !!existing;
   await dialog({
     title: isEdit ? 'Editar puente' : 'Nuevo puente',
@@ -4439,6 +4501,8 @@ async function openBridgeForm(existing=null){
           if (!data) return false;
           const pid = data.projectId || existing?.projectId;
           if (!pid){ toast('Selecciona un proyecto','error'); return false; }
+          if (!requireProjectWrite(pid, isEdit ? 'guardar este puente' : 'crear puentes en este proyecto')) return false;
+          if (isEdit && existing?.projectId && existing.projectId !== pid && !requireProjectWrite(existing.projectId, 'mover este puente')) return false;
           // duplicate code check (ignora al puente actual aunque cambie de proyecto)
           const existingBridge = Object.entries(S.projects[pid]?.bridges||{})
             .find(([bid,b])=>!b._deleted && (b.code||'').toLowerCase()===data.code.toLowerCase() && bid !== existing?.id);
@@ -4505,6 +4569,7 @@ async function openBridgeForm(existing=null){
 
 /* ---------- Modal: Editar Inspección ---------- */
 async function openInspectionEditForm(bridge, inspId, ins){
+  if (!requireProjectWrite(bridge.projectId, 'editar inspecciones de este proyecto')) return;
   await dialog({
     title: 'Editar inspección',
     icon: 'fas fa-clipboard-list',
@@ -4552,182 +4617,13 @@ async function openInspectionEditForm(bridge, inspId, ins){
             updatedAt: new Date().toISOString(),
             _editHistory: history
           });
+          await syncBridgeConditionFromInspections(bridge);
           toast('Inspección actualizada','success'); snd.success();
           return true;
         } catch(e){ toast('Error: '+e.message,'error'); snd.error(); return false; }
       }}
     ]
   });
-}
-
-/* ---------- Modal: Nuevo / Editar Proyecto ---------- */
-const ROUTE_COLORS = ['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#ec4899','#facc15'];
-
-function projectFormBody(p={}, pid=null){
-  const info = p.info || {};
-  const coords = info.routeCoords || [];
-  const coordsStr = coords.map(c=>`${c[1]},${c[0]}`).join('\n');
-  const color = info.routeColor || '#3b82f6';
-  return `
-    <div class="v5-fg"><label>Nombre del proyecto *<span class="v5-err-msg"></span></label>
-      <input name="name" type="text" value="${(info.name||'').replace(/"/g,'&quot;')}" placeholder="Ej. Autopista México-Querétaro" required>
-    </div>
-    <div class="v5-grid2">
-      <div class="v5-fg"><label>Región *<span class="v5-err-msg"></span></label>
-        <input name="region" type="text" value="${(info.region||'').replace(/"/g,'&quot;')}" placeholder="Ej. Querétaro" required>
-      </div>
-      <div class="v5-fg"><label>Estado</label>
-        <select name="status">
-          ${['Activo','En pausa','Finalizado','Archivado'].map(s=>`<option ${info.status===s?'selected':''}>${s}</option>`).join('')}
-        </select>
-      </div>
-    </div>
-    <div class="v5-fg"><label>Color de la ruta</label>
-      <div class="v5-color-picker">
-        ${ROUTE_COLORS.map(c=>`<label><input type="radio" name="routeColor" value="${c}" ${color===c?'checked':''}><span style="background:${c}"></span></label>`).join('')}
-      </div>
-    </div>
-    <div class="v5-fg"><label>Puntos de la ruta <span class="v5-hint">(lat,lng — uno por línea; mín. 2)</span><span class="v5-err-msg"></span></label>
-      <textarea name="routeCoords" placeholder="19.42,-99.55&#10;19.55,-99.40&#10;19.65,-99.20" style="min-height:100px;font-family:monospace;font-size:12px;">${coordsStr}</textarea>
-    </div>
-    ${pid?`<div class="v5-fg" style="background:rgba(59,130,246,.08);padding:10px;border-radius:8px;">
-      <label style="margin:0">ID: <code style="font-size:11px">${pid}</code> · ${Object.keys(p.bridges||{}).length} puentes</label>
-    </div>`:''}
-  `;
-}
-
-function parseRouteCoords(str){
-  const lines = (str||'').split('\n').map(l=>l.trim()).filter(Boolean);
-  if (lines.length < 2) return null;
-  const out = [];
-  for (const l of lines){
-    const m = l.split(/[,\s]+/).map(Number);
-    if (m.length < 2 || isNaN(m[0]) || isNaN(m[1])) return null;
-    const lat = m[0], lng = m[1];
-    if (lat<-90||lat>90||lng<-180||lng>180) return null;
-    out.push([lng, lat]);
-  }
-  return out;
-}
-
-async function openProjectForm(existing=null, pid=null){
-  const isEdit = !!existing;
-  await dialog({
-    title: isEdit ? 'Editar proyecto' : 'Nuevo proyecto',
-    icon: isEdit ? 'fas fa-pen' : 'fas fa-folder-plus',
-    size: 600,
-    body: projectFormBody(existing||{}, pid),
-    actions: [
-      { label:'Cancelar', variant:'secondary', value:null },
-      { label: isEdit?'Guardar':'Crear proyecto', variant:'primary', icon:'fas fa-save',
-        onClick: async (ov)=>{
-          const data = readForm(ov, [
-            { name:'name', required:true, errMsg:'Nombre requerido' },
-            { name:'region', required:true, errMsg:'Región requerida' },
-            { name:'status' }
-          ]);
-          if (!data) return false;
-          const colorEl = ov.querySelector('input[name="routeColor"]:checked');
-          const coordsStr = ov.querySelector('[name="routeCoords"]').value;
-          let routeCoords = [];
-          if (coordsStr.trim()){
-            routeCoords = parseRouteCoords(coordsStr);
-            if (!routeCoords){
-              const wrap = ov.querySelector('[name="routeCoords"]').closest('.v5-fg');
-              wrap.classList.add('v5-err');
-              wrap.querySelector('.v5-err-msg').textContent = 'Formato inválido. Usa lat,lng (mín. 2 puntos válidos).';
-              return false;
-            }
-          }
-          const info = {
-            name: data.name, region: data.region,
-            status: data.status || 'Activo',
-            routeColor: colorEl?.value || '#3b82f6',
-            routeCoords
-          };
-          try {
-            const newPid = pid || ('proj_' + Date.now().toString(36));
-            await update(ref(db, `projects/${newPid}/info`), info);
-            // invalidate route cache for this project so OSRM recalculates
-            if (S._routeCache){
-              const oldKey = JSON.stringify(existing?.info?.routeCoords||[]);
-              delete S._routeCache[oldKey];
-            }
-            if (S.map?.getSource('route-'+newPid)) S.map.getSource('route-'+newPid)._osrmDone = false;
-            toast(isEdit?'Proyecto actualizado':'Proyecto creado','success'); snd.success();
-            setTimeout(()=>{ try { refreshMapLayers(); } catch(e){} }, 300);
-            return true;
-          } catch(e){ toast('Error: '+e.message,'error'); snd.error(); return false; }
-        }
-      }
-    ]
-  });
-}
-
-async function openProjectDetail(pid){
-  const proj = S.projects[pid]; if (!proj) return;
-  const bridges = S.allBridges.filter(b=>b.projectId===pid);
-  const scores = bridges.map(b=>getLastScore(b.id)).filter(s=>s!=null);
-  const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : '–';
-  const critical = bridges.filter(b=>{const s=getLastScore(b.id); return s!=null && s<40;}).length;
-  const totalInsp = bridges.reduce((sum,b)=>sum + (S.inspections[b.id]||[]).filter(i=>!i._deleted).length, 0);
-  await dialog({
-    title: proj.info?.name || pid,
-    icon: 'fas fa-folder-open',
-    size: 620,
-    body: `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-        <span style="width:14px;height:14px;border-radius:50%;background:${proj.info?.routeColor||'#64748b'};display:inline-block;"></span>
-        <span style="color:var(--text-faint,#94a3b8);">${proj.info?.region||'—'} · ${proj.info?.status||'Activo'}</span>
-      </div>
-      <div class="v5-kpi-mini">
-        <div><div class="vk">${bridges.length}</div><div class="vl">Puentes</div></div>
-        <div><div class="vk" style="color:${avg!=='–' && avg<60?'var(--c-warning,#f59e0b)':'var(--c-success,#10b981)'}">${avg}</div><div class="vl">Score promedio</div></div>
-        <div><div class="vk" style="color:${critical?'var(--c-critical,#ef4444)':'inherit'}">${critical}</div><div class="vl">Críticos</div></div>
-      </div>
-      <div style="font-size:12px;color:var(--text-faint,#94a3b8);margin-bottom:6px;">${totalInsp} inspecciones registradas · Puentes:</div>
-      <div class="v5-proj-detail-list">
-        ${bridges.length===0?'<div style="padding:20px;text-align:center;color:var(--text-faint,#94a3b8)">Sin puentes aún</div>':
-          bridges.map(b=>{
-            const s = getLastScore(b.id);
-            const color = s==null?'#64748b':(s<40?'#ef4444':s<60?'#f59e0b':s<80?'#3b82f6':'#10b981');
-            return `<div class="v5-pd-row" data-bid="${b.id}">
-              <div><strong>${b.name}</strong> <span style="color:var(--text-faint,#94a3b8);font-size:11px">${b.code||''}</span></div>
-              <div style="display:flex;gap:10px;align-items:center"><span style="font-size:11px;color:var(--text-faint,#94a3b8)">${b.currentCondition||'—'}</span><span style="background:${color};color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:600;min-width:32px;text-align:center">${s??'–'}</span></div>
-            </div>`;
-          }).join('')
-        }
-      </div>`,
-    actions: [
-      { label:'Cerrar', variant:'secondary', value:null },
-      { label:'Editar proyecto', variant:'secondary', icon:'fas fa-pen', onClick: async ()=>{ openProjectForm(proj, pid); return true; } },
-      { label:'Nuevo puente aquí', variant:'primary', icon:'fas fa-plus', onClick: async ()=>{ openBridgeForm({projectId:pid}); return true; } }
-    ],
-    onClose: ()=>{}
-  });
-  // attach row clicks
-  setTimeout(()=>{
-    $$('.v5-pd-row').forEach(r=>r.addEventListener('click',()=>{
-      const bid = r.dataset.bid;
-      $$('.v5-overlay').forEach(o=>o.remove());
-      try { openBridgeModal(bid); } catch(e){}
-    }));
-  }, 80);
-}
-
-async function deleteProject(pid){
-  const proj = S.projects[pid]; if (!proj) return;
-  const bridges = S.allBridges.filter(b=>b.projectId===pid);
-  const ok = await v5Confirm({
-    title: 'Eliminar proyecto',
-    msg: `¿Marcar como eliminado el proyecto <strong>"${proj.info?.name||pid}"</strong>?<br><br>Esto ocultará el proyecto y sus <strong>${bridges.length} puente(s)</strong>.<br><span style="color:var(--text-faint,#94a3b8);font-size:12px">Borrado lógico — se puede restaurar editando directamente la base de datos.</span>`,
-    danger: true, confirmLabel: 'Eliminar'
-  });
-  if (!ok) return;
-  try {
-    await update(ref(db, `projects/${pid}/info`), { _deleted: true, deletedAt: new Date().toISOString() });
-    toast('Proyecto eliminado','success'); snd.warning && snd.warning();
-  } catch(e){ toast('Error: '+e.message,'error'); }
 }
 
 /* ---------- OVERRIDE: addBridgeBtn → modal ---------- */
@@ -4742,6 +4638,7 @@ rebindAddBridge();
 window._editBridge = (id) => { const b = S.allBridges.find(x=>x.id===id); if (b) openBridgeForm(b); };
 window._delBridge = async (id) => {
   const b = S.allBridges.find(x=>x.id===id); if (!b) return;
+  if (!requireProjectWrite(b.projectId, 'eliminar este puente')) return;
   const ok = await v5Confirm({ title:'Eliminar puente', msg:`¿Marcar como eliminado <strong>"${b.name}"</strong>?<br><span style="color:var(--text-faint,#94a3b8);font-size:12px">Borrado lógico — se puede restaurar.</span>`, danger:true, confirmLabel:'Eliminar' });
   if (!ok) return;
   try { await update(ref(db, `projects/${b.projectId}/bridges/${b.id}`), { _deleted:true, deletedAt:new Date().toISOString() });
@@ -4750,13 +4647,16 @@ window._delBridge = async (id) => {
 window._editInsp = (bid,iid) => {
   const b = S.allBridges.find(x=>x.id===bid);
   const ins = (S.inspections[bid]||[]).find(x=>x._id===iid);
+  if (b && !requireProjectWrite(b.projectId, 'editar inspecciones de este proyecto')) return;
   if (b && ins) openInspectionEditForm(b, iid, ins);
 };
 window._delInsp = async (bid,iid) => {
   const b = S.allBridges.find(x=>x.id===bid); if (!b) return;
+  if (!requireProjectWrite(b.projectId, 'eliminar inspecciones de este proyecto')) return;
   const ok = await v5Confirm({ title:'Eliminar inspección', msg:'¿Marcar esta inspección como eliminada? (borrado lógico)', danger:true, confirmLabel:'Eliminar' });
   if (!ok) return;
   try { await update(ref(db, `projects/${b.projectId}/inspections/${b.id}/${iid}`), { _deleted:true, deletedAt:new Date().toISOString() });
+    await syncBridgeConditionFromInspections(b);
     toast('Inspección eliminada','success'); snd.warning && snd.warning(); } catch(e){ toast('Error: '+e.message,'error'); }
 };
 
@@ -4955,6 +4855,7 @@ if (typeof window.v5Dialog === 'undefined' || typeof window.v5Confirm === 'undef
 
 // --- Funciones de proyectos reutilizando v5Dialog ---
 window.openProjectForm = async function(existing = null, pid = null) {
+  if (!requireAdmin(existing ? 'editar proyectos' : 'crear proyectos')) return;
   const isEdit = !!existing;
   const info = existing?.info || {};
   const coords = info.routeCoords || [];
@@ -5055,6 +4956,7 @@ function parseRouteCoords(str) {
 
 // --- Eliminar proyecto ---
 window.deleteProject = async function(pid) {
+  if (!requireAdmin('eliminar proyectos')) return;
   const proj = S.projects[pid];
   if (!proj) return;
   const bridges = S.allBridges.filter(b => b.projectId === pid);
@@ -5187,7 +5089,7 @@ setTimeout(() => {
 
 // --- Forzar recarga si no hay proyectos ---
 setTimeout(() => {
-  if (Object.keys(S.projects).length === 0) {
+  if (S.currentUser && Object.keys(S.projects).length === 0) {
     console.warn('⚠️ No se detectaron proyectos. Recargando datos...');
     toast('Recargando datos...', 'warning');
     listenData();
@@ -5196,7 +5098,7 @@ setTimeout(() => {
 
 // --- Si después de 5 segundos sigue sin proyectos, mostrar botones en el directorio ---
 setTimeout(() => {
-  if (Object.keys(S.projects).length === 0) {
+  if (S.currentUser && Object.keys(S.projects).length === 0) {
     const body = document.getElementById('directoryBody');
     if (body) {
       body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;">
@@ -5289,13 +5191,13 @@ console.log('🔥 Fix de proyectos unificado aplicado.');
       const ap = u.assignedProjects || {};
       const apIds = Object.keys(ap).filter(k=>ap[k]);
       if (apIds.length) assigned++;
-      const apNames = apIds.map(id=>projects[id]?.info?.name || id).join(', ') || '<span style="color:var(--text-faint)">— ninguno —</span>';
+      const apNames = apIds.map(id=>safeText(projects[id]?.info?.name || id)).join(', ') || '<span style="color:var(--text-faint)">— ninguno —</span>';
       const last = pres.lastSeen ? new Date(pres.lastSeen).toLocaleString('es-MX') : '—';
       const isMe = S.currentUser && S.currentUser.uid===uid;
       return `<tr>
-        <td><b>${u.name||'Sin nombre'}</b> ${isOnline?'<span style="color:#10b981">●</span>':''} ${isMe?'<span style="font-size:.7rem;color:var(--accent)">(tú)</span>':''}</td>
-        <td>${u.email||'—'}</td>
-        <td><span class="wo-status ${u.role==='admin'?'in_progress':'pending'}">${u.role||'inspector'}</span></td>
+        <td><b>${safeText(u.name,'Sin nombre')}</b> ${isOnline?'<span style="color:#10b981">●</span>':''} ${isMe?'<span style="font-size:.7rem;color:var(--accent)">(tú)</span>':''}</td>
+        <td>${safeText(u.email)}</td>
+        <td><span class="wo-status ${u.role==='admin'?'in_progress':'pending'}">${safeText(u.role,'inspector')}</span></td>
         <td style="max-width:260px">${apNames}</td>
         <td style="font-size:.78rem;color:var(--text-muted)">${last}</td>
         <td>
@@ -5310,6 +5212,7 @@ console.log('🔥 Fix de proyectos unificado aplicado.');
   }
 
   window.v7AssignProjects = async function(uid){
+    if (!requireAdmin('asignar proyectos')) return;
     const user = S._allUsers[uid]; if(!user) return;
     const projects = Object.entries(S.projects||{}).filter(([,p])=>!p._deleted);
     if (!projects.length){ toast('No hay proyectos disponibles','warning'); return; }
@@ -5317,11 +5220,11 @@ console.log('🔥 Fix de proyectos unificado aplicado.');
     const dlg = document.createElement('div');
     dlg.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center';
     dlg.innerHTML=`<div style="background:var(--bg-surface);padding:24px;border-radius:14px;max-width:500px;width:90%;border:1px solid var(--border);max-height:80vh;overflow:auto">
-      <h3 style="margin:0 0 14px"><i class="fas fa-link"></i> Asignar proyectos a ${user.name||user.email}</h3>
+      <h3 style="margin:0 0 14px"><i class="fas fa-link"></i> Asignar proyectos a ${safeText(user.name||user.email)}</h3>
       <div style="display:grid;gap:8px">
         ${projects.map(([id,p])=>`<label style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg-elevated);border-radius:8px;cursor:pointer">
           <input type="checkbox" data-pid="${id}" ${current[id]?'checked':''}>
-          <span><b>${p.info?.name||id}</b> <span style="color:var(--text-muted);font-size:.78rem">${p.info?.region||''}</span></span>
+          <span><b>${safeText(p.info?.name||id)}</b> <span style="color:var(--text-muted);font-size:.78rem">${safeText(p.info?.region,'')}</span></span>
         </label>`).join('')}
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
@@ -5339,6 +5242,7 @@ console.log('🔥 Fix de proyectos unificado aplicado.');
   };
 
   window.v7ToggleRole = async function(uid){
+    if (!requireAdmin('cambiar roles')) return;
     const u = S._allUsers[uid]; if(!u) return;
     const newRole = u.role==='admin' ? 'inspector':'admin';
     const ok = await v5Confirm({title:'Cambiar rol', msg:`¿Cambiar rol de ${u.name||u.email} a "${newRole}"?`, confirmLabel:'Cambiar'});
@@ -5348,6 +5252,7 @@ console.log('🔥 Fix de proyectos unificado aplicado.');
   };
 
   window.v7DeleteUser = async function(uid){
+    if (!requireAdmin('eliminar usuarios')) return;
     const u = S._allUsers[uid]; if(!u) return;
     const ok = await v5Confirm({title:'Eliminar usuario', msg:`Esto quita a ${u.name||u.email} del directorio (no borra la cuenta de Auth).`, danger:true, confirmLabel:'Eliminar'});
     if (!ok) return;
@@ -5362,8 +5267,8 @@ console.log('🔥 Fix de proyectos unificado aplicado.');
     const me = S._allUsers[S.currentUser.uid]; if (!me) return;
     const ap = me.assignedProjects || {};
     const ids = Object.keys(ap).filter(k=>ap[k]);
-    S._assignedPids = ids.length ? new Set(ids) : null;
-    if (typeof processData==='function') try{processData()}catch(e){}
+    S._assignedPids = new Set(ids);
+    if (typeof processData==='function') try{processData(S._lastData)}catch(e){}
     if (typeof refreshMapLayers==='function' && S.map) try{refreshMapLayers()}catch(e){}
   }
 

@@ -1128,6 +1128,10 @@ textarea.form-control { resize: vertical; min-height: 80px; }
     <div class="user-pill" id="userPill" style="display:none;" onclick="window._toggleProfileMenu && window._toggleProfileMenu()"></div>
     <div id="profileMenu" style="display:none;position:absolute;top:56px;right:12px;background:var(--bg-surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);padding:14px;min-width:240px;z-index:9999;">
       <div id="profileMenuInfo" style="margin-bottom:10px;font-size:0.85rem;color:var(--text-primary);"></div>
+      <button class="btn btn-secondary btn-sm" id="profileImportInventoryBtn" style="width:100%;margin-bottom:8px;display:none;" onclick="window._importBundledInventory && window._importBundledInventory()"><i class="fas fa-file-import"></i> Cargar inventario</button>
+      <button class="btn btn-secondary btn-sm" id="profileImportInventoryFileBtn" style="width:100%;margin-bottom:8px;display:none;" onclick="window._importInventoryFromFile && window._importInventoryFromFile()"><i class="fas fa-folder-open"></i> Importar archivo JSON</button>
+      <button class="btn btn-danger btn-sm" id="profileDeleteProjectsBtn" style="width:100%;margin-bottom:8px;display:none;" onclick="window._deleteAllProjects && window._deleteAllProjects()"><i class="fas fa-trash-alt"></i> Borrar proyectos</button>
+      <input type="file" id="inventoryImportFile" accept="application/json,.json" style="display:none;">
       <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="window._signOut && window._signOut()"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</button>
     </div>
   </div>
@@ -2054,6 +2058,12 @@ function updateTopbarUser() {
       <div style="margin-top:6px;font-size:0.75rem;color:var(--text-faint);">Rol: ${safeText(roleLabel)}</div>
       <div style="margin-top:4px;font-size:0.7rem;color:#10b981;"><i class="fas fa-circle"></i> Registrado y en línea</div>`;
   }
+  const importBtn = document.getElementById('profileImportInventoryBtn');
+  if (importBtn) importBtn.style.display = isAdmin() ? 'block' : 'none';
+  const importFileBtn = document.getElementById('profileImportInventoryFileBtn');
+  if (importFileBtn) importFileBtn.style.display = isAdmin() ? 'block' : 'none';
+  const deleteProjectsBtn = document.getElementById('profileDeleteProjectsBtn');
+  if (deleteProjectsBtn) deleteProjectsBtn.style.display = isAdmin() ? 'block' : 'none';
   const adminTab = document.querySelector('.tab-btn[data-tab="admin"]');
   if (adminTab) adminTab.style.display = S.userProfile.role === 'admin' ? 'flex' : 'none';
 }
@@ -2147,13 +2157,9 @@ function listenData() {
     // Filter: only check projects key
     const hasProjects = data?.projects && Object.keys(data.projects).some(pid => !data.projects[pid]?.info?._deleted);
     if (!hasProjects) {
-      if (isAdmin()) {
-        seedData();
-      } else {
-        processData(data);
-        hideLoader();
-        toast('No hay proyectos asignados para tu usuario.', 'info', 5000);
-      }
+      processData(data);
+      hideLoader();
+      toast(isAdmin() ? 'No hay proyectos cargados.' : 'No hay proyectos asignados para tu usuario.', 'info', 5000);
     } else {
       processData(data);
       hideLoader();
@@ -2316,9 +2322,175 @@ async function exportBackup() {
 }
 window._exportBackup = exportBackup;
 
+async function deleteAllProjects() {
+  if (!requireAdmin('borrar todos los proyectos y puentes')) return;
+  const totalProjects = Object.keys(S.projects || {}).length;
+  const totalBridges = (S.allBridges || []).length;
+  const ok = await v5Confirm({
+    title: 'Borrar todos los proyectos',
+    msg: `Esto eliminará <strong>${totalProjects}</strong> proyecto(s), <strong>${totalBridges}</strong> puente(s) y sus inspecciones asociadas.<br><br>No se borrarán usuarios ni permisos. Esta acción no se puede deshacer desde la app.`,
+    confirmLabel: 'Borrar todo',
+    danger: true
+  });
+  if (!ok) return;
+  const ok2 = await v5Confirm({
+    title: 'Confirmación final',
+    msg: '¿Seguro que quieres dejar la base sin proyectos ni puentes?',
+    confirmLabel: 'Sí, borrar',
+    danger: true
+  });
+  if (!ok2) return;
+  const updates = {};
+  Object.keys(S.projects || {}).forEach(pid => {
+    updates[`projects/${pid}/info`] = null;
+    updates[`projects/${pid}/bridges`] = null;
+    updates[`projects/${pid}/inspections`] = null;
+  });
+  if (Object.keys(updates).length) {
+    await update(ref(db), updates);
+  }
+  processData({ ...(S._lastData || {}), projects: {} });
+  if (S.map) {
+    try { refreshMapLayers(); } catch(e) {}
+  }
+  toast('Proyectos y puentes borrados. Ya puedes cargarlos de nuevo uno por uno.', 'success', 7000);
+}
+window._deleteAllProjects = () => deleteAllProjects().catch(e => toast('Error borrando proyectos: ' + e.message, 'error', 8000));
+
+function validBridgeCoords(bridge) {
+  const lat = Number(bridge?.coordinates?.lat);
+  const lng = Number(bridge?.coordinates?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+function deriveRouteCoordsFromBridges(bridges) {
+  return Object.values(bridges || {})
+    .map(validBridgeCoords)
+    .filter(Boolean)
+    .sort((a, b) => a.lng === b.lng ? a.lat - b.lat : a.lng - b.lng)
+    .map(c => [c.lng, c.lat]);
+}
+
+function resolveImportProjectId(importPid, project) {
+  const targetName = String(project?.info?.name || '').trim().toLowerCase();
+  if (!targetName) return importPid;
+  const found = Object.entries(S.projects || {}).find(([, existing]) => {
+    return String(existing?.info?.name || '').trim().toLowerCase() === targetName;
+  });
+  return found ? found[0] : importPid;
+}
+
+async function importBundledInventory() {
+  if (!requireAdmin('cargar el inventario general')) return;
+  const ok = await v5Confirm({
+    title: 'Cargar inventario',
+    msg: 'Se cargarán los proyectos y puentes del archivo INVENTARIO general. No se borrarán otros proyectos ni puentes existentes; si un ID coincide, se actualizará.',
+    confirmLabel: 'Cargar'
+  });
+  if (!ok) return;
+  let payload;
+  try {
+    const res = await fetch('data/inventario_general_bms_import.json', { cache:'no-store' });
+    if (!res.ok) throw new Error('No se pudo leer data/inventario_general_bms_import.json');
+    payload = await res.json();
+  } catch(e) {
+    toast('No se pudo abrir el archivo automático. Selecciona el JSON del inventario para cargarlo.', 'warning', 8000);
+    importInventoryFromFile(false);
+    return;
+  }
+  const updates = {};
+  Object.entries(payload.projects || {}).forEach(([importPid, project]) => {
+    const pid = resolveImportProjectId(importPid, project);
+    const bridges = project.bridges || {};
+    const routeCoords = project.info?.routeCoords?.length
+      ? project.info.routeCoords
+      : deriveRouteCoordsFromBridges(bridges);
+    updates[`projects/${pid}/info`] = {
+      ...(project.info || {}),
+      routeCoords,
+      importedAt: new Date().toISOString(),
+      importedSource: payload.metadata?.sourceFile || 'inventario'
+    };
+    Object.entries(bridges).forEach(([bid, bridge]) => {
+      updates[`projects/${pid}/bridges/${bid}`] = {
+        ...bridge,
+        projectId: pid
+      };
+    });
+  });
+  if (!Object.keys(updates).length) {
+    toast('El inventario no contiene datos para importar.', 'warning');
+    return;
+  }
+  await update(ref(db), updates);
+  toast(`Inventario cargado: ${payload.metadata?.bridgeCount || 'varios'} puentes.`, 'success', 6000);
+}
+window._importBundledInventory = () => importBundledInventory().catch(e => toast('Error importando inventario: ' + e.message, 'error'));
+
 /* ══════════════════════════════════════
    DASHBOARD
 ══════════════════════════════════════ */
+async function importInventoryPayload(payload) {
+  const updates = {};
+  Object.entries(payload.projects || {}).forEach(([importPid, project]) => {
+    const pid = resolveImportProjectId(importPid, project);
+    const bridges = project.bridges || {};
+    const routeCoords = project.info?.routeCoords?.length
+      ? project.info.routeCoords
+      : deriveRouteCoordsFromBridges(bridges);
+    updates[`projects/${pid}/info`] = {
+      ...(project.info || {}),
+      routeCoords,
+      importedAt: new Date().toISOString(),
+      importedSource: payload.metadata?.sourceFile || 'inventario'
+    };
+    Object.entries(bridges).forEach(([bid, bridge]) => {
+      updates[`projects/${pid}/bridges/${bid}`] = {
+        ...bridge,
+        projectId: pid
+      };
+    });
+  });
+  if (!Object.keys(updates).length) {
+    toast('El inventario no contiene datos para importar.', 'warning');
+    return;
+  }
+  await update(ref(db), updates);
+  toast(`Inventario cargado: ${payload.metadata?.bridgeCount || 'varios'} puentes.`, 'success', 6000);
+}
+
+async function importInventoryFromFile(askConfirm = true) {
+  if (!requireAdmin('cargar el inventario general')) return;
+  if (askConfirm) {
+    const ok = await v5Confirm({
+      title: 'Importar archivo JSON',
+      msg: 'Selecciona el archivo inventario_general_bms_import.json generado desde el Excel. Se cargarán sus proyectos y puentes en Firebase.',
+      confirmLabel: 'Seleccionar'
+    });
+    if (!ok) return;
+  }
+  const input = document.getElementById('inventoryImportFile');
+  if (!input) {
+    toast('No se encontró el selector de archivo.', 'error');
+    return;
+  }
+  input.value = '';
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      const payload = JSON.parse(await file.text());
+      await importInventoryPayload(payload);
+    } catch(e) {
+      toast('No se pudo importar el archivo JSON: ' + e.message, 'error', 8000);
+    }
+  };
+  input.click();
+}
+window._importInventoryFromFile = () => importInventoryFromFile(true).catch(e => toast('Error importando inventario: ' + e.message, 'error'));
+
 function updateDashboard() {
   const bridges = S.allBridges;
   const inspections = S.inspections;
@@ -2673,16 +2845,19 @@ function refreshMapLayers() {
     if (map.getSource('route-'+pid)) map.removeSource('route-'+pid);
   });
 
-  const features = S.allBridges.map(b => ({
-    type: 'Feature',
-    geometry: { type:'Point', coordinates:[b.coordinates.lng, b.coordinates.lat] },
-    properties: {
-      id: b.id, name: b.name, code: b.code,
-      condition: b.currentCondition || 'Regular',
-      color: conditionColor(b.currentCondition || 'Regular'),
-      score: getLastScore(b.id)
-    }
-  }));
+  const features = S.allBridges
+    .map(b => ({ bridge: b, coords: validBridgeCoords(b) }))
+    .filter(x => x.coords)
+    .map(({ bridge: b, coords }) => ({
+      type: 'Feature',
+      geometry: { type:'Point', coordinates:[coords.lng, coords.lat] },
+      properties: {
+        id: b.id, name: b.name, code: b.code,
+        condition: b.currentCondition || 'Regular',
+        color: conditionColor(b.currentCondition || 'Regular'),
+        score: getLastScore(b.id)
+      }
+    }));
 
   map.addSource('bridges', { type:'geojson', generateId:true, data:{ type:'FeatureCollection', features } });
 
@@ -2753,10 +2928,13 @@ function buildProjectSidebar() {
 }
 
 window._flyToProject = function(pid) {
-  const bridges = S.allBridges.filter(b=>b.projectId===pid);
+  const bridges = S.allBridges
+    .filter(b=>b.projectId===pid)
+    .map(b => ({ bridge: b, coords: validBridgeCoords(b) }))
+    .filter(x => x.coords);
   if (!bridges.length || !S.map) return;
-  const lngs = bridges.map(b=>b.coordinates.lng);
-  const lats = bridges.map(b=>b.coordinates.lat);
+  const lngs = bridges.map(x=>x.coords.lng);
+  const lats = bridges.map(x=>x.coords.lat);
   const centerLng = (Math.min(...lngs)+Math.max(...lngs))/2;
   const centerLat = (Math.min(...lats)+Math.max(...lats))/2;
   S.map.flyTo({ center:[centerLng,centerLat], zoom:11, pitch:50, speed:0.8 });

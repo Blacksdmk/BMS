@@ -22,6 +22,7 @@
       }
     },
     "projects": {
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
       "$pid": {
         ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('assignedProjects').child($pid).val() === true)",
         "info": {
